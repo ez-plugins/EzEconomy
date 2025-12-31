@@ -1,0 +1,7 @@
+# YML Database Configuration
+yml:
+  file: balances.yml
+  # Per-player file naming scheme: uuid or username (uuid is safest)
+  per-player-file-naming: uuid
+  # Data folder for per-player files
+  data-folder: data

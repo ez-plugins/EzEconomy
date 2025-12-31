@@ -1,0 +1,31 @@
+
+
+name: EzEconomy
+main: com.skyblockexp.ezeconomy.core.EzEconomyPlugin
+version: ${project.version}
+author: SkyblockExp Team
+description: Vault-compatible economy provider with YML and MySQL support
+depend: [Vault]
+
+commands:
+  balance:
+    description: Check your balance or another player's balance
+    usage: /balance [player]
+  eco:
+    description: Admin economy control (give, take, set)
+    usage: /eco <give|take|set> <player> <amount>
+  baltop:
+    description: Show top player balances
+    usage: /baltop [amount]
+  bank:
+    description: Bank management commands
+    usage: /bank <create|delete|balance|deposit|withdraw|addmember|removemember|info> ...
+  pay:
+    description: Pay money to another player
+    usage: /pay <player> <amount>
+  currency:
+    description: View or set your preferred currency
+    usage: /currency [currency]
+  ezeconomy:
+    description: EzEconomy admin utilities
+    usage: /ezeconomy <daily reset>

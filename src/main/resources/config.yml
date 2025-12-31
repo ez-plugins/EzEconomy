@@ -1,0 +1,51 @@
+# EzEconomy configuration
+# storage: 'yml', 'mysql', 'sqlite', or 'mongodb'
+storage: yml
+
+# Language selection for messages.yml
+language: en
+
+# Database settings have been moved to separate config files:
+#   config-yml.yml, config-mysql.yml, config-sqlite.yml, config-mongodb.yml
+# Only multi-currency and storage type remain here.
+
+bank-interest-interval-ticks: 72000 # How often (in ticks) to pay bank interest (default: 1 hour)
+
+# Daily login reward (optional)
+daily-reward:
+  enabled: false
+  amount: 100
+  currency: default
+  cooldown-hours: 24
+  permission: ezeconomy.daily
+  message: "&aYou received &e%amount% %currency% &afor your daily login!"
+  sound: ENTITY_EXPERIENCE_ORB_PICKUP
+  debug: false
+
+# Multi-currency support (optional)
+multi-currency:
+  enabled: false
+  default: "dollar"
+  currencies:
+    dollar:
+      display: "Dollar"
+      symbol: "$"
+      decimals: 2
+    euro:
+      display: "Euro"
+      symbol: "€"
+      decimals: 2
+    gem:
+      display: "Gem"
+      symbol: "♦"
+      decimals: 0
+  conversion:
+    dollar:
+      euro: 0.95
+      gem: 0.01
+    euro:
+      dollar: 1.05
+      gem: 0.012
+    gem:
+      dollar: 100
+      euro: 80
