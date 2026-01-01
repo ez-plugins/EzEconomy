@@ -12,6 +12,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
+
 public class YMLStorageProvider implements StorageProvider {
     private final File dataFolder;
     private final String namingScheme;

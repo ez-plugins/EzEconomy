@@ -10,7 +10,7 @@ import org.bukkit.entity.Player;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.core.MessageProvider;
 import com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager;
-import com.skyblockexp.ezeconomy.storage.StorageProvider;
+import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 
 public class BalanceCommand implements CommandExecutor {
     private final EzEconomyPlugin plugin;

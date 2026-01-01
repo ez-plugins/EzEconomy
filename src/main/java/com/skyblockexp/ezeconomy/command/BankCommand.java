@@ -135,7 +135,7 @@ public class BankCommand implements CommandExecutor {
                     sender.sendMessage(messages.color(messages.get("usage_bank")));
                     return true;
                 }
-                com.skyblockexp.ezeconomy.storage.StorageProvider storageAdd = plugin.getStorageOrWarn();
+                com.skyblockexp.ezeconomy.api.storage.StorageProvider storageAdd = plugin.getStorageOrWarn();
                 if (storageAdd == null) {
                     sender.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
                     return true;
@@ -153,7 +153,7 @@ public class BankCommand implements CommandExecutor {
                     sender.sendMessage(messages.color(messages.get("usage_bank")));
                     return true;
                 }
-                com.skyblockexp.ezeconomy.storage.StorageProvider storageRemove = plugin.getStorageOrWarn();
+                com.skyblockexp.ezeconomy.api.storage.StorageProvider storageRemove = plugin.getStorageOrWarn();
                 if (storageRemove == null) {
                     sender.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
                     return true;
@@ -171,7 +171,7 @@ public class BankCommand implements CommandExecutor {
                     sender.sendMessage(messages.color(messages.get("usage_bank")));
                     return true;
                 }
-                com.skyblockexp.ezeconomy.storage.StorageProvider storageInfo = plugin.getStorageOrWarn();
+                com.skyblockexp.ezeconomy.api.storage.StorageProvider storageInfo = plugin.getStorageOrWarn();
                 if (storageInfo == null) {
                     sender.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
                     return true;
