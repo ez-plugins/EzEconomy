@@ -5,7 +5,7 @@ import com.skyblockexp.ezeconomy.core.MessageProvider;
 import com.skyblockexp.ezeconomy.util.NumberUtil;
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
-import com.skyblockexp.ezeconomy.storage.StorageProvider;
+import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.storage.TransferResult;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;

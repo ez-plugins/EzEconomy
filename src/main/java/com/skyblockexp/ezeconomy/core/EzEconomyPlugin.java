@@ -30,7 +30,7 @@ import com.skyblockexp.ezeconomy.listener.DailyRewardListener;
 
 public class EzEconomyPlugin extends JavaPlugin {
     private static final int SPIGOT_RESOURCE_ID = 130975;
-    private com.skyblockexp.ezeconomy.storage.StorageProvider storage;
+    private com.skyblockexp.ezeconomy.api.storage.StorageProvider storage;
     private boolean storageInitFailed = false;
     private boolean storageWarningLogged = false;
     private com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager currencyPreferenceManager;
@@ -226,7 +226,7 @@ public class EzEconomyPlugin extends JavaPlugin {
     /**
      * Returns the storage provider, logging a warning if not available.
      */
-    public com.skyblockexp.ezeconomy.storage.StorageProvider getStorageOrWarn() {
+    public com.skyblockexp.ezeconomy.api.storage.StorageProvider getStorageOrWarn() {
         if (storage == null && !storageWarningLogged) {
             getLogger().warning("Storage provider is not initialized!");
             storageWarningLogged = true;
@@ -237,7 +237,7 @@ public class EzEconomyPlugin extends JavaPlugin {
     /**
      * Returns the storage provider (may be null if not initialized).
      */
-    public com.skyblockexp.ezeconomy.storage.StorageProvider getStorage() {
+    public com.skyblockexp.ezeconomy.api.storage.StorageProvider getStorage() {
         return storage;
     }
 

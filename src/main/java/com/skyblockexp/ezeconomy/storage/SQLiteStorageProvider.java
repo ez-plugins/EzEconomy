@@ -1,7 +1,7 @@
 package com.skyblockexp.ezeconomy.storage;
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
-import com.skyblockexp.ezeconomy.storage.StorageProvider;
+import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException;
@@ -25,6 +25,13 @@ import java.util.logging.Level;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
+/**
+ * SQLite implementation of the StorageProvider interface for EzEconomy.
+ * Handles player and bank balances using a local SQLite database.
+ * Thread-safe and ready for open-source use.
+ *
+ * <p>Usage: Instantiate with plugin and config, or call init() if using the default constructor.</p>
+ */
 public class SQLiteStorageProvider implements StorageProvider {
     private String fileName;
     private final EzEconomyPlugin plugin;
@@ -34,6 +41,9 @@ public class SQLiteStorageProvider implements StorageProvider {
     private final Object lock = new Object();
     private final YamlConfiguration dbConfig;
 
+    /**
+     * Default constructor for legacy compatibility. Not recommended for production.
+     */
     public SQLiteStorageProvider(EzEconomyPlugin plugin) {
         this.plugin = plugin;
         this.dbConfig = null;
@@ -42,6 +52,12 @@ public class SQLiteStorageProvider implements StorageProvider {
         this.banksTable = "banks";
     }
 
+    /**
+     * Main constructor. Reads config and initializes tables if needed.
+     * Throws RuntimeException if initialization fails.
+     * @param plugin EzEconomy plugin instance
+     * @param dbConfig YAML configuration for SQLite
+     */
     public SQLiteStorageProvider(EzEconomyPlugin plugin, YamlConfiguration dbConfig) {
         this.plugin = plugin;
         this.dbConfig = dbConfig;
@@ -57,9 +73,14 @@ public class SQLiteStorageProvider implements StorageProvider {
             stmt.executeUpdate("CREATE TABLE IF NOT EXISTS '" + banksTable + "' (name TEXT PRIMARY KEY, owner TEXT, members TEXT, balances TEXT)");
         } catch (SQLException e) {
             plugin.getLogger().severe("SQLite connection failed: " + e.getMessage());
+            throw new RuntimeException("Failed to initialize SQLiteStorageProvider", e);
         }
     }
 
+    /**
+     * Initializes the SQLite connection and tables. Call before use if not using the config constructor.
+     * @throws StorageInitException if the JDBC driver is missing or connection fails
+     */
     public void init() throws StorageInitException {
         try {
             Class.forName("org.sqlite.JDBC");
@@ -72,6 +93,9 @@ public class SQLiteStorageProvider implements StorageProvider {
         }
     }
 
+    /**
+     * Creates the default economy table if it does not exist.
+     */
     private void createTableIfNotExists() throws StorageInitException {
         String sql = "CREATE TABLE IF NOT EXISTS economy (" +
                 "uuid TEXT PRIMARY KEY NOT NULL," +
@@ -85,27 +109,34 @@ public class SQLiteStorageProvider implements StorageProvider {
         }
     }
 
+    /**
+     * Loads all player balances from the economy table. No-op unless you add caching.
+     * @throws StorageLoadException if loading fails
+     */
     public void load() throws StorageLoadException {
-        String sql = "SELECT * FROM economy";
-        try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-
-            while (rs.next()) {
-                String uuid = rs.getString("uuid");
-                double balance = rs.getDouble("balance");
-                long lastUpdated = rs.getLong("last_updated");
-
-                // Process the loaded data (e.g., store it in a map or other data structure)
-            }
-        } catch (SQLException e) {
-            throw new StorageLoadException("Failed to load data from the database.", e);
-        }
+        // No in-memory cache, so nothing to load. If you add caching, load from DB here.
     }
 
+    /**
+     * Saves all in-memory data to the database. No-op unless you add caching.
+     * @throws StorageSaveException if saving fails
+     */
     public void save() throws StorageSaveException {
-        // Implementation for saving data to SQLite database
+        // No in-memory cache, so nothing to save. If you add caching, flush to DB here.
+    }
+    // Optionally, override equals/hashCode/toString if needed for provider management
+    @Override
+    public String toString() {
+        return "SQLiteStorageProvider{" +
+                "fileName='" + fileName + '\'' +
+                ", table='" + table + '\'' +
+                ", banksTable='" + banksTable + '\'' +
+                '}';
     }
 
+    /**
+     * Closes the SQLite connection.
+     */
     public void close() {
         if (connection != null) {
             try {
@@ -207,9 +238,6 @@ public class SQLiteStorageProvider implements StorageProvider {
         try { if (connection != null) connection.close(); } catch (SQLException ignored) {}
     }
 
-    // --- Bank support ---
-    // Implement similar to MySQLStorageProvider, using a 'banks' table
-    // ...
     @Override
     public boolean createBank(String name, UUID owner) {
         synchronized (lock) {

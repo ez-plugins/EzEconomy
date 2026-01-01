@@ -1,7 +1,7 @@
 package com.skyblockexp.ezeconomy.storage;
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
-import com.skyblockexp.ezeconomy.storage.StorageProvider;
+import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageException;
 import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -12,6 +12,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * MySQL implementation of the StorageProvider interface for EzEconomy.
+ * Handles player and bank balances using a MySQL database.
+ * Thread-safe and ready for open-source use.
+ */
 public class MySQLStorageProvider implements StorageProvider {
     private final EzEconomyPlugin plugin;
     private Connection connection;
@@ -19,6 +24,11 @@ public class MySQLStorageProvider implements StorageProvider {
     private final Object lock = new Object();
     private final YamlConfiguration dbConfig;
 
+    /**
+     * Constructs a MySQLStorageProvider with the given plugin and configuration.
+     * @param plugin EzEconomy plugin instance
+     * @param dbConfig YAML configuration for MySQL
+     */
     public MySQLStorageProvider(EzEconomyPlugin plugin, YamlConfiguration dbConfig) {
         this.plugin = plugin;
         this.dbConfig = dbConfig;
@@ -39,9 +49,13 @@ public class MySQLStorageProvider implements StorageProvider {
             stmt.executeUpdate("CREATE TABLE IF NOT EXISTS bank_members (bank VARCHAR(64), uuid VARCHAR(36), owner BOOLEAN, PRIMARY KEY (bank, uuid))");
         } catch (SQLException e) {
             plugin.getLogger().severe("MySQL connection failed: " + e.getMessage());
+            throw new RuntimeException("Failed to initialize MySQLStorageProvider", e);
         }
     }
 
+    /**
+     * Gets the balance for a player and currency.
+     */
     @Override
     public double getBalance(UUID uuid, String currency) {
         synchronized (lock) {

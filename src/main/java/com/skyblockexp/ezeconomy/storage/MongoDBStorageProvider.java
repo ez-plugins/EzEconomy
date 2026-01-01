@@ -11,7 +11,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 
+
+/**
+ * MongoDB implementation of the StorageProvider interface for EzEconomy.
+ * Handles player and bank balances using a MongoDB database.
+ * Thread-safe and ready for open-source use.
+ *
+ * <p>Usage: Instantiate with plugin and config. Throws RuntimeException if initialization fails.</p>
+ */
+import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
+
 public class MongoDBStorageProvider implements StorageProvider {
+
+    
     private final EzEconomyPlugin plugin;
     private MongoClient mongoClient;
     private MongoDatabase database;
@@ -20,6 +32,52 @@ public class MongoDBStorageProvider implements StorageProvider {
     private final Object lock = new Object();
     private final YamlConfiguration dbConfig;
 
+    
+    /**
+     * Initializes the MongoDB connection. Throws if not connected.
+     */
+    public void init() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException {
+        if (mongoClient == null || database == null) {
+            throw new com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException("MongoDB not initialized.");
+        }
+    }
+
+    /**
+     * Loads all player balances from the balances collection. No-op unless you add caching.
+     */
+    public void load() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException {
+        // No in-memory cache, so nothing to load. If you add caching, load from DB here.
+    }
+
+    /**
+     * Saves all in-memory data to the database. No-op unless you add caching.
+     */
+    public void save() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageSaveException {
+        // No in-memory cache, so nothing to save. If you add caching, flush to DB here.
+    }
+
+    /**
+     * Closes the MongoDB connection.
+     */
+    public void close() {
+        if (mongoClient != null) {
+            mongoClient.close();
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "MongoDBStorageProvider{" +
+                "database='" + (database != null ? database.getName() : "null") + '\'' +
+                '}';
+    }
+
+    /**
+     * Constructs a MongoDBStorageProvider with the given plugin and configuration.
+     * Throws RuntimeException if initialization fails.
+     * @param plugin EzEconomy plugin instance
+     * @param dbConfig YAML configuration for MongoDB
+     */
     public MongoDBStorageProvider(EzEconomyPlugin plugin, YamlConfiguration dbConfig) {
         this.plugin = plugin;
         this.dbConfig = dbConfig;
@@ -37,6 +95,7 @@ public class MongoDBStorageProvider implements StorageProvider {
             banks.createIndex(new org.bson.Document("name", 1), new com.mongodb.client.model.IndexOptions().unique(true));
         } catch (Exception e) {
             plugin.getLogger().severe("MongoDB connection failed: " + e.getMessage());
+            throw new RuntimeException("Failed to initialize MongoDBStorageProvider", e);
         }
     }
 
@@ -95,9 +154,7 @@ public class MongoDBStorageProvider implements StorageProvider {
         if (mongoClient != null) mongoClient.close();
     }
 
-    // --- Bank support ---
-    // Implement similar to MySQLStorageProvider, using a 'banks' collection
-    // ...
+    
     @Override
     public boolean createBank(String name, UUID owner) {
         synchronized (lock) {

@@ -39,7 +39,7 @@ public class EcoCommand implements CommandExecutor {
                 return true;
             }
             Player player = (Player) sender;
-            com.skyblockexp.ezeconomy.storage.StorageProvider storage = plugin.getStorageOrWarn();
+            com.skyblockexp.ezeconomy.api.storage.StorageProvider storage = plugin.getStorageOrWarn();
             if (storage == null) {
                 player.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
                 return true;
@@ -101,7 +101,7 @@ public class EcoCommand implements CommandExecutor {
                 sender.sendMessage(messages.color(messages.get("withdrew", java.util.Map.of("name", target.getName(), "amount", plugin.getEconomy().format(amount)))));
                 break;
             case "set":
-                com.skyblockexp.ezeconomy.storage.StorageProvider storage = plugin.getStorageOrWarn();
+                com.skyblockexp.ezeconomy.api.storage.StorageProvider storage = plugin.getStorageOrWarn();
                 if (storage == null) {
                     sender.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
                     return true;

@@ -59,7 +59,7 @@ public class EzEconomyPlaceholderExpansion extends PlaceholderExpansion {
         if (player != null) {
             preferredCurrency = plugin.getCurrencyPreferenceManager().getPreferredCurrency(player.getUniqueId());
         }
-        com.skyblockexp.ezeconomy.storage.StorageProvider storage = plugin.getStorageOrWarn();
+        com.skyblockexp.ezeconomy.api.storage.StorageProvider storage = plugin.getStorageOrWarn();
 
         String[] split = params.toLowerCase().split("_");
         try {

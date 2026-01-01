@@ -25,7 +25,7 @@ public class BaltopCommand implements CommandExecutor {
         if (args.length == 1) {
             try { top = Integer.parseInt(args[0]); } catch (NumberFormatException ignored) {}
         }
-        com.skyblockexp.ezeconomy.storage.StorageProvider storage = plugin.getStorageOrWarn();
+        com.skyblockexp.ezeconomy.api.storage.StorageProvider storage = plugin.getStorageOrWarn();
         if (storage == null) {
             sender.sendMessage("§cStorage provider unavailable. Check server logs.");
             return true;
