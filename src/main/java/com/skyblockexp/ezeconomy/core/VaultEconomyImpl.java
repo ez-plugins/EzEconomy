@@ -1,6 +1,6 @@
-
 package com.skyblockexp.ezeconomy.core;
 
+import com.skyblockexp.ezeconomy.api.EzEconomyAPI;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
@@ -12,22 +12,68 @@ import java.util.List;
  */
 
 public class VaultEconomyImpl implements Economy {
+        // --- Overloads for multi-currency bank operations ---
+        public EconomyResponse bankBalance(String name, String currency) {
+            StorageProvider storage = getStorageProvider();
+            if (storage == null) {
+                return notSupported();
+            }
+            if (!storage.bankExists(name)) {
+                return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Bank does not exist");
+            }
+            double balance = storage.getBankBalance(name, currency);
+            return new EconomyResponse(balance, balance, EconomyResponse.ResponseType.SUCCESS, null);
+        }
+
+        public EconomyResponse bankDeposit(String name, String currency, double amount) {
+            StorageProvider storage = getStorageProvider();
+            if (storage == null) {
+                return notSupported();
+            }
+            if (!storage.bankExists(name)) {
+                return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Bank does not exist");
+            }
+            storage.depositBank(name, currency, amount);
+            double newBalance = storage.getBankBalance(name, currency);
+            return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, null);
+        }
+
+        public EconomyResponse bankWithdraw(String name, String currency, double amount) {
+            StorageProvider storage = getStorageProvider();
+            if (storage == null) {
+                return notSupported();
+            }
+            if (!storage.bankExists(name)) {
+                return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Bank does not exist");
+            }
+            boolean success = storage.tryWithdrawBank(name, currency, amount);
+            double newBalance = storage.getBankBalance(name, currency);
+            if (success) {
+                return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, null);
+            } else {
+                return new EconomyResponse(0, newBalance, EconomyResponse.ResponseType.FAILURE, "Insufficient funds");
+            }
+        }
     private final EzEconomyPlugin plugin;
+    private final EzEconomyAPI api;
 
     public VaultEconomyImpl(EzEconomyPlugin plugin) {
         this.plugin = plugin;
+        this.api = new EzEconomyAPI(plugin.getStorage());
     }
 
     @Override
     public boolean hasAccount(OfflinePlayer player) {
         var storage = getStorageProvider();
         if (storage == null) {
+            plugin.getLogger().warning("Storage unavailable when checking account for: " + player.getName());
             return false;
         }
         try {
             storage.getBalance(player.getUniqueId(), plugin.getDefaultCurrency());
             return true;
         } catch (Exception e) {
+            plugin.getLogger().warning("Exception when checking account for: " + player.getName() + ": " + e.getMessage());
             return false;
         }
     }
@@ -99,12 +145,10 @@ public class VaultEconomyImpl implements Economy {
 
     @Override
     public double getBalance(OfflinePlayer player) {
-        var storage = getStorageProvider();
-        if (storage == null) {
-            return 0.0;
-        }
-        return storage.getBalance(player.getUniqueId(), plugin.getDefaultCurrency());
+        return api.getBalance(player.getUniqueId(), plugin.getDefaultCurrency()).getBalance();
     }
+
+    // --- Multi-currency support ---
 
     @Override
     public boolean has(String playerName, double amount) {
@@ -116,9 +160,15 @@ public class VaultEconomyImpl implements Economy {
     public boolean has(OfflinePlayer player, double amount) {
         var storage = getStorageProvider();
         if (storage == null) {
+            plugin.getLogger().warning("Storage unavailable when checking funds for: " + player.getName());
             return false;
         }
-        return storage.getBalance(player.getUniqueId(), plugin.getDefaultCurrency()) >= amount;
+        try {
+            return storage.getBalance(player.getUniqueId(), plugin.getDefaultCurrency()) >= amount;
+        } catch (Exception e) {
+            plugin.getLogger().warning("Exception when checking funds for: " + player.getName() + ": " + e.getMessage());
+            return false;
+        }
     }
 
     @Override
@@ -129,18 +179,24 @@ public class VaultEconomyImpl implements Economy {
 
     @Override
     public EconomyResponse withdrawPlayer(OfflinePlayer player, double amount) {
-        var storage = getStorageProvider();
-        if (storage == null) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Storage not available");
-        }
-        String currency = plugin.getDefaultCurrency();
-        boolean success = storage.tryWithdraw(player.getUniqueId(), currency, amount);
-        if (!success) {
-            double balance = storage.getBalance(player.getUniqueId(), currency);
+        boolean success = api.withdraw(player.getUniqueId(), plugin.getDefaultCurrency(), amount);
+        double balance = api.getBalance(player.getUniqueId(), plugin.getDefaultCurrency()).getBalance();
+        if (success) {
+            return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
+        } else {
             return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Insufficient funds");
         }
-        double newBalance = storage.getBalance(player.getUniqueId(), currency);
-        return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, null);
+    }
+
+    // --- Multi-currency support ---
+    public EconomyResponse withdrawPlayer(OfflinePlayer player, double amount, String currency) {
+        boolean success = api.withdraw(player.getUniqueId(), currency, amount);
+        double balance = api.getBalance(player.getUniqueId(), currency).getBalance();
+        if (success) {
+            return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
+        } else {
+            return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Insufficient funds");
+        }
     }
 
     @Override
@@ -151,14 +207,24 @@ public class VaultEconomyImpl implements Economy {
 
     @Override
     public EconomyResponse depositPlayer(OfflinePlayer player, double amount) {
-        var storage = getStorageProvider();
-        if (storage == null) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Storage not available");
+        boolean success = api.deposit(player.getUniqueId(), plugin.getDefaultCurrency(), amount);
+        double balance = api.getBalance(player.getUniqueId(), plugin.getDefaultCurrency()).getBalance();
+        if (success) {
+            return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
+        } else {
+            return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Deposit failed");
         }
-        String currency = plugin.getDefaultCurrency();
-        storage.deposit(player.getUniqueId(), currency, amount);
-        double newBalance = storage.getBalance(player.getUniqueId(), currency);
-        return new EconomyResponse(amount, newBalance, EconomyResponse.ResponseType.SUCCESS, null);
+    }
+
+    // --- Multi-currency support ---
+    public EconomyResponse depositPlayer(OfflinePlayer player, double amount, String currency) {
+        boolean success = api.deposit(player.getUniqueId(), currency, amount);
+        double balance = api.getBalance(player.getUniqueId(), currency).getBalance();
+        if (success) {
+            return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
+        } else {
+            return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Deposit failed");
+        }
     }
 
     // --- Bank methods ---

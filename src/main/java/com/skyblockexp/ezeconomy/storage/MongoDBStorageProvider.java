@@ -1,16 +1,18 @@
+
 package com.skyblockexp.ezeconomy.storage;
 
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import com.mongodb.*;
 import com.mongodb.client.*;
 import com.mongodb.client.model.UpdateOptions;
 import org.bson.Document;
+import org.bukkit.configuration.file.YamlConfiguration;
+import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
+import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
+
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
-import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
-
+import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
 
 /**
  * MongoDB implementation of the StorageProvider interface for EzEconomy.
@@ -19,11 +21,9 @@ import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
  *
  * <p>Usage: Instantiate with plugin and config. Throws RuntimeException if initialization fails.</p>
  */
-import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
-
 public class MongoDBStorageProvider implements StorageProvider {
 
-    
+    // --- Fields ---
     private final EzEconomyPlugin plugin;
     private MongoClient mongoClient;
     private MongoDatabase database;
@@ -32,7 +32,35 @@ public class MongoDBStorageProvider implements StorageProvider {
     private final Object lock = new Object();
     private final YamlConfiguration dbConfig;
 
-    
+    // --- Constructors ---
+    /**
+     * Constructs a MongoDBStorageProvider with the given plugin and configuration.
+     * Throws RuntimeException if initialization fails.
+     * @param plugin EzEconomy plugin instance
+     * @param dbConfig YAML configuration for MongoDB
+     */
+    public MongoDBStorageProvider(EzEconomyPlugin plugin, YamlConfiguration dbConfig) {
+        this.plugin = plugin;
+        this.dbConfig = dbConfig;
+        if (dbConfig == null) throw new IllegalArgumentException("MongoDB config is missing!");
+        String uri = dbConfig.getString("mongodb.uri", "mongodb://localhost:27017");
+        String dbName = dbConfig.getString("mongodb.database", "ezeconomy");
+        String collection = dbConfig.getString("mongodb.collection", "balances");
+        try {
+            mongoClient = com.mongodb.client.MongoClients.create(uri);
+            database = mongoClient.getDatabase(dbName);
+            balances = database.getCollection(collection);
+            banks = database.getCollection(dbConfig.getString("mongodb.banksCollection", "banks"));
+            // Ensure indexes for fast lookups
+            balances.createIndex(new org.bson.Document("uuid", 1).append("currency", 1));
+            banks.createIndex(new org.bson.Document("name", 1), new com.mongodb.client.model.IndexOptions().unique(true));
+        } catch (Exception e) {
+            plugin.getLogger().severe("MongoDB connection failed: " + e.getMessage());
+            throw new RuntimeException("Failed to initialize MongoDBStorageProvider", e);
+        }
+    }
+
+    // --- Lifecycle Methods ---
     /**
      * Initializes the MongoDB connection. Throws if not connected.
      */
@@ -66,39 +94,48 @@ public class MongoDBStorageProvider implements StorageProvider {
     }
 
     @Override
-    public String toString() {
-        return "MongoDBStorageProvider{" +
-                "database='" + (database != null ? database.getName() : "null") + '\'' +
-                '}';
+    public void shutdown() {
+        if (mongoClient != null) mongoClient.close();
     }
 
-    /**
-     * Constructs a MongoDBStorageProvider with the given plugin and configuration.
-     * Throws RuntimeException if initialization fails.
-     * @param plugin EzEconomy plugin instance
-     * @param dbConfig YAML configuration for MongoDB
-     */
-    public MongoDBStorageProvider(EzEconomyPlugin plugin, YamlConfiguration dbConfig) {
-        this.plugin = plugin;
-        this.dbConfig = dbConfig;
-        if (dbConfig == null) throw new IllegalArgumentException("MongoDB config is missing!");
-        String uri = dbConfig.getString("mongodb.uri", "mongodb://localhost:27017");
-        String dbName = dbConfig.getString("mongodb.database", "ezeconomy");
-        String collection = dbConfig.getString("mongodb.collection", "balances");
-        try {
-            mongoClient = com.mongodb.client.MongoClients.create(uri);
-            database = mongoClient.getDatabase(dbName);
-            balances = database.getCollection(collection);
-            banks = database.getCollection(dbConfig.getString("mongodb.banksCollection", "banks"));
-            // Ensure indexes for fast lookups
-            balances.createIndex(new org.bson.Document("uuid", 1).append("currency", 1));
-            banks.createIndex(new org.bson.Document("name", 1), new com.mongodb.client.model.IndexOptions().unique(true));
-        } catch (Exception e) {
-            plugin.getLogger().severe("MongoDB connection failed: " + e.getMessage());
-            throw new RuntimeException("Failed to initialize MongoDBStorageProvider", e);
+    // --- Transaction Methods ---
+    @Override
+    public void logTransaction(com.skyblockexp.ezeconomy.api.storage.models.Transaction tx) {
+        synchronized (lock) {
+            try {
+                MongoCollection<org.bson.Document> transactions = database.getCollection("transactions");
+                org.bson.Document doc = new org.bson.Document()
+                        .append("uuid", tx.getUuid().toString())
+                        .append("currency", tx.getCurrency())
+                        .append("amount", tx.getAmount())
+                        .append("timestamp", tx.getTimestamp());
+                transactions.insertOne(doc);
+            } catch (Exception e) {
+                plugin.getLogger().severe("[EzEconomy] MongoDB logTransaction failed: " + e.getMessage());
+            }
         }
     }
 
+    @Override
+    public java.util.List<com.skyblockexp.ezeconomy.api.storage.models.Transaction> getTransactions(java.util.UUID uuid, String currency) {
+        List<Transaction> transactions = new ArrayList<>();
+        synchronized (lock) {
+            try {
+                MongoCollection<Document> txCol = database.getCollection("transactions");
+                FindIterable<Document> docs = txCol.find(new Document("uuid", uuid.toString()).append("currency", currency)).sort(new Document("timestamp", -1));
+                for (Document doc : docs) {
+                    double amount = doc.getDouble("amount");
+                    long timestamp = doc.getLong("timestamp");
+                    transactions.add(new Transaction(uuid, currency, amount, timestamp));
+                }
+            } catch (Exception e) {
+                plugin.getLogger().severe("[EzEconomy] MongoDB getTransactions failed for " + uuid + " (" + currency + "): " + e.getMessage());
+            }
+        }
+        return transactions;
+    }
+
+    // --- Player Balance Methods ---
     @Override
     public double getBalance(UUID uuid, String currency) {
         synchronized (lock) {
@@ -149,12 +186,7 @@ public class MongoDBStorageProvider implements StorageProvider {
         return map;
     }
 
-    @Override
-    public void shutdown() {
-        if (mongoClient != null) mongoClient.close();
-    }
-
-    
+    // --- Bank Methods ---
     @Override
     public boolean createBank(String name, UUID owner) {
         synchronized (lock) {
@@ -167,18 +199,21 @@ public class MongoDBStorageProvider implements StorageProvider {
             return true;
         }
     }
+
     @Override
     public boolean deleteBank(String name) {
         synchronized (lock) {
             return banks.deleteOne(new Document("name", name)).getDeletedCount() > 0;
         }
     }
+
     @Override
     public boolean bankExists(String name) {
         synchronized (lock) {
             return banks.find(new Document("name", name)).first() != null;
         }
     }
+
     @Override
     public double getBankBalance(String name, String currency) {
         synchronized (lock) {
@@ -192,6 +227,7 @@ public class MongoDBStorageProvider implements StorageProvider {
             return 0.0;
         }
     }
+
     @Override
     public void setBankBalance(String name, String currency, double amount) {
         synchronized (lock) {
@@ -222,6 +258,7 @@ public class MongoDBStorageProvider implements StorageProvider {
             );
         }
     }
+
     @Override
     public Set<String> getBanks() {
         Set<String> set = new HashSet<>();
@@ -232,6 +269,7 @@ public class MongoDBStorageProvider implements StorageProvider {
         }
         return set;
     }
+
     @Override
     public boolean isBankOwner(String name, UUID uuid) {
         synchronized (lock) {
@@ -239,6 +277,7 @@ public class MongoDBStorageProvider implements StorageProvider {
             return doc != null && uuid.toString().equals(doc.getString("owner"));
         }
     }
+
     @Override
     public boolean isBankMember(String name, UUID uuid) {
         synchronized (lock) {
@@ -250,6 +289,7 @@ public class MongoDBStorageProvider implements StorageProvider {
             return false;
         }
     }
+
     @Override
     public boolean addBankMember(String name, UUID uuid) {
         synchronized (lock) {
@@ -262,6 +302,7 @@ public class MongoDBStorageProvider implements StorageProvider {
             return true;
         }
     }
+
     @Override
     public boolean removeBankMember(String name, UUID uuid) {
         synchronized (lock) {
@@ -274,6 +315,7 @@ public class MongoDBStorageProvider implements StorageProvider {
             return true;
         }
     }
+
     @Override
     public Set<UUID> getBankMembers(String name) {
         Set<UUID> set = new HashSet<>();
@@ -287,5 +329,13 @@ public class MongoDBStorageProvider implements StorageProvider {
             }
         }
         return set;
+    }
+
+    // --- Utility ---
+    @Override
+    public String toString() {
+        return "MongoDBStorageProvider{" +
+                "database='" + (database != null ? database.getName() : "null") + '\'' +
+                '}';
     }
 }

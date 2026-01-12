@@ -12,6 +12,17 @@ public class BankInterestManager {
     private final EzEconomyPlugin plugin;
     private int taskId = -1;
 
+    // THREAD SAFETY NOTE:
+    // payInterestToAll() is called from a BukkitRunnable (main server thread),
+    // so storage operations are not concurrent by default. However, if storage
+    // providers are accessed from async tasks elsewhere, or if future changes
+    // introduce async interest payout, all storage operations here must be thread-safe.
+    //
+    // If you plan to run payInterestToAll() asynchronously, ensure:
+    // 1. All storageProvider methods (get/setBalance, getBankBalance, getBankMembers, etc.) are thread-safe.
+    // 2. Use synchronization or locks if the underlying storage is not thread-safe.
+    // 3. Consider using Bukkit's scheduler to run only thread-safe code async, and all Bukkit API calls sync.
+
     public BankInterestManager(EzEconomyPlugin plugin) {
         this.plugin = plugin;
     }
@@ -59,6 +70,7 @@ public class BankInterestManager {
                 for (UUID uuid : members) {
                     OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
                     if (perMemberInterest > 0) {
+                        // If storage.setBalance is not thread-safe, synchronize here or in the provider.
                         storage.setBalance(uuid, currency, storage.getBalance(uuid, currency) + perMemberInterest);
                         if (player.isOnline()) {
                             player.getPlayer().sendMessage("You received " + plugin.getEconomy().format(perMemberInterest) + " " + currency + " interest from bank '" + bank + "'");

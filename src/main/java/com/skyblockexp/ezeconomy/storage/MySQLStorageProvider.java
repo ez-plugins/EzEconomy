@@ -18,6 +18,22 @@ import java.util.concurrent.ConcurrentHashMap;
  * Thread-safe and ready for open-source use.
  */
 public class MySQLStorageProvider implements StorageProvider {
+        @Override
+        public void logTransaction(com.skyblockexp.ezeconomy.api.storage.models.Transaction tx) {
+            synchronized (lock) {
+                try {
+                    String sql = "INSERT INTO transactions (uuid, currency, amount, timestamp) VALUES (?, ?, ?, ?)";
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, tx.getUuid().toString());
+                    ps.setString(2, tx.getCurrency());
+                    ps.setDouble(3, tx.getAmount());
+                    ps.setLong(4, tx.getTimestamp());
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().severe("[EzEconomy] MySQL logTransaction failed: " + e.getMessage());
+                }
+            }
+        }
     private final EzEconomyPlugin plugin;
     private Connection connection;
     private String table;
@@ -51,6 +67,32 @@ public class MySQLStorageProvider implements StorageProvider {
             plugin.getLogger().severe("MySQL connection failed: " + e.getMessage());
             throw new RuntimeException("Failed to initialize MySQLStorageProvider", e);
         }
+    }
+
+    // --- Public API: StorageProvider interface ---
+
+    @Override
+    public java.util.List<Transaction> getTransactions(java.util.UUID uuid, String currency) {
+        java.util.List<Transaction> transactions = new java.util.ArrayList<>();
+        synchronized (lock) {
+            try {
+                // Assumes a table: transactions(uuid VARCHAR(36), currency VARCHAR(32), amount DOUBLE, timestamp BIGINT)
+                String sql = "SELECT amount, timestamp FROM transactions WHERE uuid=? AND currency=? ORDER BY timestamp DESC";
+                PreparedStatement ps = connection.prepareStatement(sql);
+                ps.setString(1, uuid.toString());
+                ps.setString(2, currency);
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    double amount = rs.getDouble("amount");
+                    long timestamp = rs.getLong("timestamp");
+                    Transaction t = new Transaction(uuid, currency, amount, timestamp);
+                    transactions.add(t);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] MySQL getTransactions failed for " + uuid + " (" + currency + "): " + e.getMessage());
+            }
+        }
+        return transactions;
     }
 
     /**
