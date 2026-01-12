@@ -1,8 +1,9 @@
 package com.skyblockexp.ezeconomy.api.storage;
 
-import com.skyblockexp.ezeconomy.storage.TransferResult;
+import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
 import com.skyblockexp.ezeconomy.storage.TransferLockManager;
-
+import com.skyblockexp.ezeconomy.storage.TransferResult;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -24,6 +25,20 @@ public interface StorageProvider {
      * @param amount New balance
      */
     void setBalance(UUID uuid, String currency, double amount);
+
+    /**
+     * Logs a transaction for a player and currency.
+     * @param transaction Transaction object to log
+     */
+    void logTransaction(Transaction transaction);
+
+    /**
+     * Retrieves the transaction history for a player and currency.
+     * @param uuid Player UUID
+     * @param currency Currency identifier
+     * @return List of transactions
+     */
+    List<Transaction> getTransactions(UUID uuid, String currency);
 
     /**
      * Attempts to withdraw an amount from a player's balance for a currency.
@@ -74,8 +89,15 @@ public interface StorageProvider {
         if (debitAmount < 0 || creditAmount < 0) {
             return TransferResult.failure(getBalance(fromUuid, currency), getBalance(toUuid, currency));
         }
-        ReentrantLock lock = TransferLockManager.getLock(fromUuid);
-        lock.lock();
+        // Lock both sender and recipient in UUID order to avoid deadlocks
+        UUID first = fromUuid.compareTo(toUuid) <= 0 ? fromUuid : toUuid;
+        UUID second = fromUuid.compareTo(toUuid) <= 0 ? toUuid : fromUuid;
+        ReentrantLock firstLock = TransferLockManager.getLock(first);
+        ReentrantLock secondLock = (first.equals(second)) ? firstLock : TransferLockManager.getLock(second);
+        firstLock.lock();
+        if (!first.equals(second)) {
+            secondLock.lock();
+        }
         try {
             double fromBalance = getBalance(fromUuid, currency);
             if (fromBalance < debitAmount) {
@@ -94,44 +116,77 @@ public interface StorageProvider {
             double updatedTo = getBalance(toUuid, currency);
             return TransferResult.success(updatedFrom, updatedTo);
         } finally {
-            lock.unlock();
+            if (!first.equals(second)) {
+                secondLock.unlock();
+            }
+            firstLock.unlock();
         }
     }
 
     /**
-     * Gets the balance for a player using the legacy single-currency fallback.
-     * @deprecated Use getBalance(UUID, String) instead.
+     * <b>Legacy overload:</b> Gets the balance for a player using the default currency ("dollar").
+     * <p>
+     * This is a convenience overload for backwards compatibility with single-currency plugins.
+     * Prefer {@link #getBalance(UUID, String)} for multi-currency support.
+     * </p>
+     * @deprecated Use {@link #getBalance(UUID, String)} for multi-currency support.
      */
     @Deprecated
-    default double getBalance(UUID uuid) { return getBalance(uuid, "dollar"); }
+    default double getBalance(UUID uuid) {
+        return getBalance(uuid, "dollar");
+    }
 
     /**
-     * Sets the balance for a player using the legacy single-currency fallback.
-     * @deprecated Use setBalance(UUID, String, double) instead.
+     * <b>Legacy overload:</b> Sets the balance for a player using the default currency ("dollar").
+     * <p>
+     * This is a convenience overload for backwards compatibility with single-currency plugins.
+     * Prefer {@link #setBalance(UUID, String, double)} for multi-currency support.
+     * </p>
+     * @deprecated Use {@link #setBalance(UUID, String, double)} for multi-currency support.
      */
     @Deprecated
-    default void setBalance(UUID uuid, double amount) { setBalance(uuid, "dollar", amount); }
+    default void setBalance(UUID uuid, double amount) {
+        setBalance(uuid, "dollar", amount);
+    }
 
     /**
-     * Attempts to withdraw from a player using the legacy single-currency fallback.
-     * @deprecated Use tryWithdraw(UUID, String, double) instead.
+     * <b>Legacy overload:</b> Attempts to withdraw from a player using the default currency ("dollar").
+     * <p>
+     * This is a convenience overload for backwards compatibility with single-currency plugins.
+     * Prefer {@link #tryWithdraw(UUID, String, double)} for multi-currency support.
+     * </p>
+     * @deprecated Use {@link #tryWithdraw(UUID, String, double)} for multi-currency support.
      */
     @Deprecated
-    default boolean tryWithdraw(UUID uuid, double amount) { return tryWithdraw(uuid, "dollar", amount); }
+    default boolean tryWithdraw(UUID uuid, double amount) {
+        return tryWithdraw(uuid, "dollar", amount);
+    }
 
     /**
-     * Deposits to a player using the legacy single-currency fallback.
-     * @deprecated Use deposit(UUID, String, double) instead.
+     * <b>Legacy overload:</b> Deposits to a player using the default currency ("dollar").
+     * <p>
+     * This is a convenience overload for backwards compatibility with single-currency plugins.
+     * Prefer {@link #deposit(UUID, String, double)} for multi-currency support.
+     * </p>
+     * @deprecated Use {@link #deposit(UUID, String, double)} for multi-currency support.
      */
     @Deprecated
-    default void deposit(UUID uuid, double amount) { deposit(uuid, "dollar", amount); }
+    default void deposit(UUID uuid, double amount) {
+        deposit(uuid, "dollar", amount);
+    }
 
     /**
-     * Gets all player balances using the legacy single-currency fallback.
-     * @deprecated Use getAllBalances(String) instead.
+     * <b>Legacy overload:</b> Gets all player balances using the default currency ("dollar").
+     * <p>
+     * This is a convenience overload for backwards compatibility with single-currency plugins.
+     * Prefer {@link #getAllBalances(String)} for multi-currency support.
+     * </p>
+     * @deprecated Use {@link #getAllBalances(String)} for multi-currency support.
      */
     @Deprecated
-    default Map<UUID, Double> getAllBalances() { return getAllBalances("dollar"); }
+    default Map<UUID, Double> getAllBalances() {
+        return getAllBalances("dollar");
+    }
 
     /**
      * Shuts down the storage provider and closes any open resources.
@@ -239,30 +294,54 @@ public interface StorageProvider {
     Set<UUID> getBankMembers(String name);
 
     /**
-     * Gets the balance for a bank using the legacy single-currency fallback.
-     * @deprecated Use getBankBalance(String, String) instead.
+     * <b>Legacy overload:</b> Gets the balance for a bank using the default currency ("dollar").
+     * <p>
+     * This is a convenience overload for backwards compatibility with single-currency plugins.
+     * Prefer {@link #getBankBalance(String, String)} for multi-currency support.
+     * </p>
+     * @deprecated Use {@link #getBankBalance(String, String)} for multi-currency support.
      */
     @Deprecated
-    default double getBankBalance(String name) { return getBankBalance(name, "dollar"); }
+    default double getBankBalance(String name) {
+        return getBankBalance(name, "dollar");
+    }
 
     /**
-     * Sets the balance for a bank using the legacy single-currency fallback.
-     * @deprecated Use setBankBalance(String, String, double) instead.
+     * <b>Legacy overload:</b> Sets the balance for a bank using the default currency ("dollar").
+     * <p>
+     * This is a convenience overload for backwards compatibility with single-currency plugins.
+     * Prefer {@link #setBankBalance(String, String, double)} for multi-currency support.
+     * </p>
+     * @deprecated Use {@link #setBankBalance(String, String, double)} for multi-currency support.
      */
     @Deprecated
-    default void setBankBalance(String name, double amount) { setBankBalance(name, "dollar", amount); }
+    default void setBankBalance(String name, double amount) {
+        setBankBalance(name, "dollar", amount);
+    }
 
     /**
-     * Attempts to withdraw from a bank using the legacy single-currency fallback.
-     * @deprecated Use tryWithdrawBank(String, String, double) instead.
+     * <b>Legacy overload:</b> Attempts to withdraw from a bank using the default currency ("dollar").
+     * <p>
+     * This is a convenience overload for backwards compatibility with single-currency plugins.
+     * Prefer {@link #tryWithdrawBank(String, String, double)} for multi-currency support.
+     * </p>
+     * @deprecated Use {@link #tryWithdrawBank(String, String, double)} for multi-currency support.
      */
     @Deprecated
-    default boolean tryWithdrawBank(String name, double amount) { return tryWithdrawBank(name, "dollar", amount); }
+    default boolean tryWithdrawBank(String name, double amount) {
+        return tryWithdrawBank(name, "dollar", amount);
+    }
 
     /**
-     * Deposits to a bank using the legacy single-currency fallback.
-     * @deprecated Use depositBank(String, String, double) instead.
+     * <b>Legacy overload:</b> Deposits to a bank using the default currency ("dollar").
+     * <p>
+     * This is a convenience overload for backwards compatibility with single-currency plugins.
+     * Prefer {@link #depositBank(String, String, double)} for multi-currency support.
+     * </p>
+     * @deprecated Use {@link #depositBank(String, String, double)} for multi-currency support.
      */
     @Deprecated
-    default void depositBank(String name, double amount) { depositBank(name, "dollar", amount); }
+    default void depositBank(String name, double amount) {
+        depositBank(name, "dollar", amount);
+    }
 }

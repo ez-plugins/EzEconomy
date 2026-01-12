@@ -25,8 +25,10 @@ public class BankCommand implements CommandExecutor {
             return true;
         }
         String sub = args[0].toLowerCase();
+        String currency = "dollar";
+        // For commands that support currency, allow it as the last argument
         switch (sub) {
-            case "create":
+            case "create": {
                 if (!sender.hasPermission("ezeconomy.bank.create") && !sender.hasPermission("ezeconomy.bank.admin")) {
                     sender.sendMessage(messages.color(messages.get("no_permission")));
                     return true;
@@ -47,7 +49,8 @@ public class BankCommand implements CommandExecutor {
                 }
                 sender.sendMessage(messages.color(messages.get("bank_created", java.util.Map.of("name", name))));
                 break;
-            case "delete":
+            }
+            case "delete": {
                 if (!sender.hasPermission("ezeconomy.bank.delete") && !sender.hasPermission("ezeconomy.bank.admin")) {
                     sender.sendMessage(messages.color(messages.get("no_permission")));
                     return true;
@@ -62,7 +65,8 @@ public class BankCommand implements CommandExecutor {
                 }
                 sender.sendMessage(messages.color(messages.get("bank_deleted", java.util.Map.of("name", args[1]))));
                 break;
-            case "balance":
+            }
+            case "balance": {
                 if (!sender.hasPermission("ezeconomy.bank.balance") && !sender.hasPermission("ezeconomy.bank.admin")) {
                     sender.sendMessage(messages.color(messages.get("no_permission")));
                     return true;
@@ -71,14 +75,16 @@ public class BankCommand implements CommandExecutor {
                     sender.sendMessage(messages.color(messages.get("usage_bank")));
                     return true;
                 }
-                EconomyResponse balanceResponse = plugin.getEconomy().bankBalance(args[1]);
+                if (args.length >= 3) currency = args[2];
+                EconomyResponse balanceResponse = plugin.getEconomy().bankBalance(args[1], currency);
                 if (handleEconomyFailure(sender, balanceResponse, messages)) {
                     return true;
                 }
                 double bal = balanceResponse.balance;
-                sender.sendMessage(messages.color(messages.get("bank_balance", java.util.Map.of("name", args[1], "balance", plugin.getEconomy().format(bal)))));
+                sender.sendMessage(messages.color(messages.get("bank_balance", java.util.Map.of("name", args[1], "balance", plugin.getEconomy().format(bal), "currency", currency))));
                 break;
-            case "deposit":
+            }
+            case "deposit": {
                 if (!sender.hasPermission("ezeconomy.bank.deposit") && !sender.hasPermission("ezeconomy.bank.admin")) {
                     sender.sendMessage(messages.color(messages.get("no_permission")));
                     return true;
@@ -93,16 +99,19 @@ public class BankCommand implements CommandExecutor {
                     sender.sendMessage(messages.color(messages.get("must_be_positive")));
                     return true;
                 }
-                EconomyResponse depositResponse = plugin.getEconomy().bankDeposit(args[1], dep);
+                if (args.length >= 4) currency = args[3];
+                EconomyResponse depositResponse = plugin.getEconomy().bankDeposit(args[1], currency, dep);
                 if (handleEconomyFailure(sender, depositResponse, messages)) {
                     return true;
                 }
                 sender.sendMessage(messages.color(messages.get("deposited", java.util.Map.of(
                     "amount", plugin.getEconomy().format(dep),
-                    "name", args[1]
+                    "name", args[1],
+                    "currency", currency
                 ))));
                 break;
-            case "withdraw":
+            }
+            case "withdraw": {
                 if (!sender.hasPermission("ezeconomy.bank.withdraw") && !sender.hasPermission("ezeconomy.bank.admin")) {
                     sender.sendMessage(messages.color(messages.get("no_permission")));
                     return true;
@@ -117,16 +126,19 @@ public class BankCommand implements CommandExecutor {
                     sender.sendMessage(messages.color(messages.get("must_be_positive")));
                     return true;
                 }
-                EconomyResponse withdrawResponse = plugin.getEconomy().bankWithdraw(args[1], wd);
+                if (args.length >= 4) currency = args[3];
+                EconomyResponse withdrawResponse = plugin.getEconomy().bankWithdraw(args[1], currency, wd);
                 if (handleEconomyFailure(sender, withdrawResponse, messages)) {
                     return true;
                 }
                 sender.sendMessage(messages.color(messages.get("withdrew", java.util.Map.of(
                     "amount", plugin.getEconomy().format(wd),
-                    "name", args[1]
+                    "name", args[1],
+                    "currency", currency
                 ))));
                 break;
-            case "addmember":
+            }
+            case "addmember": {
                 if (!sender.hasPermission("ezeconomy.bank.addmember") && !sender.hasPermission("ezeconomy.bank.admin")) {
                     sender.sendMessage(messages.color(messages.get("no_permission")));
                     return true;
@@ -144,7 +156,8 @@ public class BankCommand implements CommandExecutor {
                 storageAdd.addBankMember(args[1], add.getUniqueId());
                 sender.sendMessage(messages.color(messages.get("added_member", java.util.Map.of("player", add.getName(), "name", args[1]))));
                 break;
-            case "removemember":
+            }
+            case "removemember": {
                 if (!sender.hasPermission("ezeconomy.bank.removemember") && !sender.hasPermission("ezeconomy.bank.admin")) {
                     sender.sendMessage(messages.color(messages.get("no_permission")));
                     return true;
@@ -162,7 +175,8 @@ public class BankCommand implements CommandExecutor {
                 storageRemove.removeBankMember(args[1], rem.getUniqueId());
                 sender.sendMessage(messages.color(messages.get("removed_member", java.util.Map.of("player", rem.getName(), "name", args[1]))));
                 break;
-            case "info":
+            }
+            case "info": {
                 if (!sender.hasPermission("ezeconomy.bank.info") && !sender.hasPermission("ezeconomy.bank.admin")) {
                     sender.sendMessage(messages.color(messages.get("no_permission")));
                     return true;
@@ -171,12 +185,13 @@ public class BankCommand implements CommandExecutor {
                     sender.sendMessage(messages.color(messages.get("usage_bank")));
                     return true;
                 }
+                if (args.length >= 3) currency = args[2];
                 com.skyblockexp.ezeconomy.api.storage.StorageProvider storageInfo = plugin.getStorageOrWarn();
                 if (storageInfo == null) {
                     sender.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
                     return true;
                 }
-                EconomyResponse infoBalanceResponse = plugin.getEconomy().bankBalance(args[1]);
+                EconomyResponse infoBalanceResponse = plugin.getEconomy().bankBalance(args[1], currency);
                 if (handleEconomyFailure(sender, infoBalanceResponse, messages)) {
                     return true;
                 }
@@ -184,9 +199,11 @@ public class BankCommand implements CommandExecutor {
                 sender.sendMessage(messages.color(messages.get("bank_info", java.util.Map.of(
                     "name", args[1],
                     "balance", plugin.getEconomy().format(infoBalance),
+                    "currency", currency,
                     "members", String.valueOf(storageInfo.getBankMembers(args[1]).size())
                 ))));
                 break;
+            }
             default:
                 sender.sendMessage(messages.color(messages.get("unknown_subcommand")));
         }

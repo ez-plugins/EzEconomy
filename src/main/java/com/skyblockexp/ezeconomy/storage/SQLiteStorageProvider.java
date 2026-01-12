@@ -6,6 +6,7 @@ import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageSaveException;
+import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,6 +34,23 @@ import org.bukkit.configuration.file.YamlConfiguration;
  * <p>Usage: Instantiate with plugin and config, or call init() if using the default constructor.</p>
  */
 public class SQLiteStorageProvider implements StorageProvider {
+        @Override
+        public void logTransaction(com.skyblockexp.ezeconomy.api.storage.models.Transaction tx) {
+            synchronized (lock) {
+                try {
+                    String sql = "INSERT INTO transactions (uuid, currency, amount, timestamp) VALUES (?, ?, ?, ?)";
+                    PreparedStatement ps = connection.prepareStatement(sql);
+                    ps.setString(1, tx.getUuid().toString());
+                    ps.setString(2, tx.getCurrency());
+                    ps.setDouble(3, tx.getAmount());
+                    ps.setLong(4, tx.getTimestamp());
+                    ps.executeUpdate();
+                } catch (SQLException e) {
+                    plugin.getLogger().severe("[EzEconomy] SQLite logTransaction failed: " + e.getMessage());
+                }
+            }
+        }
+    // --- Fields ---
     private String fileName;
     private final EzEconomyPlugin plugin;
     private Connection connection;
@@ -41,6 +59,7 @@ public class SQLiteStorageProvider implements StorageProvider {
     private final Object lock = new Object();
     private final YamlConfiguration dbConfig;
 
+    // --- Constructors ---
     /**
      * Default constructor for legacy compatibility. Not recommended for production.
      */
@@ -75,6 +94,31 @@ public class SQLiteStorageProvider implements StorageProvider {
             plugin.getLogger().severe("SQLite connection failed: " + e.getMessage());
             throw new RuntimeException("Failed to initialize SQLiteStorageProvider", e);
         }
+    }
+
+    // --- Public API: StorageProvider interface ---
+    @Override
+    public java.util.List<Transaction> getTransactions(java.util.UUID uuid, String currency) {
+        java.util.List<Transaction> transactions = new java.util.ArrayList<>();
+        synchronized (lock) {
+            try {
+                // Assumes a table: transactions(uuid TEXT, currency TEXT, amount DOUBLE, timestamp INTEGER)
+                String sql = "SELECT amount, timestamp FROM transactions WHERE uuid=? AND currency=? ORDER BY timestamp DESC";
+                PreparedStatement ps = connection.prepareStatement(sql);
+                ps.setString(1, uuid.toString());
+                ps.setString(2, currency);
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    double amount = rs.getDouble("amount");
+                    long timestamp = rs.getLong("timestamp");
+                    Transaction t = new Transaction(uuid, currency, amount, timestamp);
+                    transactions.add(t);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite getTransactions failed for " + uuid + " (" + currency + "): " + e.getMessage());
+            }
+        }
+        return transactions;
     }
 
     /**

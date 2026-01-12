@@ -1,5 +1,3 @@
-
-
 package com.skyblockexp.ezeconomy.core;
 
 
@@ -39,6 +37,13 @@ public class EzEconomyPlugin extends JavaPlugin {
     private EzEconomyMetrics metrics;
     private BankInterestManager bankInterestManager;
     private DailyRewardManager dailyRewardManager;
+
+    /**
+     * Returns the CurrencyManager instance.
+     */
+    public com.skyblockexp.ezeconomy.manager.CurrencyManager getCurrencyManager() {
+        return currencyManager;
+    }
 
     public void createPlayerData(java.util.UUID uuid) {
         balances.putIfAbsent(uuid, 0.0);
@@ -145,7 +150,12 @@ public class EzEconomyPlugin extends JavaPlugin {
             }
         } catch (Exception ex) {
             getLogger().severe("Failed to initialize storage provider: " + ex.getMessage());
+            getLogger().severe("Storage type: " + storageType);
+            ex.printStackTrace();
             this.storage = null;
+            getLogger().severe("Disabling EzEconomy due to storage initialization failure.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
         }
 
         // Initialize currency managers
@@ -246,5 +256,24 @@ public class EzEconomyPlugin extends JavaPlugin {
      */
     public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() {
         return currencyPreferenceManager;
+    }
+
+    /**
+     * Logs a transaction using the storage provider.
+     */
+    public void logTransaction(com.skyblockexp.ezeconomy.api.storage.models.Transaction transaction) {
+        if (storage != null) {
+            storage.logTransaction(transaction);
+        }
+    }
+
+    /**
+     * Retrieves transaction history for a player and currency.
+     */
+    public java.util.List<com.skyblockexp.ezeconomy.api.storage.models.Transaction> getTransactions(java.util.UUID uuid, String currency) {
+        if (storage != null) {
+            return storage.getTransactions(uuid, currency);
+        }
+        return java.util.Collections.emptyList();
     }
 }

@@ -383,4 +383,55 @@ public class YMLStorageProvider implements StorageProvider {
             return set;
         }
     }
+
+    @Override
+    public void logTransaction(com.skyblockexp.ezeconomy.api.storage.models.Transaction transaction) {
+        UUID uuid = transaction.getUuid();
+        String currency = transaction.getCurrency();
+        synchronized (getPlayerLock(uuid)) {
+            try {
+                YamlConfiguration pdata = loadPlayerData(uuid);
+                java.util.List<java.util.Map<String, Object>> txList = (java.util.List<java.util.Map<String, Object>>) pdata.getList("transactions." + currency);
+                if (txList == null) txList = new java.util.ArrayList<>();
+                java.util.Map<String, Object> txMap = new java.util.HashMap<>();
+                txMap.put("uuid", transaction.getUuid().toString());
+                txMap.put("currency", transaction.getCurrency());
+                txMap.put("amount", transaction.getAmount());
+                txMap.put("timestamp", transaction.getTimestamp());
+                txList.add(txMap);
+                pdata.set("transactions." + currency, txList);
+                savePlayerData(uuid, pdata);
+            } catch (Exception e) {
+                System.err.println("[EzEconomy] Failed to log transaction for " + uuid + " (" + currency + "): " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public java.util.List<com.skyblockexp.ezeconomy.api.storage.models.Transaction> getTransactions(java.util.UUID uuid, String currency) {
+        synchronized (getPlayerLock(uuid)) {
+            java.util.List<com.skyblockexp.ezeconomy.api.storage.models.Transaction> result = new java.util.ArrayList<>();
+            try {
+                YamlConfiguration pdata = loadPlayerData(uuid);
+                java.util.List<?> txList = pdata.getList("transactions." + currency);
+                if (txList != null) {
+                    for (Object obj : txList) {
+                        if (obj instanceof java.util.Map) {
+                            java.util.Map<?, ?> txMap = (java.util.Map<?, ?>) obj;
+                            try {
+                                UUID txUuid = UUID.fromString(String.valueOf(txMap.get("uuid")));
+                                String txCurrency = String.valueOf(txMap.get("currency"));
+                                double txAmount = Double.parseDouble(String.valueOf(txMap.get("amount")));
+                                long txTimestamp = Long.parseLong(String.valueOf(txMap.get("timestamp")));
+                                result.add(new com.skyblockexp.ezeconomy.api.storage.models.Transaction(txUuid, txCurrency, txAmount, txTimestamp));
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("[EzEconomy] Failed to get transactions for " + uuid + " (" + currency + "): " + e.getMessage());
+            }
+            return result;
+        }
+    }
 }

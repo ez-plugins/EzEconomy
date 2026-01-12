@@ -1,47 +1,128 @@
 # EzEconomy
 
-EzEconomy is a lightweight, Vault-compatible economy plugin for Minecraft servers, supporting both YML (flatfile) and MySQL storage. It is designed for use with Skyblock Experience plugins and any Vault-based economy system.
+![EzEconomy Icon](https://www.spigotmc.org/data/resource_icons/130/130975.jpg)
 
-## Features
-- Vault API compatible (works with any Vault-based plugin)
-- YML (flatfile) and MySQL storage support
-- Thread-safe and robust error handling
-- `/balance` command for players and admins
-- `/eco` admin command for giving, taking, and setting balances
-- `/baltop` command for top balances
-- `/bank` command for in-game bank management
-- Full Vault bank support (create, delete, deposit, withdraw, membership)
-- Permission-based command access
+**EzEconomy** – A professional-grade Vault economy provider for Minecraft servers. Choose from YML, MySQL, SQLite, MongoDB, or custom storage with multi-currency support, async caching, and thorough permission controls.
 
-## Commands
-- `/balance` — View your own balance
-- `/balance <player>` — View another player's balance (`ezeconomy.balance.others`)
-- `/eco <give|take|set> <player> <amount>` — Admin economy control (`ezeconomy.eco`)
-- `/baltop [amount]` — Show top player balances
-- `/bank <create|delete|balance|deposit|withdraw|addmember|removemember|info> ...` — Bank management
+---
 
-## Permissions
-- `ezeconomy.balance.others` — View other players' balances
-- `ezeconomy.eco` — Use `/eco` admin command
-- `ezeconomy.bank` — Use `/bank` command (recommended for admins)
+## 📚 Documentation
 
-## Configuration
+- [Overview](docs/overview.md): General introduction and architecture
+- [Commands](docs/commands.md): Command usage and permissions
+- [Configuration](docs/configuration.md): All configuration options
+- [Developer API](docs/developer-api.md): API usage for plugin developers
+- [Permissions](docs/permissions.md): Permission nodes and details
+- [Placeholders](docs/placeholders.md): PlaceholderAPI integration
+- [Storage](docs/storage.md): Storage backends and setup
 
-### Main config.yml
-- Contains only global settings:
-  - `storage`: Selects the backend type (`yml`, `mysql`, `sqlite`, `mongodb`)
-  - `multi-currency`: Currency settings
-- All database-specific settings have been moved to separate files.
+---
 
-### Database config files
-- Place these files in the same folder as config.yml:
-  - `config-yml.yml` for YML storage
-  - `config-mysql.yml` for MySQL storage
-  - `config-sqlite.yml` for SQLite storage
-  - `config-mongodb.yml` for MongoDB storage
-- Each file contains only the settings for its respective backend.
+## ★ Key Features
 
-#### Example: config-mysql.yml
+EzEconomy is designed for performance, reliability, and operational clarity. Highlights include:
+
+- **Vault API compatible**: Works with any Vault-based plugin
+- **YML, MySQL, SQLite, MongoDB, or custom storage**: Flexible, production-ready storage options
+- **Thread-safe**: Robust error handling and concurrency controls
+- **Multi-currency support**: Optional, per-player, fully configurable
+- **Async caching**: Optimized for large servers
+- **Comprehensive commands**: `/balance`, `/eco`, `/baltop`, `/bank`, `/pay`, `/currency`
+- **Granular permissions**: Per-command and per-bank action
+
+---
+
+## ⚡ Commands
+
+- **/balance**: View your balance
+- **/balance <player>**: View another player's balance (`ezeconomy.balance.others`)
+- **/eco <give|take|set> <player> <amount>**: Administrative balance controls (`ezeconomy.eco`)
+- **/baltop [amount]**: Show top balances
+- **/bank <create|delete|balance|deposit|withdraw|addmember|removemember|info> ...**: Bank management (`ezeconomy.bank`)
+- **/pay <player> <amount>**: Send funds to another player (`ezeconomy.pay`)
+- **/currency [currency]**: Set or view your preferred currency
+
+---
+
+## 🛡️ Permissions
+
+- `ezeconomy.balance.others`: View other players' balances
+- `ezeconomy.eco`: Use /eco admin command
+- `ezeconomy.pay`: Use /pay command
+- `ezeconomy.currency`: Use /currency command
+- **Bank Permissions**:
+  - `ezeconomy.bank.create`: Create a new bank
+  - `ezeconomy.bank.delete`: Delete a bank
+  - `ezeconomy.bank.balance`: View bank balance
+  - `ezeconomy.bank.deposit`: Deposit to a bank
+  - `ezeconomy.bank.withdraw`: Withdraw from a bank
+  - `ezeconomy.bank.addmember`: Add a member to a bank
+  - `ezeconomy.bank.removemember`: Remove a member from a bank
+  - `ezeconomy.bank.info`: View bank info
+  - `ezeconomy.bank.admin`: All bank admin actions
+
+---
+
+## 🔒 Security Notes for Server Owners
+
+- **Limit admin permissions**: Only grant `ezeconomy.eco` and `ezeconomy.bank.admin` to trusted staff.
+- **Use a permissions plugin**: Manage access with groups/roles so players cannot self-assign economy powers.
+- **Lock down database access**: Use a dedicated database user with minimal privileges and keep credentials private.
+- **Back up economy data**: Schedule regular backups of your storage files or database to recover from mistakes or exploits.
+- **Review bank permissions**: Consider limiting bank creation/withdraw permissions to prevent abuse on public servers.
+
+---
+
+## 🛡️ Dupe Prevention Safeguards
+
+- **Thread-safe balance updates**: Economy operations are designed to avoid race conditions during concurrent deposits, withdrawals, and transfers.
+- **Server-side validation**: Commands and transactions validate amounts to prevent invalid or malformed requests.
+- **Storage integrity**: Backends use consistent write patterns to reduce the risk of partial or conflicting balance writes.
+
+---
+
+## ⚙️ Configuration Example
+
+### `config.yml` (Only global settings):
+```yaml
+storage: yml
+multi-currency:
+  enabled: false
+  default: "dollar"
+  currencies:
+    dollar:
+      display: "Dollar"
+      symbol: "$"
+      decimals: 2
+    euro:
+      display: "Euro"
+      symbol: "€"
+      decimals: 2
+    gem:
+      display: "Gem"
+      symbol: "♦"
+      decimals: 0
+  conversion:
+    dollar:
+      euro: 0.95
+      gem: 0.01
+    euro:
+      dollar: 1.05
+      gem: 0.012
+    gem:
+      dollar: 100
+      euro: 80
+```
+
+### `config-yml.yml` (YML storage settings):
+```yaml
+yml:
+  file: balances.yml
+  per-player-file-naming: uuid
+  data-folder: data
+```
+
+### `config-mysql.yml` (MySQL storage settings):
 ```yaml
 mysql:
   host: localhost
@@ -52,15 +133,7 @@ mysql:
   table: balances
 ```
 
-#### Example: config-yml.yml
-```yaml
-yml:
-  file: balances.yml
-  per-player-file-naming: uuid
-  data-folder: data
-```
-
-#### Example: config-sqlite.yml
+### `config-sqlite.yml` (SQLite storage settings):
 ```yaml
 sqlite:
   file: ezeconomy.db
@@ -68,7 +141,7 @@ sqlite:
   banksTable: banks
 ```
 
-#### Example: config-mongodb.yml
+### `config-mongodb.yml` (MongoDB storage settings):
 ```yaml
 mongodb:
   uri: mongodb://localhost:27017
@@ -77,58 +150,43 @@ mongodb:
   banksCollection: banks
 ```
 
-## Migration
-- If upgrading from a previous version, move the relevant database settings from `config.yml` to the appropriate new config file.
-- The plugin will now load only the settings for the selected storage backend from its dedicated file.
+---
 
-## Installation
-1. Place EzEconomy.jar in your plugins folder.
-2. Configure `config.yml` as needed.
-3. Restart your server.
+## ⬇️ Installation
 
-## Custom Storage Providers (API)
-Developers can add support for custom storage backends (e.g., MongoDB, Redis, etc) by implementing the `StorageProvider` interface and registering it before EzEconomy is constructed:
-
-```java
-// Implement StorageProvider
-public class MyCustomProvider implements StorageProvider { ... }
-
-// Register your provider in your plugin's onLoad() or before EzEconomy is initialized
-EzEconomy.registerStorageProvider(new MyCustomProvider(...));
-```
-If a custom provider is registered, EzEconomy will use it instead of the built-in YML or MySQL providers.
-
-EzEconomy will automatically register as a Vault provider. No further setup is required for Vault-compatible plugins.
-
-## Bank Example
-You can create and manage banks in-game:
-- `/bank create MyBank`
-- `/bank deposit MyBank 1000`
-- `/bank withdraw MyBank 500`
-- `/bank addmember MyBank PlayerName`
-- `/bank removemember MyBank PlayerName`
-- `/bank info MyBank`
+1. Place `EzEconomy.jar` in your plugins folder
+2. Configure `config.yml` and the appropriate `config-*.yml` file for your storage type
+3. Restart your server
 
 ---
 
-MIT License
+## 🔗 Integration
 
-Copyright (c) 2025 Gyvex (63536625)
+- EzEconomy automatically registers as a Vault provider
+- No extra setup required for Vault-compatible plugins
+- **PlaceholderAPI support**:
+  - Use placeholders in chat, scoreboard, and other plugins:
+    - `%ezeconomy_balance%` – Your balance
+    - `%ezeconomy_balance_<currency>%` – Your balance in a specific currency (e.g., `%ezeconomy_balance_euro%`)
+    - `%ezeconomy_bank_<bank>%` – Balance of a specific bank
+    - `%ezeconomy_top_1%` – Top 1 player balance (replace 1 with rank)
+    - `%ezeconomy_currency%` – Your preferred currency
+  - Works with all PlaceholderAPI-compatible plugins
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+---
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+## 🛠️ Developer: Custom Storage Providers
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+EzEconomy supports custom storage backends (YML, MySQL, SQLite, MongoDB, or your own). You can implement your own provider for any database or storage system.
+
+**How to add a custom provider:**
+
+1. Implement the `StorageProvider` interface in your plugin or module.
+2. Register your provider before EzEconomy loads:
+   ```java
+   EzEconomy.registerStorageProvider(new YourProvider(...));
+   ```
+3. Only one provider can be registered. If set, EzEconomy will use it instead of YML/MySQL.
+4. See the JavaDoc in `StorageProvider.java` for required methods.
+
+This allows you to use SQLite, MongoDB, Redis, or any other system for player balances and banks.

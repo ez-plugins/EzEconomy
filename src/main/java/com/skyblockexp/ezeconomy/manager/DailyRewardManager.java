@@ -13,6 +13,17 @@ public class DailyRewardManager {
     private final EzEconomyPlugin plugin;
     private final DailyRewardStorage storage;
 
+    // THREAD SAFETY NOTE:
+    // handleJoin() is called from the Bukkit event thread (main server thread),
+    // so storage operations are not concurrent by default. However, if storage
+    // providers are accessed from async tasks elsewhere, or if future changes
+    // introduce async reward payout, all storage operations here must be thread-safe.
+    //
+    // If you plan to run handleJoin() asynchronously, ensure:
+    // 1. All storageProvider methods (deposit, setLastReward, etc.) are thread-safe.
+    // 2. Use synchronization or locks if the underlying storage is not thread-safe.
+    // 3. Consider using Bukkit's scheduler to run only thread-safe code async, and all Bukkit API calls sync.
+
     public DailyRewardManager(EzEconomyPlugin plugin) {
         this.plugin = plugin;
         this.storage = new DailyRewardStorage(plugin);
@@ -48,6 +59,7 @@ public class DailyRewardManager {
             return;
         }
         String currency = resolveCurrency(plugin.getConfig().getString("daily-reward.currency", "default"));
+        // If storageProvider.deposit or storage.setLastReward is not thread-safe, synchronize here or in the provider.
         storageProvider.deposit(player.getUniqueId(), currency, amount);
         storage.setLastReward(player.getUniqueId(), now);
         sendMessage(player, amount, currency);

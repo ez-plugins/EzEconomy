@@ -16,6 +16,8 @@ public class NumberUtil {
                 return Double.parseDouble(input.substring(0, input.length() - 1)) * 1_000_000d;
             } else if (input.endsWith("b")) {
                 return Double.parseDouble(input.substring(0, input.length() - 1)) * 1_000_000_000d;
+            } else if (input.endsWith("t")) {
+                return Double.parseDouble(input.substring(0, input.length() - 1)) * 1_000_000_000_000d;
             } else {
                 return Double.parseDouble(input);
             }
