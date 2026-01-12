@@ -6,6 +6,18 @@
 
 ---
 
+## 📚 Documentation
+
+- [Overview](docs/overview.md): General introduction and architecture
+- [Commands](docs/commands.md): Command usage and permissions
+- [Configuration](docs/configuration.md): All configuration options
+- [Developer API](docs/developer-api.md): API usage for plugin developers
+- [Permissions](docs/permissions.md): Permission nodes and details
+- [Placeholders](docs/placeholders.md): PlaceholderAPI integration
+- [Storage](docs/storage.md): Storage backends and setup
+
+---
+
 ## ★ Key Features
 
 EzEconomy is designed for performance, reliability, and operational clarity. Highlights include:
