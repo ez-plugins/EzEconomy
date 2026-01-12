@@ -1,24 +1,30 @@
-# EzEconomy PlaceholderAPI Placeholders
+# Placeholders
 
-The following placeholders are provided by EzEconomy:
+EzEconomy integrates with PlaceholderAPI for use in chat, scoreboards, and other plugins.
 
-- `%ezeconomy_balance%` — Player's balance in the default currency
-- `%ezeconomy_balance_<currency>%` — Player's balance in the specified currency (e.g. `%ezeconomy_balance_euro%`)
-- `%ezeconomy_bank_<bank>%` — Player's balance in the specified bank (default currency)
-- `%ezeconomy_bank_<bank>_<currency>%` — Player's balance in the specified bank and currency
-- `%ezeconomy_symbol_<currency>%` — Symbol for the specified currency (e.g. `$`, `€`, `♦`)
+## Balance Placeholders
 
-## Usage
-- Placeholders work in chat, scoreboards, GUIs, and any plugin supporting PlaceholderAPI.
-- Bank placeholders only return a value if the player is a member of the bank.
-- If a placeholder is invalid or the player is not a member, it returns `-` or nothing.
+| Placeholder | Description |
+| --- | --- |
+| `%ezeconomy_balance%` | Player balance in their preferred currency. |
+| `%ezeconomy_balance_<currency>%` | Player balance in the specified currency. |
+| `%ezeconomy_currency%` | Player's preferred currency key. |
 
-## Examples
-- `%ezeconomy_balance%` → `$1,234.56`
-- `%ezeconomy_balance_gem%` → `♦100`
-- `%ezeconomy_bank_guild_euro%` → `€500.00`
-- `%ezeconomy_symbol_gem%` → `♦`
+## Leaderboard Placeholders
 
-## Requirements
-- PlaceholderAPI must be installed and enabled.
-- Placeholders are registered automatically when EzEconomy loads.
+| Placeholder | Description |
+| --- | --- |
+| `%ezeconomy_top_1%` | Top player balance (replace `1` with rank). |
+| `%ezeconomy_top_2%` | Second place player balance. |
+
+## Bank Placeholders
+
+| Placeholder | Description |
+| --- | --- |
+| `%ezeconomy_bank_<bank>%` | Balance for a specific bank. |
+
+### Usage Examples
+
+- `Balance: %ezeconomy_balance%`
+- `Euro Balance: %ezeconomy_balance_euro%`
+- `Top Player: %ezeconomy_top_1%`
