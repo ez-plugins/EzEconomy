@@ -7,12 +7,15 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
+import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
 
 public class YMLStorageProvider implements StorageProvider {
     private final File dataFolder;
@@ -408,9 +411,9 @@ public class YMLStorageProvider implements StorageProvider {
     }
 
     @Override
-    public java.util.List<com.skyblockexp.ezeconomy.api.storage.models.Transaction> getTransactions(java.util.UUID uuid, String currency) {
+    public java.util.List<Transaction> getTransactions(java.util.UUID uuid, String currency) {
         synchronized (getPlayerLock(uuid)) {
-            java.util.List<com.skyblockexp.ezeconomy.api.storage.models.Transaction> result = new java.util.ArrayList<>();
+            java.util.List<Transaction> result = new java.util.ArrayList<>();
             try {
                 YamlConfiguration pdata = loadPlayerData(uuid);
                 java.util.List<?> txList = pdata.getList("transactions." + currency);
@@ -423,7 +426,7 @@ public class YMLStorageProvider implements StorageProvider {
                                 String txCurrency = String.valueOf(txMap.get("currency"));
                                 double txAmount = Double.parseDouble(String.valueOf(txMap.get("amount")));
                                 long txTimestamp = Long.parseLong(String.valueOf(txMap.get("timestamp")));
-                                result.add(new com.skyblockexp.ezeconomy.api.storage.models.Transaction(txUuid, txCurrency, txAmount, txTimestamp));
+                                result.add(new Transaction(txUuid, txCurrency, txAmount, txTimestamp));
                             } catch (Exception ignored) {}
                         }
                     }
@@ -433,5 +436,29 @@ public class YMLStorageProvider implements StorageProvider {
             }
             return result;
         }
+    }
+
+    /**
+     * Returns the set of orphaned player file names that would be deleted by cleanup.
+     */
+    public java.util.Set<String> previewOrphanedPlayers() {
+        Set<String> orphaned = new HashSet<>();
+        File[] files = dataFolder.listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files != null) {
+            for (File file : files) {
+                String fname = file.getName();
+                String namePart = fname.replace(".yml", "");
+                try {
+                    java.util.UUID.fromString(namePart);
+                } catch (IllegalArgumentException ex) {
+                    @SuppressWarnings("deprecation")
+                    OfflinePlayer player = Bukkit.getOfflinePlayer(namePart);
+                    if (player == null || player.getName() == null) {
+                        orphaned.add(fname);
+                    }
+                }
+            }
+        }
+        return orphaned;
     }
 }

@@ -2,7 +2,6 @@ package com.skyblockexp.ezeconomy.storage;
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
-import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageException;
 import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
 import org.bukkit.configuration.file.YamlConfiguration;
 
@@ -18,22 +17,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * Thread-safe and ready for open-source use.
  */
 public class MySQLStorageProvider implements StorageProvider {
-        @Override
-        public void logTransaction(com.skyblockexp.ezeconomy.api.storage.models.Transaction tx) {
-            synchronized (lock) {
-                try {
-                    String sql = "INSERT INTO transactions (uuid, currency, amount, timestamp) VALUES (?, ?, ?, ?)";
-                    PreparedStatement ps = connection.prepareStatement(sql);
-                    ps.setString(1, tx.getUuid().toString());
-                    ps.setString(2, tx.getCurrency());
-                    ps.setDouble(3, tx.getAmount());
-                    ps.setLong(4, tx.getTimestamp());
-                    ps.executeUpdate();
-                } catch (SQLException e) {
-                    plugin.getLogger().severe("[EzEconomy] MySQL logTransaction failed: " + e.getMessage());
-                }
-            }
-        }
     private final EzEconomyPlugin plugin;
     private Connection connection;
     private String table;
@@ -414,5 +397,78 @@ public class MySQLStorageProvider implements StorageProvider {
             } catch (SQLException e) {}
             return set;
         }
+    }
+
+    @Override
+    public void logTransaction(com.skyblockexp.ezeconomy.api.storage.models.Transaction tx) {
+        synchronized (lock) {
+            try {
+                String sql = "INSERT INTO transactions (uuid, currency, amount, timestamp) VALUES (?, ?, ?, ?)";
+                PreparedStatement ps = connection.prepareStatement(sql);
+                ps.setString(1, tx.getUuid().toString());
+                ps.setString(2, tx.getCurrency());
+                ps.setDouble(3, tx.getAmount());
+                ps.setLong(4, tx.getTimestamp());
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] MySQL logTransaction failed: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Removes balances for UUIDs that do not resolve to a known player.
+     * @return Set of removed UUIDs as strings
+     */
+    public java.util.Set<String> cleanupOrphanedPlayers() {
+        java.util.Set<String> removed = new java.util.HashSet<>();
+        synchronized (lock) {
+            try {
+                PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM `" + table + "`");
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    String uuidStr = rs.getString(1);
+                    try {
+                        java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
+                        org.bukkit.OfflinePlayer player = org.bukkit.Bukkit.getOfflinePlayer(uuid);
+                        if (player == null || player.getName() == null) {
+                            PreparedStatement del = connection.prepareStatement("DELETE FROM `" + table + "` WHERE uuid=?");
+                            del.setString(1, uuidStr);
+                            del.executeUpdate();
+                            removed.add(uuidStr);
+                        }
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] MySQL cleanupOrphanedPlayers failed: " + e.getMessage());
+            }
+        }
+        return removed;
+    }
+
+    /**
+     * Returns the set of orphaned UUIDs that would be deleted by cleanup.
+     */
+    public java.util.Set<String> previewOrphanedPlayers() {
+        java.util.Set<String> orphaned = new java.util.HashSet<>();
+        synchronized (lock) {
+            try {
+                PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM `" + table + "`");
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    String uuidStr = rs.getString(1);
+                    try {
+                        java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
+                        org.bukkit.OfflinePlayer player = org.bukkit.Bukkit.getOfflinePlayer(uuid);
+                        if (player == null || player.getName() == null) {
+                            orphaned.add(uuidStr);
+                        }
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] MySQL previewOrphanedPlayers failed: " + e.getMessage());
+            }
+        }
+        return orphaned;
     }
 }
