@@ -2,14 +2,10 @@ package com.skyblockexp.ezeconomy.storage;
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
-import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageSaveException;
 import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -23,7 +19,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
@@ -34,22 +29,6 @@ import org.bukkit.configuration.file.YamlConfiguration;
  * <p>Usage: Instantiate with plugin and config, or call init() if using the default constructor.</p>
  */
 public class SQLiteStorageProvider implements StorageProvider {
-        @Override
-        public void logTransaction(com.skyblockexp.ezeconomy.api.storage.models.Transaction tx) {
-            synchronized (lock) {
-                try {
-                    String sql = "INSERT INTO transactions (uuid, currency, amount, timestamp) VALUES (?, ?, ?, ?)";
-                    PreparedStatement ps = connection.prepareStatement(sql);
-                    ps.setString(1, tx.getUuid().toString());
-                    ps.setString(2, tx.getCurrency());
-                    ps.setDouble(3, tx.getAmount());
-                    ps.setLong(4, tx.getTimestamp());
-                    ps.executeUpdate();
-                } catch (SQLException e) {
-                    plugin.getLogger().severe("[EzEconomy] SQLite logTransaction failed: " + e.getMessage());
-                }
-            }
-        }
     // --- Fields ---
     private String fileName;
     private final EzEconomyPlugin plugin;
@@ -532,6 +511,80 @@ public class SQLiteStorageProvider implements StorageProvider {
         }
         return set;
     }
+    
+    @Override
+    public void logTransaction(Transaction tx) {
+        synchronized (lock) {
+            try {
+                String sql = "INSERT INTO transactions (uuid, currency, amount, timestamp) VALUES (?, ?, ?, ?)";
+                PreparedStatement ps = connection.prepareStatement(sql);
+                ps.setString(1, tx.getUuid().toString());
+                ps.setString(2, tx.getCurrency());
+                ps.setDouble(3, tx.getAmount());
+                ps.setLong(4, tx.getTimestamp());
+                ps.executeUpdate();
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite logTransaction failed: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Removes balances for UUIDs that do not resolve to a known player.
+     * @return Set of removed UUIDs as strings
+     */
+    public Set<String> cleanupOrphanedPlayers() {
+        Set<String> removed = new HashSet<>();
+        synchronized (lock) {
+            try {
+                PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM '" + table + "'");
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    String uuidStr = rs.getString(1);
+                    try {
+                        UUID uuid = UUID.fromString(uuidStr);
+                        org.bukkit.OfflinePlayer player = org.bukkit.Bukkit.getOfflinePlayer(uuid);
+                        if (player == null || player.getName() == null) {
+                            PreparedStatement del = connection.prepareStatement("DELETE FROM '" + table + "' WHERE uuid=?");
+                            del.setString(1, uuidStr);
+                            del.executeUpdate();
+                            removed.add(uuidStr);
+                        }
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite cleanupOrphanedPlayers failed: " + e.getMessage());
+            }
+        }
+        return removed;
+    }
+
+    /**
+     * Returns the set of orphaned UUIDs that would be deleted by cleanup.
+     */
+    public java.util.Set<String> previewOrphanedPlayers() {
+        java.util.Set<String> orphaned = new java.util.HashSet<>();
+        synchronized (lock) {
+            try {
+                PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM '" + table + "'");
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    String uuidStr = rs.getString(1);
+                    try {
+                        java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
+                        org.bukkit.OfflinePlayer player = org.bukkit.Bukkit.getOfflinePlayer(uuid);
+                        if (player == null || player.getName() == null) {
+                            orphaned.add(uuidStr);
+                        }
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite previewOrphanedPlayers failed: " + e.getMessage());
+            }
+        }
+        return orphaned;
+    }
+
     // --- Helper methods for bank serialization ---
     private Map<String, Double> parseBalances(String json) {
         Map<String, Double> map = new HashMap<>();

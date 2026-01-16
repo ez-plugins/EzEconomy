@@ -88,9 +88,14 @@ public class BaltopCommand implements CommandExecutor {
         int rank = 1;
         for (Map.Entry<UUID, Double> entry : sorted) {
             OfflinePlayer player = Bukkit.getOfflinePlayer(entry.getKey());
+            String playerName = player.getName();
+            if (playerName == null) {
+                playerName = messages.get("unknown_player");
+                plugin.getLogger().warning("[Baltop] Could not resolve player name for UUID: " + entry.getKey());
+            }
             sender.sendMessage(messages.get("rank_balance", java.util.Map.of(
                 "rank", String.valueOf(rank),
-                "player", player.getName(),
+                "player", playerName,
                 "balance", plugin.getEconomy().format(entry.getValue())
             )));
             rank++;

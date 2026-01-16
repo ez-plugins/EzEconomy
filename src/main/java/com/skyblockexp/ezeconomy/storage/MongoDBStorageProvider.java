@@ -1,16 +1,12 @@
-
 package com.skyblockexp.ezeconomy.storage;
 
-import com.mongodb.*;
 import com.mongodb.client.*;
 import com.mongodb.client.model.UpdateOptions;
 import org.bson.Document;
 import org.bukkit.configuration.file.YamlConfiguration;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
-
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.UUID;
 import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
 
@@ -22,7 +18,6 @@ import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
  * <p>Usage: Instantiate with plugin and config. Throws RuntimeException if initialization fails.</p>
  */
 public class MongoDBStorageProvider implements StorageProvider {
-
     // --- Fields ---
     private final EzEconomyPlugin plugin;
     private MongoClient mongoClient;
@@ -329,6 +324,48 @@ public class MongoDBStorageProvider implements StorageProvider {
             }
         }
         return set;
+    }
+
+    /**
+     * Removes balances for UUIDs that do not resolve to a known player.
+     * @return Set of removed UUIDs as strings
+     */
+    public java.util.Set<String> cleanupOrphanedPlayers() {
+        java.util.Set<String> removed = new java.util.HashSet<>();
+        synchronized (lock) {
+            for (org.bson.Document doc : balances.find()) {
+                String uuidStr = doc.getString("uuid");
+                try {
+                    java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
+                    org.bukkit.OfflinePlayer player = org.bukkit.Bukkit.getOfflinePlayer(uuid);
+                    if (player == null || player.getName() == null) {
+                        balances.deleteOne(new org.bson.Document("uuid", uuidStr));
+                        removed.add(uuidStr);
+                    }
+                } catch (IllegalArgumentException ignored) {}
+            }
+        }
+        return removed;
+    }
+
+    /**
+     * Returns the set of orphaned UUIDs that would be deleted by cleanup.
+     */
+    public java.util.Set<String> previewOrphanedPlayers() {
+        java.util.Set<String> orphaned = new java.util.HashSet<>();
+        synchronized (lock) {
+            for (org.bson.Document doc : balances.find()) {
+                String uuidStr = doc.getString("uuid");
+                try {
+                    java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
+                    org.bukkit.OfflinePlayer player = org.bukkit.Bukkit.getOfflinePlayer(uuid);
+                    if (player == null || player.getName() == null) {
+                        orphaned.add(uuidStr);
+                    }
+                } catch (IllegalArgumentException ignored) {}
+            }
+        }
+        return orphaned;
     }
 
     // --- Utility ---
