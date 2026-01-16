@@ -50,6 +50,7 @@ public class EzEconomyPlaceholderExpansion extends PlaceholderExpansion {
         // %ezeconomy_bank_<bank>% (default currency)
         // %ezeconomy_bank_<bank>_<currency>%
         // %ezeconomy_symbol_<currency>%
+        // %ezeconomy_top_#% (top # player and balance, e.g. %ezeconomy_top_1%)
 
         var eco = plugin.getEconomy();
         var config = plugin.getConfig();
@@ -99,6 +100,34 @@ public class EzEconomyPlaceholderExpansion extends PlaceholderExpansion {
                 } else {
                     return "-";
                 }
+            }
+
+            // Handle %ezeconomy_top_1%, %ezeconomy_top_2%, etc.
+            if (split.length == 2 && split[0].equals("top")) {
+                if (storage == null) {
+                    return null;
+                }
+                int rank;
+                try {
+                    rank = Integer.parseInt(split[1]);
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+                if (rank <= 0) {
+                    return null;
+                }
+                // Get all balances for the preferred currency
+                java.util.Map<java.util.UUID, Double> balances = storage.getAllBalances(preferredCurrency);
+                java.util.List<java.util.Map.Entry<java.util.UUID, Double>> sorted = balances.entrySet().stream()
+                        .sorted(java.util.Map.Entry.<java.util.UUID, Double>comparingByValue().reversed())
+                        .toList();
+                if (rank > sorted.size()) {
+                    return null;
+                }
+                java.util.Map.Entry<java.util.UUID, Double> entry = sorted.get(rank - 1);
+                org.bukkit.OfflinePlayer topPlayer = org.bukkit.Bukkit.getOfflinePlayer(entry.getKey());
+                // Return formatted string: PlayerName: Balance
+                return topPlayer.getName() + ": " + eco.format(entry.getValue());
             }
         } catch (Exception e) {
             return null;
