@@ -145,8 +145,6 @@ messages:
     unknown_action: "&cAcción desconocida. Usa give, take o set."
     must_be_positive: "&cLa cantidad debe ser positiva."
     daily_reset: "&aReinicio del enfriamiento de recompensa diaria para {player}."
-<<<<<<< Updated upstream
-=======
     storage_unavailable: "&cProveedor de almacenamiento no disponible. Verifique los registros del servidor."
     multi_currency_disabled: "&cLa multi-moneda no está habilitada en este servidor."
     cleanup_usage: "&eEsto eliminará los UUID huérfanos (archivos de jugadores sin jugador conocido) del almacenamiento. Escribe /ezeconomy cleanup confirm para continuar."
@@ -211,7 +209,6 @@ messages:
     cleanup_confirm: "&eTapez /ezeconomy cleanup confirm pour continuer."
     cleanup_complete_empty: "&aAucune entrée de joueur orpheline trouvée."
     cleanup_complete: "&aEntrées de joueur orphelines supprimées: {entries}"
->>>>>>> Stashed changes
   zh:
     set: "&a已将 {player} 的余额设置为 {balance}。"
     only_players: "&c该命令只能由玩家使用。"
