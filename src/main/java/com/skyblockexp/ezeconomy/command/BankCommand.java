@@ -149,7 +149,7 @@ public class BankCommand implements CommandExecutor {
                 }
                 com.skyblockexp.ezeconomy.api.storage.StorageProvider storageAdd = plugin.getStorageOrWarn();
                 if (storageAdd == null) {
-                    sender.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
+                    sender.sendMessage(messages.color(messages.get("storage_unavailable")));
                     return true;
                 }
                 OfflinePlayer add = Bukkit.getOfflinePlayer(args[2]);
@@ -168,7 +168,7 @@ public class BankCommand implements CommandExecutor {
                 }
                 com.skyblockexp.ezeconomy.api.storage.StorageProvider storageRemove = plugin.getStorageOrWarn();
                 if (storageRemove == null) {
-                    sender.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
+                    sender.sendMessage(messages.color(messages.get("storage_unavailable")));
                     return true;
                 }
                 OfflinePlayer rem = Bukkit.getOfflinePlayer(args[2]);
@@ -188,7 +188,7 @@ public class BankCommand implements CommandExecutor {
                 if (args.length >= 3) currency = args[2];
                 com.skyblockexp.ezeconomy.api.storage.StorageProvider storageInfo = plugin.getStorageOrWarn();
                 if (storageInfo == null) {
-                    sender.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
+                    sender.sendMessage(messages.color(messages.get("storage_unavailable")));
                     return true;
                 }
                 EconomyResponse infoBalanceResponse = plugin.getEconomy().bankBalance(args[1], currency);
