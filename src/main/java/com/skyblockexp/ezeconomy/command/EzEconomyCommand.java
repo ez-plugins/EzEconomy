@@ -4,12 +4,18 @@ package com.skyblockexp.ezeconomy.command;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.core.MessageProvider;
 import com.skyblockexp.ezeconomy.manager.DailyRewardManager;
+import com.skyblockexp.ezeconomy.storage.MongoDBStorageProvider;
+import com.skyblockexp.ezeconomy.storage.MySQLStorageProvider;
+import com.skyblockexp.ezeconomy.storage.SQLiteStorageProvider;
+import com.skyblockexp.ezeconomy.storage.YMLStorageProvider;
+
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import java.io.File;
+import java.util.Map;
 
 
 /**
@@ -48,28 +54,28 @@ public class EzEconomyCommand implements CommandExecutor {
             Object storage = plugin.getStorageOrWarn();
             java.util.Set<String> orphaned = new java.util.HashSet<>();
             // Preview orphaned entries/files
-            if (storage instanceof com.skyblockexp.ezeconomy.storage.YMLStorageProvider) {
-                orphaned = ((com.skyblockexp.ezeconomy.storage.YMLStorageProvider) storage).previewOrphanedPlayers();
-            } else if (storage instanceof com.skyblockexp.ezeconomy.storage.MySQLStorageProvider) {
-                orphaned = ((com.skyblockexp.ezeconomy.storage.MySQLStorageProvider) storage).previewOrphanedPlayers();
-            } else if (storage instanceof com.skyblockexp.ezeconomy.storage.SQLiteStorageProvider) {
-                orphaned = ((com.skyblockexp.ezeconomy.storage.SQLiteStorageProvider) storage).previewOrphanedPlayers();
-            } else if (storage instanceof com.skyblockexp.ezeconomy.storage.MongoDBStorageProvider) {
-                orphaned = ((com.skyblockexp.ezeconomy.storage.MongoDBStorageProvider) storage).previewOrphanedPlayers();
+            if (storage instanceof YMLStorageProvider) {
+                orphaned = ((YMLStorageProvider) storage).previewOrphanedPlayers();
+            } else if (storage instanceof MySQLStorageProvider) {
+                orphaned = ((MySQLStorageProvider) storage).previewOrphanedPlayers();
+            } else if (storage instanceof SQLiteStorageProvider) {
+                orphaned = ((SQLiteStorageProvider) storage).previewOrphanedPlayers();
+            } else if (storage instanceof MongoDBStorageProvider) {
+                orphaned = ((MongoDBStorageProvider) storage).previewOrphanedPlayers();
             }
             if (args.length < 2 || !args[1].equalsIgnoreCase("confirm")) {
                 if (orphaned.isEmpty()) {
-                    sender.sendMessage(messages.color("&aNo orphaned player entries found. Nothing will be deleted."));
+                    sender.sendMessage(messages.color(messages.get("cleanup_preview_empty")));
                 } else {
-                    sender.sendMessage(messages.color("&eThe following orphaned player entries will be deleted if you confirm: " + String.join(", ", orphaned)));
-                    sender.sendMessage(messages.color("&eType /ezeconomy cleanup confirm to proceed."));
+                    sender.sendMessage(messages.color(messages.get("cleanup_preview", java.util.Map.of("entries", String.join(", ", orphaned)))));
+                    sender.sendMessage(messages.color(messages.get("cleanup_confirm")));
                 }
                 return true;
             }
             // Actual cleanup
             java.util.Set<String> removed = new java.util.HashSet<>();
-            if (storage instanceof com.skyblockexp.ezeconomy.storage.YMLStorageProvider) {
-                com.skyblockexp.ezeconomy.storage.YMLStorageProvider yml = (com.skyblockexp.ezeconomy.storage.YMLStorageProvider) storage;
+            if (storage instanceof YMLStorageProvider) {
+                YMLStorageProvider yml = (YMLStorageProvider) storage;
                 File dataFolder = plugin.getDataFolder();
                 File[] files = dataFolder.listFiles((dir, name) -> name.endsWith(".yml"));
                 if (files != null) {
@@ -82,17 +88,17 @@ public class EzEconomyCommand implements CommandExecutor {
                         }
                     }
                 }
-            } else if (storage instanceof com.skyblockexp.ezeconomy.storage.MySQLStorageProvider) {
-                removed = ((com.skyblockexp.ezeconomy.storage.MySQLStorageProvider) storage).cleanupOrphanedPlayers();
-            } else if (storage instanceof com.skyblockexp.ezeconomy.storage.SQLiteStorageProvider) {
-                removed = ((com.skyblockexp.ezeconomy.storage.SQLiteStorageProvider) storage).cleanupOrphanedPlayers();
-            } else if (storage instanceof com.skyblockexp.ezeconomy.storage.MongoDBStorageProvider) {
-                removed = ((com.skyblockexp.ezeconomy.storage.MongoDBStorageProvider) storage).cleanupOrphanedPlayers();
+            } else if (storage instanceof MySQLStorageProvider) {
+                removed = ((MySQLStorageProvider) storage).cleanupOrphanedPlayers();
+            } else if (storage instanceof SQLiteStorageProvider) {
+                removed = ((SQLiteStorageProvider) storage).cleanupOrphanedPlayers();
+            } else if (storage instanceof MongoDBStorageProvider) {
+                removed = ((MongoDBStorageProvider) storage).cleanupOrphanedPlayers();
             }
             if (removed.isEmpty()) {
-                sender.sendMessage(messages.color("&aNo orphaned player entries found."));
+                sender.sendMessage(messages.color(messages.get("cleanup_complete_empty")));
             } else {
-                sender.sendMessage(messages.color("&aRemoved orphaned player entries: " + String.join(", ", removed)));
+                sender.sendMessage(messages.color(messages.get("cleanup_complete", Map.of("entries", String.join(", ", removed)))));
             }
             return true;
         }

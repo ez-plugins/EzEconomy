@@ -9,10 +9,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
 import com.skyblockexp.ezeconomy.gui.BalanceGui;
-import org.bukkit.entity.Player;
-
-import com.skyblockexp.ezeconomy.gui.BalanceGui;
-
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.core.MessageProvider;
@@ -35,13 +31,13 @@ public class EcoCommand implements CommandExecutor {
 
         if (args.length == 1 && args[0].equalsIgnoreCase("gui")) {
             if (!(sender instanceof Player)) {
-                sender.sendMessage(messages.color("&cOnly players can use this command."));
+                sender.sendMessage(messages.color(messages.get("only_players")));
                 return true;
             }
             Player player = (Player) sender;
             com.skyblockexp.ezeconomy.api.storage.StorageProvider storage = plugin.getStorageOrWarn();
             if (storage == null) {
-                player.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
+                player.sendMessage(messages.color(messages.get("storage_unavailable")));
                 return true;
             }
             org.bukkit.configuration.file.FileConfiguration config = plugin.getConfig();
@@ -103,7 +99,7 @@ public class EcoCommand implements CommandExecutor {
             case "set":
                 com.skyblockexp.ezeconomy.api.storage.StorageProvider storage = plugin.getStorageOrWarn();
                 if (storage == null) {
-                    sender.sendMessage(messages.color("&cStorage provider unavailable. Check server logs."));
+                    sender.sendMessage(messages.color(messages.get("storage_unavailable")));
                     return true;
                 }
                 storage.setBalance(target.getUniqueId(), plugin.getDefaultCurrency(), amount);

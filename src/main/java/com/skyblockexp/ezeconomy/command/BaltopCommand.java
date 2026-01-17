@@ -39,7 +39,7 @@ public class BaltopCommand implements CommandExecutor {
         }
         com.skyblockexp.ezeconomy.api.storage.StorageProvider storage = plugin.getStorageOrWarn();
         if (storage == null) {
-            sender.sendMessage("§cStorage provider unavailable. Check server logs.");
+            sender.sendMessage(messages.color(messages.get("storage_unavailable")));
             return true;
         }
         Map<UUID, Double> balances = storage.getAllBalances(plugin.getDefaultCurrency());

@@ -23,12 +23,12 @@ public class CurrencyCommand implements CommandExecutor {
 		FileConfiguration config = plugin.getConfig();
 		boolean multiEnabled = config.getBoolean("multi-currency.enabled", false);
 		if (!multiEnabled) {
-			sender.sendMessage("§cMulti-currency is not enabled on this server.");
+			sender.sendMessage(messages.color(messages.get("multi_currency_disabled")));
 			return true;
 		}
 
 		if (!(sender instanceof Player)) {
-			sender.sendMessage(messages.get("only_players"));
+			sender.sendMessage(messages.color(messages.get("only_players")));
 			return true;
 		}
 		Player player = (Player) sender;
