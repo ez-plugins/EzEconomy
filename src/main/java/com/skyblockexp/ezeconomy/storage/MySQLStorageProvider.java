@@ -1,9 +1,12 @@
 package com.skyblockexp.ezeconomy.storage;
 
+import org.bukkit.configuration.file.YamlConfiguration;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
-import org.bukkit.configuration.file.YamlConfiguration;
+import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException;
+import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException;
+import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageSaveException;
 
 import java.sql.*;
 import java.util.Map;
@@ -32,27 +35,67 @@ public class MySQLStorageProvider implements StorageProvider {
         this.plugin = plugin;
         this.dbConfig = dbConfig;
         if (dbConfig == null) throw new IllegalArgumentException("MySQL config is missing!");
+        this.table = dbConfig.getString("mysql.table", "balances");
+    }
+
+    @Override
+    public void init() throws StorageInitException {
+        // Create tables/schema if needed
+        if (connection == null) {
+            // Establish a temporary connection for schema creation
+            String host = dbConfig.getString("mysql.host");
+            int port = dbConfig.getInt("mysql.port");
+            String database = dbConfig.getString("mysql.database");
+            String username = dbConfig.getString("mysql.username");
+            String password = dbConfig.getString("mysql.password");
+            try (Connection tempConn = DriverManager.getConnection(
+                    "jdbc:mysql://" + host + ":" + port + "/" + database,
+                    username, password)) {
+                Statement stmt = tempConn.createStatement();
+                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS `" + table + "` (uuid VARCHAR(36), currency VARCHAR(32), balance DOUBLE, PRIMARY KEY (uuid, currency))");
+                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS banks (name VARCHAR(64), currency VARCHAR(32), balance DOUBLE, PRIMARY KEY (name, currency))");
+                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS bank_members (bank VARCHAR(64), uuid VARCHAR(36), owner BOOLEAN, PRIMARY KEY (bank, uuid))");
+            } catch (SQLException e) {
+                plugin.getLogger().severe("MySQL schema init failed: " + e.getMessage());
+                throw new StorageInitException("Failed to initialize MySQL schema", e);
+            }
+        }
+    }
+
+    @Override
+    public void load() throws StorageLoadException {
+        // Establish connection only
         String host = dbConfig.getString("mysql.host");
         int port = dbConfig.getInt("mysql.port");
         String database = dbConfig.getString("mysql.database");
         String username = dbConfig.getString("mysql.username");
         String password = dbConfig.getString("mysql.password");
-        this.table = dbConfig.getString("mysql.table", "balances");
         try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+            }
             connection = DriverManager.getConnection(
                 "jdbc:mysql://" + host + ":" + port + "/" + database,
                 username, password);
-            Statement stmt = connection.createStatement();
-            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS `" + table + "` (uuid VARCHAR(36), currency VARCHAR(32), balance DOUBLE, PRIMARY KEY (uuid, currency))");
-            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS banks (name VARCHAR(64), currency VARCHAR(32), balance DOUBLE, PRIMARY KEY (name, currency))");
-            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS bank_members (bank VARCHAR(64), uuid VARCHAR(36), owner BOOLEAN, PRIMARY KEY (bank, uuid))");
         } catch (SQLException e) {
             plugin.getLogger().severe("MySQL connection failed: " + e.getMessage());
-            throw new RuntimeException("Failed to initialize MySQLStorageProvider", e);
+            throw new StorageLoadException("Failed to connect to MySQL", e);
         }
     }
 
-    // --- Public API: StorageProvider interface ---
+    @Override
+    public void save() throws StorageSaveException {
+        // No in-memory cache, so nothing to save
+    }
+
+    @Override
+    public boolean isConnected() {
+        try {
+            return connection != null && !connection.isClosed();
+        } catch (SQLException e) {
+            return false;
+        }
+    }
 
     @Override
     public java.util.List<Transaction> getTransactions(java.util.UUID uuid, String currency) {

@@ -1,5 +1,8 @@
 package com.skyblockexp.ezeconomy.api.storage;
 
+import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException;
+import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException;
+import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageSaveException;
 import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
 import com.skyblockexp.ezeconomy.storage.TransferLockManager;
 import com.skyblockexp.ezeconomy.storage.TransferResult;
@@ -10,6 +13,24 @@ import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
 
 public interface StorageProvider {
+    /**
+     * Setup and initialize the storage provider.
+     * @throws StorageInitException
+     */
+    void init() throws StorageInitException;
+    
+    /**
+     * Build database connection and load any necessary data.
+     * @throws StorageLoadException
+     */
+    void load() throws StorageLoadException;
+
+    /**
+     * Save any in-memory data to the storage backend.
+     * @throws StorageSaveException
+     */
+    void save() throws StorageSaveException;
+    
     /**
      * Gets the balance for a player and currency.
      * @param uuid Player UUID
@@ -63,6 +84,23 @@ public interface StorageProvider {
      * @return Map of UUID to balance
      */
     Map<UUID, Double> getAllBalances(String currency);
+
+    /**
+     * Removes balances for UUIDs that do not resolve to a known player.
+     * Default: no-op, returns empty set. Override if needed.
+     * @return Set of removed UUIDs as strings
+     */
+    default java.util.Set<String> cleanupOrphanedPlayers() {
+        return java.util.Collections.emptySet();
+    }
+
+    /**
+     * Returns true if the storage provider is currently connected to its backend (database, file, etc).
+     * Default: always true (for file-based providers). Override for real DB status.
+     */
+    default boolean isConnected() {
+        return false;
+    }
 
     /**
      * Transfers an amount from one player to another for a currency.

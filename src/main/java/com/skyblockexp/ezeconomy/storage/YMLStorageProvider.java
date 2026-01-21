@@ -37,6 +37,21 @@ public class YMLStorageProvider implements StorageProvider {
         this.namingScheme = dbConfig.getString("yml.per-player-file-naming", "uuid");
     }
 
+    @Override
+    public void init() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException {
+        // Data folder is already created in constructor
+    }
+
+    @Override
+    public void load() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException {
+        // No in-memory cache, so nothing to load
+    }
+
+    @Override
+    public void save() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageSaveException {
+        // No in-memory cache, so nothing to save
+    }
+
     private File getPlayerFile(UUID uuid) {
         OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
         String username = player.getName() != null ? player.getName() : "unknown";
@@ -81,6 +96,11 @@ public class YMLStorageProvider implements StorageProvider {
             data.save(file);
         } catch (IOException ioex2) {
         }
+    }
+
+    @Override
+    public boolean isConnected() {
+        return true;
     }
 
     @Override
@@ -436,6 +456,43 @@ public class YMLStorageProvider implements StorageProvider {
             }
             return result;
         }
+    }
+
+    /**
+     * Removes balances for UUIDs that do not resolve to a known player.
+     * @return Set of removed file names as strings
+     */
+    public java.util.Set<String> cleanupOrphanedPlayers() {
+        java.util.Set<String> removed = new java.util.HashSet<>();
+        File[] files = dataFolder.listFiles((dir, name) -> name.endsWith(".yml"));
+        if (files != null) {
+            for (File file : files) {
+                String fname = file.getName();
+                String namePart = fname.replace(".yml", "");
+                boolean isOrphaned = false;
+                try {
+                    java.util.UUID.fromString(namePart);
+                    // If it's a UUID, check if player exists
+                    OfflinePlayer player = Bukkit.getOfflinePlayer(java.util.UUID.fromString(namePart));
+                    if (player == null || player.getName() == null) {
+                        isOrphaned = true;
+                    }
+                } catch (IllegalArgumentException ex) {
+                    // If not UUID, assume username
+                    @SuppressWarnings("deprecation")
+                    OfflinePlayer player = Bukkit.getOfflinePlayer(namePart);
+                    if (player == null || player.getName() == null) {
+                        isOrphaned = true;
+                    }
+                }
+                if (isOrphaned) {
+                    if (file.delete()) {
+                        removed.add(fname);
+                    }
+                }
+            }
+        }
+        return removed;
     }
 
     /**
