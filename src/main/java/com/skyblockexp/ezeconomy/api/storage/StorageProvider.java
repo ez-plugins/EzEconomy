@@ -65,6 +65,14 @@ public interface StorageProvider {
     Map<UUID, Double> getAllBalances(String currency);
 
     /**
+     * Returns true if the storage provider is currently connected to its backend (database, file, etc).
+     * Default: always true (for file-based providers). Override for real DB status.
+     */
+    default boolean isConnected() {
+        return false;
+    }
+
+    /**
      * Transfers an amount from one player to another for a currency.
      * @param fromUuid Sender UUID
      * @param toUuid Recipient UUID

@@ -38,21 +38,6 @@ public class MongoDBStorageProvider implements StorageProvider {
         this.plugin = plugin;
         this.dbConfig = dbConfig;
         if (dbConfig == null) throw new IllegalArgumentException("MongoDB config is missing!");
-        String uri = dbConfig.getString("mongodb.uri", "mongodb://localhost:27017");
-        String dbName = dbConfig.getString("mongodb.database", "ezeconomy");
-        String collection = dbConfig.getString("mongodb.collection", "balances");
-        try {
-            mongoClient = com.mongodb.client.MongoClients.create(uri);
-            database = mongoClient.getDatabase(dbName);
-            balances = database.getCollection(collection);
-            banks = database.getCollection(dbConfig.getString("mongodb.banksCollection", "banks"));
-            // Ensure indexes for fast lookups
-            balances.createIndex(new org.bson.Document("uuid", 1).append("currency", 1));
-            banks.createIndex(new org.bson.Document("name", 1), new com.mongodb.client.model.IndexOptions().unique(true));
-        } catch (Exception e) {
-            plugin.getLogger().severe("MongoDB connection failed: " + e.getMessage());
-            throw new RuntimeException("Failed to initialize MongoDBStorageProvider", e);
-        }
     }
 
     // --- Lifecycle Methods ---
@@ -60,8 +45,20 @@ public class MongoDBStorageProvider implements StorageProvider {
      * Initializes the MongoDB connection. Throws if not connected.
      */
     public void init() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException {
-        if (mongoClient == null || database == null) {
-            throw new com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException("MongoDB not initialized.");
+        // Create collections and indexes if needed, but do not keep connection open
+        String uri = dbConfig.getString("mongodb.uri", "mongodb://localhost:27017");
+        String dbName = dbConfig.getString("mongodb.database", "ezeconomy");
+        String collection = dbConfig.getString("mongodb.collection", "balances");
+        String banksCollection = dbConfig.getString("mongodb.banksCollection", "banks");
+        try (MongoClient tempClient = com.mongodb.client.MongoClients.create(uri)) {
+            MongoDatabase tempDb = tempClient.getDatabase(dbName);
+            MongoCollection<Document> tempBalances = tempDb.getCollection(collection);
+            MongoCollection<Document> tempBanks = tempDb.getCollection(banksCollection);
+            tempBalances.createIndex(new org.bson.Document("uuid", 1).append("currency", 1));
+            tempBanks.createIndex(new org.bson.Document("name", 1), new com.mongodb.client.model.IndexOptions().unique(true));
+        } catch (Exception e) {
+            plugin.getLogger().severe("MongoDB schema init failed: " + e.getMessage());
+            throw new com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException("Failed to initialize MongoDB schema", e);
         }
     }
 
@@ -69,7 +66,21 @@ public class MongoDBStorageProvider implements StorageProvider {
      * Loads all player balances from the balances collection. No-op unless you add caching.
      */
     public void load() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException {
-        // No in-memory cache, so nothing to load. If you add caching, load from DB here.
+        // Establish connection and assign collections
+        String uri = dbConfig.getString("mongodb.uri", "mongodb://localhost:27017");
+        String dbName = dbConfig.getString("mongodb.database", "ezeconomy");
+        String collection = dbConfig.getString("mongodb.collection", "balances");
+        String banksCollection = dbConfig.getString("mongodb.banksCollection", "banks");
+        try {
+            if (mongoClient != null) mongoClient.close();
+            mongoClient = com.mongodb.client.MongoClients.create(uri);
+            database = mongoClient.getDatabase(dbName);
+            balances = database.getCollection(collection);
+            banks = database.getCollection(banksCollection);
+        } catch (Exception e) {
+            plugin.getLogger().severe("MongoDB connection failed: " + e.getMessage());
+            throw new com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException("Failed to connect to MongoDB", e);
+        }
     }
 
     /**

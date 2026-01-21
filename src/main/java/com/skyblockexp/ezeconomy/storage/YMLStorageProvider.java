@@ -99,6 +99,11 @@ public class YMLStorageProvider implements StorageProvider {
     }
 
     @Override
+    public boolean isConnected() {
+        return true;
+    }
+
+    @Override
     public double getBalance(UUID uuid, String currency) {
         synchronized (getPlayerLock(uuid)) {
             try {
