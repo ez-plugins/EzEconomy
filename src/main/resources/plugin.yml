@@ -1,11 +1,11 @@
-
-
 name: EzEconomy
 main: com.skyblockexp.ezeconomy.core.EzEconomyPlugin
 version: ${project.version}
-author: SkyblockExp Team
+website: https://modrinth.com/plugin/ezeconomy
+author: Shadow48402
 description: Vault-compatible economy provider with YML and MySQL support
 depend: [Vault]
+softdepend: [PlaceholderAPI]
 
 commands:
   balance:
