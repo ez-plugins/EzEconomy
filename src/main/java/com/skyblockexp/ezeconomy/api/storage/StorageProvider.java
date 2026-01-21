@@ -1,5 +1,8 @@
 package com.skyblockexp.ezeconomy.api.storage;
 
+import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException;
+import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException;
+import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageSaveException;
 import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
 import com.skyblockexp.ezeconomy.storage.TransferLockManager;
 import com.skyblockexp.ezeconomy.storage.TransferResult;
@@ -10,6 +13,24 @@ import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
 
 public interface StorageProvider {
+    /**
+     * Setup and initialize the storage provider.
+     * @throws StorageInitException
+     */
+    void init() throws StorageInitException;
+    
+    /**
+     * Build database connection and load any necessary data.
+     * @throws StorageLoadException
+     */
+    void load() throws StorageLoadException;
+
+    /**
+     * Save any in-memory data to the storage backend.
+     * @throws StorageSaveException
+     */
+    void save() throws StorageSaveException;
+    
     /**
      * Gets the balance for a player and currency.
      * @param uuid Player UUID
