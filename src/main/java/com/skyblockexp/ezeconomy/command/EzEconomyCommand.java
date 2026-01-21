@@ -120,6 +120,18 @@ public class EzEconomyCommand implements CommandExecutor {
             ))));
             return true;
         }
+        // Handle /ezeconomy reload messages: Reload messages configuration
+        if (args.length >= 2 && args[0].equalsIgnoreCase("reload")
+                && args[1].equalsIgnoreCase("messages")) {
+            if (!sender.hasPermission("ezeconomy.admin.reload")) {
+                sender.sendMessage(messages.color(messages.get("no_permission")));
+                return true;
+            }
+            plugin.reloadConfig();
+            plugin.loadMessageProvider(); // Assuming there's a method to reload MessageProvider
+            sender.sendMessage(messages.color(messages.get("reload_messages_success")));
+            return true;
+        }
         // Unknown subcommand
         sender.sendMessage(messages.color(messages.get("unknown_subcommand")));
         return true;

@@ -41,18 +41,18 @@ public class MessageProvider {
     }
 
     private String resolveMessage(String key) {
-        // Try language section first, then fallback to top-level
+        // Try language section first, then fallback to English
         String langKey = "messages." + language + "." + key;
-        String fallbackKey = "messages." + key;
         String msg = config.getString(langKey);
         if (msg == null) {
-            msg = config.getString(fallbackKey, "§cMissing message: " + key);
+            msg = config.getString("messages.en." + key, "§cMissing message: " + key);
         }
         return msg;
     }
 
     private String format(String message, Map<String, String> placeholders) {
         String resolved = replaceBracedPlaceholders(message, placeholders);
+        resolved = replacePercentPlaceholders(resolved, placeholders);
         if (containsLegacyFormatting(resolved)) {
             String legacyResolved = replaceAnglePlaceholders(resolved, placeholders);
             String translated = ChatColor.translateAlternateColorCodes('&', legacyResolved);
@@ -82,6 +82,17 @@ public class MessageProvider {
         String resolved = message;
         for (Map.Entry<String, String> entry : placeholders.entrySet()) {
             resolved = resolved.replace("{" + entry.getKey() + "}", entry.getValue());
+        }
+        return resolved;
+    }
+
+    private String replacePercentPlaceholders(String message, Map<String, String> placeholders) {
+        if (placeholders == null || placeholders.isEmpty() || message == null) {
+            return message;
+        }
+        String resolved = message;
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            resolved = resolved.replace("%" + entry.getKey() + "%", entry.getValue());
         }
         return resolved;
     }

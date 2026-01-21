@@ -5,6 +5,7 @@ import com.skyblockexp.ezeconomy.storage.DailyRewardStorage;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.Map;
 import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -127,15 +128,10 @@ public class DailyRewardManager {
     }
 
     private void sendMessage(Player player, double amount, String currency) {
-        String message = plugin.getConfig().getString("daily-reward.message", "");
-        if (message == null || message.isEmpty()) {
-            return;
-        }
+        String messageKey = plugin.getConfig().getString("daily-reward.message-key", "daily_reward_success");
         String formattedAmount = plugin.getEconomy().format(amount);
         String displayCurrency = resolveCurrencyDisplay(currency);
-        String resolved = message.replace("%amount%", formattedAmount)
-                .replace("%currency%", displayCurrency);
-        player.sendMessage(plugin.getMessageProvider().color(resolved));
+        player.sendMessage(plugin.getMessageProvider().get(messageKey, Map.of("amount", formattedAmount, "currency", displayCurrency)));
     }
 
     private void playSound(Player player) {

@@ -1,8 +1,14 @@
 package com.skyblockexp.ezeconomy.core;
 
-
-
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.InputStream;
+import java.io.File;
+import org.bukkit.configuration.file.YamlConfiguration;
+import com.skyblockexp.ezeconomy.storage.*;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.ServicePriority;
 import net.milkbowl.vault.economy.Economy;
@@ -33,53 +39,16 @@ public class EzEconomyPlugin extends JavaPlugin {
     private boolean storageWarningLogged = false;
     private com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager currencyPreferenceManager;
     private com.skyblockexp.ezeconomy.manager.CurrencyManager currencyManager;
-    private final java.util.concurrent.ConcurrentHashMap<java.util.UUID, Double> balances = new java.util.concurrent.ConcurrentHashMap<>();
     private EzEconomyMetrics metrics;
     private BankInterestManager bankInterestManager;
     private DailyRewardManager dailyRewardManager;
-
-    /**
-     * Returns the CurrencyManager instance.
-     */
-    public com.skyblockexp.ezeconomy.manager.CurrencyManager getCurrencyManager() {
-        return currencyManager;
-    }
-
-    public void createPlayerData(java.util.UUID uuid) {
-        balances.putIfAbsent(uuid, 0.0);
-    }
-
-    public void deletePlayerData(java.util.UUID uuid) {
-        balances.remove(uuid);
-    }
-
-    public double getBalance(java.util.UUID uuid) {
-        return balances.getOrDefault(uuid, 0.0);
-    }
-
-    public void setBalance(java.util.UUID uuid, double amount) {
-        balances.put(uuid, amount);
-    }
-
-    public void deposit(java.util.UUID uuid, double amount) {
-        balances.put(uuid, getBalance(uuid) + amount);
-    }
-
-    public void withdraw(java.util.UUID uuid, double amount) {
-        balances.put(uuid, getBalance(uuid) - amount);
-    }
-
-    public boolean hasEnough(java.util.UUID uuid, double amount) {
-        return getBalance(uuid) >= amount;
-    }
+    private MessageProvider messageProvider;
+    private VaultEconomyImpl vaultEconomy;
+    private org.bukkit.configuration.file.FileConfiguration messagesConfig;
 
     public String format(double amount) {
         return String.format("$%.2f", amount);
     }
-
-    private MessageProvider messageProvider;
-    private VaultEconomyImpl vaultEconomy;
-    private org.bukkit.configuration.file.FileConfiguration messagesConfig;
 
     public VaultEconomyImpl getEconomy() {
         return vaultEconomy;
@@ -97,9 +66,9 @@ public class EzEconomyPlugin extends JavaPlugin {
             "messages.yml"
         };
         for (String fileName : configFiles) {
-            java.io.File outFile = new java.io.File(getDataFolder(), fileName);
+            File outFile = new File(getDataFolder(), fileName);
             if (!outFile.exists()) {
-                try (java.io.InputStream in = getResource(fileName)) {
+                try (InputStream in = getResource(fileName)) {
                     if (in != null) {
                         java.nio.file.Files.copy(in, outFile.toPath());
                         getLogger().info("Created default config: " + fileName);
@@ -116,36 +85,36 @@ public class EzEconomyPlugin extends JavaPlugin {
                 case "yml":
                 case "yaml": {
                     java.io.File ymlConfigFile = new java.io.File(getDataFolder(), "config-yml.yml");
-                    org.bukkit.configuration.file.YamlConfiguration ymlConfig = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(ymlConfigFile);
-                    this.storage = new com.skyblockexp.ezeconomy.storage.YMLStorageProvider(this, ymlConfig);
+                    YamlConfiguration ymlConfig = YamlConfiguration.loadConfiguration(ymlConfigFile);
+                    this.storage = new YMLStorageProvider(this, ymlConfig);
                     getLogger().info("Using YML storage provider.");
                     break;
                 }
                 case "mysql": {
                     java.io.File mysqlConfigFile = new java.io.File(getDataFolder(), "config-mysql.yml");
-                    org.bukkit.configuration.file.YamlConfiguration mysqlConfig = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(mysqlConfigFile);
-                    this.storage = new com.skyblockexp.ezeconomy.storage.MySQLStorageProvider(this, mysqlConfig);
+                    YamlConfiguration mysqlConfig = YamlConfiguration.loadConfiguration(mysqlConfigFile);
+                    this.storage = new MySQLStorageProvider(this, mysqlConfig);
                     getLogger().info("Using MySQL storage provider.");
                     break;
                 }
                 case "sqlite": {
                     java.io.File sqliteConfigFile = new java.io.File(getDataFolder(), "config-sqlite.yml");
-                    org.bukkit.configuration.file.YamlConfiguration sqliteConfig = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(sqliteConfigFile);
-                    this.storage = new com.skyblockexp.ezeconomy.storage.SQLiteStorageProvider(this, sqliteConfig);
+                    YamlConfiguration sqliteConfig = YamlConfiguration.loadConfiguration(sqliteConfigFile);
+                    this.storage = new SQLiteStorageProvider(this, sqliteConfig);
                     getLogger().info("Using SQLite storage provider.");
                     break;
                 }
                 case "mongodb": {
                     java.io.File mongoConfigFile = new java.io.File(getDataFolder(), "config-mongodb.yml");
-                    org.bukkit.configuration.file.YamlConfiguration mongoConfig = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(mongoConfigFile);
-                    this.storage = new com.skyblockexp.ezeconomy.storage.MongoDBStorageProvider(this, mongoConfig);
+                    YamlConfiguration mongoConfig = YamlConfiguration.loadConfiguration(mongoConfigFile);
+                    this.storage = new MongoDBStorageProvider(this, mongoConfig);
                     getLogger().info("Using MongoDB storage provider.");
                     break;
                 }
                 default:
                     getLogger().warning("Unknown storage type '" + storageType + "', defaulting to YML.");
                     java.io.File ymlConfigFile2 = new java.io.File(getDataFolder(), "config-yml.yml");
-                    org.bukkit.configuration.file.YamlConfiguration ymlConfig2 = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(ymlConfigFile2);
+                    YamlConfiguration ymlConfig2 = YamlConfiguration.loadConfiguration(ymlConfigFile2);
                     this.storage = new com.skyblockexp.ezeconomy.storage.YMLStorageProvider(this, ymlConfig2);
             }
         } catch (Exception ex) {
@@ -218,6 +187,12 @@ public class EzEconomyPlugin extends JavaPlugin {
         return messageProvider;
     }
 
+    public void loadMessageProvider() {
+        java.io.File messagesFile = new java.io.File(getDataFolder(), "messages.yml");
+        this.messagesConfig = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(messagesFile);
+        this.messageProvider = new MessageProvider(messagesConfig);
+    }
+
     public VaultEconomyImpl getVaultEconomy() {
         return vaultEconomy;
     }
@@ -231,6 +206,13 @@ public class EzEconomyPlugin extends JavaPlugin {
      */
     public String getDefaultCurrency() {
         return currencyManager.getDefaultCurrency();
+    }
+
+    /**
+     * Returns the CurrencyManager instance.
+     */
+    public com.skyblockexp.ezeconomy.manager.CurrencyManager getCurrencyManager() {
+        return currencyManager;
     }
 
     /**
