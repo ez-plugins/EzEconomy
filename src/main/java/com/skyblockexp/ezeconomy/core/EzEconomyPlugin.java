@@ -3,6 +3,11 @@ package com.skyblockexp.ezeconomy.core;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.InputStream;
+import java.io.File;
+import org.bukkit.configuration.file.YamlConfiguration;
+import com.skyblockexp.ezeconomy.storage.*;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.ServicePriority;
@@ -40,6 +45,10 @@ public class EzEconomyPlugin extends JavaPlugin {
     private MessageProvider messageProvider;
     private VaultEconomyImpl vaultEconomy;
     private org.bukkit.configuration.file.FileConfiguration messagesConfig;
+
+    public String format(double amount) {
+        return String.format("$%.2f", amount);
+    }
 
     public VaultEconomyImpl getEconomy() {
         return vaultEconomy;
