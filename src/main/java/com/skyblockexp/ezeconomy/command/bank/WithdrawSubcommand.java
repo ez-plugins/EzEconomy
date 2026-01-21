@@ -36,11 +36,16 @@ public class WithdrawSubcommand implements Subcommand {
             sender.sendMessage(messages.color(messages.get("invalid_amount")));
             return true;
         }
-        EconomyResponse withdrawResponse = plugin.getEconomy().bankWithdraw(args[0], amount, currency);
+        EconomyResponse withdrawResponse = plugin.getEconomy().bankWithdraw(args[0], currency, amount);
         if (handleEconomyFailure(sender, withdrawResponse, messages)) {
             return true;
         }
-        sender.sendMessage(messages.color(messages.get("bank_withdraw_success", Map.of("name", args[0], "amount", plugin.getEconomy().format(amount), "currency", currency))));
+        String formattedAmount = plugin.getEconomy().format(amount);
+        java.util.HashMap<String, String> placeholders = new java.util.HashMap<>();
+        placeholders.put("name", String.valueOf(args[0]));
+        placeholders.put("amount", String.valueOf(formattedAmount));
+        placeholders.put("currency", String.valueOf(currency));
+        sender.sendMessage(messages.color(messages.get("bank_withdraw_success", placeholders)));
         return true;
     }
 

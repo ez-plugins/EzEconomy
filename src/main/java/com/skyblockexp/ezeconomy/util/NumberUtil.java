@@ -25,4 +25,11 @@ public class NumberUtil {
             return Double.NaN;
         }
     }
+    /**
+     * Compatibility alias for parseAmount(String).
+     * Provided for legacy code expecting parseDouble.
+     */
+    public static Double parseDouble(String input) {
+        return parseAmount(input);
+    }
 }

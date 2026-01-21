@@ -86,6 +86,15 @@ public interface StorageProvider {
     Map<UUID, Double> getAllBalances(String currency);
 
     /**
+     * Removes balances for UUIDs that do not resolve to a known player.
+     * Default: no-op, returns empty set. Override if needed.
+     * @return Set of removed UUIDs as strings
+     */
+    default java.util.Set<String> cleanupOrphanedPlayers() {
+        return java.util.Collections.emptySet();
+    }
+
+    /**
      * Returns true if the storage provider is currently connected to its backend (database, file, etc).
      * Default: always true (for file-based providers). Override for real DB status.
      */

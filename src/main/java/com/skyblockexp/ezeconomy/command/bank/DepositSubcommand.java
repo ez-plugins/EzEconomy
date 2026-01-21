@@ -36,11 +36,16 @@ public class DepositSubcommand implements Subcommand {
             sender.sendMessage(messages.color(messages.get("invalid_amount")));
             return true;
         }
-        EconomyResponse depositResponse = plugin.getEconomy().bankDeposit(args[0], amount, currency);
+        EconomyResponse depositResponse = plugin.getEconomy().bankDeposit(args[0], currency, amount);
         if (handleEconomyFailure(sender, depositResponse, messages)) {
             return true;
         }
-        sender.sendMessage(messages.color(messages.get("bank_deposit_success", Map.of("name", args[0], "amount", plugin.getEconomy().format(amount), "currency", currency))));
+        String formattedAmount = plugin.getEconomy().format(amount);
+        java.util.HashMap<String, String> placeholders = new java.util.HashMap<>();
+        placeholders.put("name", String.valueOf(args[0]));
+        placeholders.put("amount", String.valueOf(formattedAmount));
+        placeholders.put("currency", String.valueOf(currency));
+        sender.sendMessage(messages.color(messages.get("bank_deposit_success", placeholders)));
         return true;
     }
 

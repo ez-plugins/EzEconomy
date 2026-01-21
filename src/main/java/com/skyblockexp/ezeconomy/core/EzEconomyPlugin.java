@@ -20,6 +20,7 @@ import com.skyblockexp.ezeconomy.storage.YMLStorageProvider;
 import com.skyblockexp.ezeconomy.tabcomplete.BankTabCompleter;
 import com.skyblockexp.ezeconomy.tabcomplete.CurrencyTabCompleter;
 import com.skyblockexp.ezeconomy.tabcomplete.EcoTabCompleter;
+import com.skyblockexp.ezeconomy.tabcomplete.EzEconomyCommandTabCompleter;
 import com.skyblockexp.ezeconomy.tabcomplete.PayTabCompleter;
 import com.skyblockexp.ezeconomy.update.SpigotUpdateChecker;
 import com.skyblockexp.ezeconomy.placeholder.EzEconomyPlaceholderExpansion;
@@ -271,6 +272,7 @@ public class EzEconomyPlugin extends JavaPlugin {
         getCommand("currency").setExecutor(new CurrencyCommand(this));
         getCommand("currency").setTabCompleter(new CurrencyTabCompleter());
         getCommand("ezeconomy").setExecutor(new EzEconomyCommand(this, dailyRewardManager));
+        getCommand("ezeconomy").setTabCompleter(new EzEconomyCommandTabCompleter(this));
     }
 
     private void registerListeners() {
