@@ -224,6 +224,13 @@ public class EzEconomyPlugin extends JavaPlugin {
                     break;
             }
             getLogger().info("Using " + storage.getClass().getSimpleName() + " storage provider.");
+
+            getLogger().info("Initializing " + storage.getClass().getSimpleName() + " storage provider.");
+            storage.init();
+
+            getLogger().info("Loading connection with " + storage.getClass().getSimpleName() + " storage provider.");
+            storage.load();
+
             return true;
         } catch (Exception ex) {
             getLogger().severe("Failed to initialize storage provider: " + ex.getMessage());
