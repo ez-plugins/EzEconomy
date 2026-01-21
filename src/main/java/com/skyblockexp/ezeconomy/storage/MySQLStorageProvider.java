@@ -52,6 +52,21 @@ public class MySQLStorageProvider implements StorageProvider {
         }
     }
 
+    @Override
+    public void init() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException {
+        // Connection is already established in constructor
+    }
+
+    @Override
+    public void load() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException {
+        // No in-memory cache, so nothing to load
+    }
+
+    @Override
+    public void save() throws com.skyblockexp.ezeconomy.api.storage.exceptions.StorageSaveException {
+        // No in-memory cache, so nothing to save
+    }
+
     // --- Public API: StorageProvider interface ---
 
     @Override

@@ -55,26 +55,27 @@ public class PayCommand implements CommandExecutor {
             sender.sendMessage(messages.color(messages.get("cannot_pay_self")));
             return true;
         }
-            double netAmount = amount;
-            StorageProvider storage = plugin.getStorageOrWarn();
-            if (storage == null) {
-                return true;
-            }
-            TransferResult transfer = storage.transfer(from.getUniqueId(), to.getUniqueId(), plugin.getDefaultCurrency(), amount, netAmount);
-            if (!transfer.isSuccess()) {
-                sender.sendMessage(messages.color(messages.get("not_enough_money")));
-                return true;
-            }
-            sender.sendMessage(messages.color(messages.get("paid", java.util.Map.of(
-                "player", to.getName(),
+
+        double netAmount = amount;
+        StorageProvider storage = plugin.getStorageOrWarn();
+        if (storage == null) {
+            return true;
+        }
+        TransferResult transfer = storage.transfer(from.getUniqueId(), to.getUniqueId(), plugin.getDefaultCurrency(), amount, netAmount);
+        if (!transfer.isSuccess()) {
+            sender.sendMessage(messages.color(messages.get("not_enough_money")));
+            return true;
+        }
+        sender.sendMessage(messages.color(messages.get("paid", java.util.Map.of(
+            "player", to.getName(),
+            "amount", plugin.getEconomy().format(netAmount)
+        ))));
+        if (to.isOnline() && to.getPlayer() != null) {
+            to.getPlayer().sendMessage(messages.color(messages.get("received", java.util.Map.of(
+                "player", from.getName(),
                 "amount", plugin.getEconomy().format(netAmount)
             ))));
-            if (to.isOnline() && to.getPlayer() != null) {
-                to.getPlayer().sendMessage(messages.color(messages.get("received", java.util.Map.of(
-                    "player", from.getName(),
-                    "amount", plugin.getEconomy().format(netAmount)
-                ))));
-            }
-            return true;
+        }
+        return true;
     }
 }
