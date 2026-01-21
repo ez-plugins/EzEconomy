@@ -26,6 +26,23 @@ Permissions shown in parentheses are required to run the command. Commands witho
 | `/bank removemember <name> <player>` | Remove a bank member. | `ezeconomy.bank.removemember` |
 | `/bank info <name>` | View bank details. | `ezeconomy.bank.info` |
 
+# /ezeconomy Admin Command
+
+| Command | Description | Permission |
+| --- | --- | --- |
+| `/ezeconomy cleanup` | Remove orphaned player data from all storage types. | `ezeconomy.admin` |
+| `/ezeconomy daily reset` | Reset all daily rewards for all players. | `ezeconomy.admin` |
+| `/ezeconomy reload` | Reload the plugin configuration. | `ezeconomy.admin` |
+| `/ezeconomy reload messages` | Reload only the message file. | `ezeconomy.admin` |
+| `/ezeconomy database info` | Show current database connection info. | `ezeconomy.admin` |
+| `/ezeconomy database test` | Test the database connection. | `ezeconomy.admin` |
+| `/ezeconomy database reset` | Reset all database tables (DANGEROUS). | `ezeconomy.admin` |
+
+### Tab Completion
+
+- `/ezeconomy` now supports professional tab completion for all subcommands and database actions.
+- Suggestions are context-aware and permission-sensitive.
+
 ### Tips
 
 - Use a permissions plugin to control which groups can access administrative commands.

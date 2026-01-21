@@ -1,4 +1,3 @@
-
 # Developer API (v2)
 
 > EzEconomy is a Vault-compatible, standalone economy API with multi-currency and bank support. It is designed for plugin developers who need robust, extensible economic features.
@@ -76,22 +75,7 @@ api.transfer(fromUuid, toUuid, "dollar", 25.0);
 
 You can supply your own storage backend by implementing the `StorageProvider` interface. This allows you to use custom databases or data sources for all economy, bank, and currency operations.
 
-### Example: Registering a Custom Provider
-
-```java
-import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
-import com.skyblockexp.ezeconomy.EzEconomy;
-
-StorageProvider customProvider = new YourProvider(...);
-EzEconomy.registerStorageProvider(customProvider);
-```
-
-**Guidelines:**
-- Register your provider **before** EzEconomy finishes loading (typically in plugin `onLoad`).
-- Only one custom provider can be registered at a time.
-- Your provider must implement all methods for balances, banks, and currency operations.
-
-See the `StorageProvider` interface for required methods and legacy overloads for single-currency compatibility.
+See [api/storage-provider.md](api/storage-provider.md) for a full implementation guide, best practices, and example code.
 
 ---
 
@@ -108,6 +92,27 @@ You can check the API version at runtime:
 ```java
 String version = EzEconomyAPI.VERSION; // e.g., "2.0.0"
 ```
+
+---
+
+## /ezeconomy Command
+
+The `/ezeconomy` admin command provides advanced server management utilities. It supports professional tab completion for all subcommands and database actions.
+
+**Subcommands:**
+- `cleanup`: Remove orphaned player data from all storage types
+- `daily reset`: Reset all daily rewards for all players
+- `reload`: Reload the plugin configuration
+- `reload messages`: Reload only the message file
+- `database info`: Show current database connection info
+- `database test`: Test the database connection
+- `database reset`: Reset all database tables (DANGEROUS)
+
+**Tab Completion:**
+- Context-aware suggestions for all subcommands and database actions
+- Permission-sensitive (only shows what the user can access)
+
+See [commands.md](commands.md) for usage details.
 
 ---
 
