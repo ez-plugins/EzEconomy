@@ -97,6 +97,17 @@ public class MessageProvider {
         return resolved;
     }
 
+    private String replaceAnglePlaceholders(String message, Map<String, String> placeholders) {
+        if (placeholders == null || placeholders.isEmpty() || message == null) {
+            return message;
+        }
+        String resolved = message;
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            resolved = resolved.replace("<" + entry.getKey() + ">", entry.getValue());
+        }
+        return resolved;
+    }
+
     private boolean containsLegacyFormatting(String message) {
         if (message == null) {
             return false;

@@ -22,6 +22,7 @@ public class BaltopCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        MessageProvider messages = plugin.getMessageProvider();
         int top = DEFAULT_TOP;
         boolean usePaging = false;
         int page = 1;
@@ -46,7 +47,6 @@ public class BaltopCommand implements CommandExecutor {
         List<Map.Entry<UUID, Double>> sorted = balances.entrySet().stream()
                 .sorted(Map.Entry.<UUID, Double>comparingByValue().reversed())
                 .collect(Collectors.toList());
-        MessageProvider messages = plugin.getMessageProvider();
         if (usePaging) {
             int totalEntries = sorted.size();
             int totalPages = (int) Math.ceil(totalEntries / (double) PAGE_SIZE);
