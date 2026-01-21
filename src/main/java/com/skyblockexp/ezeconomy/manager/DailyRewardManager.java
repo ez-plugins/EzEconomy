@@ -127,15 +127,10 @@ public class DailyRewardManager {
     }
 
     private void sendMessage(Player player, double amount, String currency) {
-        String message = plugin.getConfig().getString("daily-reward.message", "");
-        if (message == null || message.isEmpty()) {
-            return;
-        }
+        String messageKey = plugin.getConfig().getString("daily-reward.message-key", "daily_reward_success");
         String formattedAmount = plugin.getEconomy().format(amount);
         String displayCurrency = resolveCurrencyDisplay(currency);
-        String resolved = message.replace("%amount%", formattedAmount)
-                .replace("%currency%", displayCurrency);
-        player.sendMessage(plugin.getMessageProvider().color(resolved));
+        player.sendMessage(plugin.getMessageProvider().get(messageKey, Map.of("amount", formattedAmount, "currency", displayCurrency)));
     }
 
     private void playSound(Player player) {

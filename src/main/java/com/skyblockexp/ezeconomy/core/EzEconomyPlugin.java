@@ -1,7 +1,5 @@
 package com.skyblockexp.ezeconomy.core;
 
-
-
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.ServicePriority;
@@ -37,13 +35,6 @@ public class EzEconomyPlugin extends JavaPlugin {
     private EzEconomyMetrics metrics;
     private BankInterestManager bankInterestManager;
     private DailyRewardManager dailyRewardManager;
-
-    /**
-     * Returns the CurrencyManager instance.
-     */
-    public com.skyblockexp.ezeconomy.manager.CurrencyManager getCurrencyManager() {
-        return currencyManager;
-    }
 
     public void createPlayerData(java.util.UUID uuid) {
         balances.putIfAbsent(uuid, 0.0);
@@ -218,6 +209,12 @@ public class EzEconomyPlugin extends JavaPlugin {
         return messageProvider;
     }
 
+    public void loadMessageProvider() {
+        java.io.File messagesFile = new java.io.File(getDataFolder(), "messages.yml");
+        this.messagesConfig = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(messagesFile);
+        this.messageProvider = new MessageProvider(messagesConfig);
+    }
+
     public VaultEconomyImpl getVaultEconomy() {
         return vaultEconomy;
     }
@@ -231,6 +228,13 @@ public class EzEconomyPlugin extends JavaPlugin {
      */
     public String getDefaultCurrency() {
         return currencyManager.getDefaultCurrency();
+    }
+
+    /**
+     * Returns the CurrencyManager instance.
+     */
+    public com.skyblockexp.ezeconomy.manager.CurrencyManager getCurrencyManager() {
+        return currencyManager;
     }
 
     /**
