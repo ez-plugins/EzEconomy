@@ -1,0 +1,196 @@
+[CENTER][B][COLOR=#0099ff][IMG]https://www.spigotmc.org/data/resource_icons/130/130975.jpg[/IMG][/COLOR][/B]
+[COLOR=#666666][B]EzEconomy[/B] a professional-grade Vault economy provider for Minecraft servers. Choose from YML, MySQL, SQLite, MongoDB, or custom storage with multi-currency support, async caching, and thorough permission controls.[/COLOR][/CENTER]
+
+Found an issue or have a question? Please contact me through [URL='https://discord.gg/yWP95XfmBS']the EzPlugins Discord server[/URL].
+
+[B][COLOR=#0099ff]★ Key Features[/COLOR][/B]
+[SIZE=3]EzEconomy is designed for performance, reliability, and operational clarity. Highlights include:[/SIZE]
+[LIST]
+[*][B][COLOR=#00cc66]Vault API compatible[/COLOR][/B]: Works with any Vault-based plugin
+[*][B][COLOR=#00cc66]Number shortcuts[/COLOR][/B]: Support for by example usage of [icode]5k[/icode], [icode]7m[/icode] and [icode]10b[/icode] ([COLOR=#ff0000]new[/COLOR])
+[*][B][COLOR=#00cc66]Balance GUI[/COLOR][/B]: Advanced balance GUI ([COLOR=#ff0000]new[/COLOR])
+[*][B][COLOR=#00cc66]YML, MySQL, SQLite, MongoDB, or custom storage[/COLOR][/B]: Flexible, production-ready storage options
+[*][B][COLOR=#00cc66]Thread-safe[/COLOR][/B]: Robust error handling and concurrency controls
+[*][B][COLOR=#00cc66]Multi-currency support[/COLOR][/B]: Optional, per-player, fully configurable
+[*][B][COLOR=#00cc66]Async caching[/COLOR][/B]: Optimized for large servers
+[*][B][COLOR=#00cc66]Comprehensive commands[/COLOR][/B]: /balance, /eco, /baltop, /bank, /pay, /currency
+[*][B][COLOR=#00cc66]Granular permissions[/COLOR][/B]: Per-command and per-bank action
+[*][B][COLOR=#00cc66]Daily rewards[/COLOR][/B]: Optional, configurable daily rewards with configurable cooldown period
+[/LIST]
+
+[B][COLOR=#0099ff]Plugins that are tested with EzEconomy[/COLOR][/B]
+
+[LIST]
+[*][URL='https://www.spigotmc.org/resources/1-7-1-21-%E2%AD%90-ezauction-%E2%AD%90-buy-orders-advanced-gui-show-shop-price.129779/']EzAuction[/URL]
+[*][URL='https://www.spigotmc.org/resources/1-7-1-21-ezboost-powerful-speed-performance-boosts-for-players.131030/']EzBoost[/URL]
+[*][URL='https://www.spigotmc.org/resources/1-7-1-21-%E2%9A%A0%EF%B8%8F-ezshops-%E2%9A%A0%EF%B8%8F-dynamic-shops-gui-player-shops-sell-hand-inv.129780/']EzShops[/URL]
+[*][URL='https://www.spigotmc.org/resources/1-7-1-21-%E2%AC%85%EF%B8%8F-ezrtp-%E2%9E%A1%EF%B8%8F-gui-multi-world-queue-economy.129828/']EzRTP[/URL]
+[*][URL='https://www.spigotmc.org/resources/1-7-1-21-eztax-%E2%9A%96%EF%B8%8F-inflation-control-tax-system-for-minecraft-servers-vault-compatible.131133/']EzTax[/URL]
+[/LIST]
+Missing your plugin here? [URL='https://discord.gg/yWP95XfmBS']Message me through my Discord server[/URL]
+
+
+[B][COLOR=#0099ff]⚡ Commands[/COLOR][/B]
+[LIST]
+[*][B]/balance[/B]: View your balance
+[*][B]/balance <player>[/B]: View another player's balance (ezeconomy.balance.others)
+[*][B]/eco <give|take|set> <player> <amount>[/B]: Administrative balance controls (ezeconomy.eco)
+[*][B]/eco gui[/B]: Show balance GUI
+[*][B]/baltop [amount][/B]: Show top balances
+[*][B]/bank <create|delete|balance|deposit|withdraw|addmember|removemember|info> ...[/B]: Bank management (ezeconomy.bank.*)
+[*][B]/pay <player> <amount>[/B]: Send funds to another player (ezeconomy.pay)
+[*][B]/currency [currency][/B]: Set or view your preferred currency (ezeconomy.currency)
+[*][B]/ezeconomy cleanup[/B]: Remove orphaned player data (ezeconomy.admin)
+[*][B]/ezeconomy daily reset[/B]: Reset all daily rewards (ezeconomy.admin)
+[*][B]/ezeconomy reload[/B]: Reload plugin configuration (ezeconomy.admin)
+[*][B]/ezeconomy reload messages[/B]: Reload only the message file (ezeconomy.admin)
+[*][B]/ezeconomy database info[/B]: Show database connection info (ezeconomy.admin)
+[*][B]/ezeconomy database test[/B]: Test the database connection (ezeconomy.admin)
+[*][B]/ezeconomy database reset[/B]: Reset all database tables (DANGEROUS) (ezeconomy.admin)
+[*][B]/tax [reset][/B]: View or reset tax statistics (ezeconomy.tax.admin)
+[/LIST]
+
+[B][COLOR=#0099ff] Permissions[/COLOR][/B]
+[LIST]
+[*]ezeconomy.balance.others: View other players' balances
+[*]ezeconomy.eco: Use /eco admin command
+[*]ezeconomy.pay: Use /pay command
+[*]ezeconomy.currency: Use /currency command
+[*]ezeconomy.admin: Use /ezeconomy admin commands (cleanup, reload, database, daily reset)
+[*]ezeconomy.tax.exempt: Exempt from all economy taxes (admin/trusted players)
+[*]ezeconomy.tax.admin: Use /tax and /tax reset commands (view/reset tax totals)
+[*][B]Bank Permissions[/B]:
+ 
+[LIST]
+[*]ezeconomy.bank.create: Create a new bank
+[*]ezeconomy.bank.delete: Delete a bank
+[*]ezeconomy.bank.balance: View bank balance
+[*]ezeconomy.bank.deposit: Deposit to a bank
+[*]ezeconomy.bank.withdraw: Withdraw from a bank
+[*]ezeconomy.bank.addmember: Add a member to a bank
+[*]ezeconomy.bank.removemember: Remove a member from a bank
+[*]ezeconomy.bank.info: View bank info
+[*]ezeconomy.bank.admin: All bank admin actions
+[/LIST]
+[/LIST]
+
+[B][COLOR=#0099ff] Security Notes for Server Owners[/COLOR][/B]
+[LIST]
+[*][B]Limit admin permissions[/B]: Only grant [icode]ezeconomy.eco[/icode], [icode]ezeconomy.tax.admin[/icode], and [icode]ezeconomy.bank.admin[/icode] to trusted staff.
+[*][B]Use a permissions plugin[/B]: Manage access with groups/roles so players cannot self-assign economy powers.
+[*][B]Lock down database access[/B]: Use a dedicated database user with minimal privileges and keep credentials private.
+[*][B]Back up economy data[/B]: Schedule regular backups of your storage files or database to recover from mistakes or exploits.
+[*][B]Review bank permissions[/B]: Consider limiting bank creation/withdraw permissions to prevent abuse on public servers.
+[/LIST]
+
+[B][COLOR=#0099ff]️ Dupe Prevention Safeguards[/COLOR][/B]
+[LIST]
+[*][B]Thread-safe balance updates[/B]: Economy operations are designed to avoid race conditions during concurrent deposits, withdrawals, and transfers.
+[*][B]Server-side validation[/B]: Commands and transactions validate amounts to prevent invalid or malformed requests.
+[*][B]Storage integrity[/B]: Backends use consistent write patterns to reduce the risk of partial or conflicting balance writes.
+[/LIST]
+
+[B][COLOR=#0099ff]⚙️ Configuration Example[/COLOR][/B]
+[LIST]
+[*][B]config.yml[/B] (Only global settings):
+[code]
+storage: yml
+multi-currency:
+  enabled: false
+  default: "dollar"
+  currencies:
+    dollar:
+      display: "Dollar"
+      symbol: "$"
+      decimals: 2
+    euro:
+      display: "Euro"
+      symbol: "€"
+      decimals: 2
+    gem:
+      display: "Gem"
+      symbol: "♦"
+      decimals: 0
+  conversion:
+    dollar:
+      euro: 0.95
+      gem: 0.01
+    euro:
+      dollar: 1.05
+      gem: 0.012
+    gem:
+      dollar: 100
+      euro: 80
+[/code]
+[*][B]config-yml.yml[/B] (YML storage settings):
+[code]
+yml:
+  file: balances.yml
+  per-player-file-naming: uuid
+  data-folder: data
+[/code]
+[*][B]config-mysql.yml[/B] (MySQL storage settings):
+[code]
+mysql:
+  host: localhost
+  port: 3306
+  database: ezeconomy
+  username: root
+  password: password
+  table: balances
+[/code]
+[*][B]config-sqlite.yml[/B] (SQLite storage settings):
+[code]
+sqlite:
+  file: ezeconomy.db
+  table: balances
+  banksTable: banks
+[/code]
+[*][B]config-mongodb.yml[/B] (MongoDB storage settings):
+[code]
+mongodb:
+  uri: mongodb://localhost:27017
+  database: ezeconomy
+  collection: balances
+  banksCollection: banks
+[/code]
+[/LIST]
+
+[B][COLOR=#0099ff]⬇️ Installation[/COLOR][/B]
+[LIST]
+[*]Place EzEconomy.jar in your plugins folder
+[*]Configure config.yml and the appropriate config-*.yml file for your storage type
+[*]Restart your server
+[/LIST]
+
+[B][COLOR=#0099ff] Integration[/COLOR][/B]
+[LIST]
+[*]EzEconomy automatically registers as a Vault provider
+[*]No extra setup required for Vault-compatible plugins
+[*][B]PlaceholderAPI support[/B]:
+ 
+[LIST]
+[*]Use placeholders in chat, scoreboard, and other plugins:
+    [code]%ezeconomy_balance%[/code] – Your balance
+    [code]%ezeconomy_balance_<currency>%[/code] – Your balance in a specific currency (e.g., %ezeconomy_balance_euro%)
+    [code]%ezeconomy_bank_<bank>%[/code] – Balance of a specific bank
+    [code]%ezeconomy_top_1%[/code] – Top 1 player balance (replace 1 with rank)
+    [code]%ezeconomy_currency%[/code] – Your preferred currency
+ 
+[*]Works with all PlaceholderAPI-compatible plugins
+ 
+[/LIST]
+[/LIST]
+
+[B][COLOR=#0099ff]️ Developer: Custom Storage Providers[/COLOR][/B]
+EzEconomy supports custom storage backends (YML, MySQL, SQLite, MongoDB, or your own). You can implement your own provider for any database or storage system.
+
+[B]How to add a custom provider:[/B]
+[LIST]
+[*]Implement the [icode]StorageProvider[/icode] interface in your plugin or module.
+[*]Register your provider before EzEconomy loads:
+[code]EzEconomy.registerStorageProvider(new YourProvider(...));[/code]
+[*]Only one provider can be registered. If set, EzEconomy will use it instead of YML/MySQL.
+[*]See the JavaDoc in [icode]StorageProvider.java[/icode] for required methods.
+[/LIST]
+[CENTER][URL='https://www.spigotmc.org/resources/authors/shadow48402.25936/'][IMG]https://i.ibb.co/PzfjNjh0/ezplugins-try-other-plugins.png[/IMG][/URL][/CENTER]
