@@ -38,11 +38,9 @@ public class PayCommand implements CommandExecutor {
         }
         Player from = (Player) sender;
         OfflinePlayer to = Bukkit.getOfflinePlayer(args[0]);
-        if (to == null || !to.hasPlayedBefore()) {
-            sender.sendMessage(messages.color(messages.get("player_not_found")));
-            return true;
-        }
         double amount = NumberUtil.parseAmount(args[1]);
+
+        // Validate amount first
         if (Double.isNaN(amount)) {
             sender.sendMessage(messages.color(messages.get("invalid_amount")));
             return true;
@@ -51,8 +49,16 @@ public class PayCommand implements CommandExecutor {
             sender.sendMessage(messages.color(messages.get("must_be_positive")));
             return true;
         }
+
+        // Validate not paying self
         if (from.getUniqueId().equals(to.getUniqueId())) {
             sender.sendMessage(messages.color(messages.get("cannot_pay_self")));
+            return true;
+        }
+
+        // Validate recipient exists
+        if (to == null || (!to.isOnline() && !to.hasPlayedBefore())) {
+            sender.sendMessage(messages.color(messages.get("player_not_found")));
             return true;
         }
 
@@ -66,6 +72,8 @@ public class PayCommand implements CommandExecutor {
             sender.sendMessage(messages.color(messages.get("not_enough_money")));
             return true;
         }
+
+        // Only send success if both checks above pass and transfer is successful
         sender.sendMessage(messages.color(messages.get("paid", java.util.Map.of(
             "player", to.getName(),
             "amount", plugin.getEconomy().format(netAmount)
