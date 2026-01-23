@@ -10,7 +10,7 @@
 
 ---
 
-## ★ Key Features
+## ★ Our key economy features
 
 EzEconomy is built for performance, flexibility, and ease of use. Highlights include:
 
@@ -41,7 +41,7 @@ EzEconomy is built for performance, flexibility, and ease of use. Highlights inc
 - **/ezeconomy database info**: Show database connection info (`ezeconomy.admin`)
 - **/ezeconomy database test**: Test the database connection (`ezeconomy.admin`)
 - **/ezeconomy database reset**: Reset all database tables (DANGEROUS) (`ezeconomy.admin`)
-- **/tax [reset]**: View or reset tax statistics (`ezeconomy.tax.admin`)
+- **/tax**: Removed — tax functionality moved to EzTax (https://modrinth.com/plugin/eztax)
 
 ---
 
@@ -52,8 +52,7 @@ EzEconomy is built for performance, flexibility, and ease of use. Highlights inc
 - `ezeconomy.pay`: Use /pay command
 - `ezeconomy.currency`: Use /currency command
 - `ezeconomy.admin`: Use /ezeconomy admin commands (cleanup, reload, database, daily reset)
-- `ezeconomy.tax.exempt`: Exempt from all economy taxes (admin/trusted players)
-- `ezeconomy.tax.admin`: Use /tax and /tax reset commands (view/reset tax totals)
+ 
 - **Bank Permissions**:
   - `ezeconomy.bank.create`: Create a new bank
   - `ezeconomy.bank.delete`: Delete a bank
@@ -84,21 +83,7 @@ multi-currency:
       display: "Euro"
       symbol: "€"
       decimals: 2
-  tax:
-    transaction:
-      enabled: true
-      rate: 0.05 # 5% tax on /pay, bank deposit/withdraw
-      exempt-permission: ezeconomy.tax.exempt
-    interest:
-      enabled: true
-      rate: 0.10 # 10% tax on bank interest
-    exchange:
-      enabled: true
-      rate: 0.02 # 2% tax on currency conversion
-    gem:
-      display: "Gem"
-      symbol: "♦"
-      decimals: 0
+  # Tax configuration has been removed from EzEconomy and moved to EzTax.
   conversion:
     dollar:
       euro: 0.95
