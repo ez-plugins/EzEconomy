@@ -47,7 +47,7 @@ Missing your plugin here? [URL='https://discord.gg/yWP95XfmBS']Message me throug
 [*][B]/ezeconomy database info[/B]: Show database connection info (ezeconomy.admin)
 [*][B]/ezeconomy database test[/B]: Test the database connection (ezeconomy.admin)
 [*][B]/ezeconomy database reset[/B]: Reset all database tables (DANGEROUS) (ezeconomy.admin)
-[*][B]/tax [reset][/B]: View or reset tax statistics (ezeconomy.tax.admin)
+[*][B]/tax[/B]: Removed — tax functionality moved to EzTax (https://modrinth.com/plugin/eztax)
 [/LIST]
 
 [B][COLOR=#0099ff] Permissions[/COLOR][/B]
@@ -57,8 +57,7 @@ Missing your plugin here? [URL='https://discord.gg/yWP95XfmBS']Message me throug
 [*]ezeconomy.pay: Use /pay command
 [*]ezeconomy.currency: Use /currency command
 [*]ezeconomy.admin: Use /ezeconomy admin commands (cleanup, reload, database, daily reset)
-[*]ezeconomy.tax.exempt: Exempt from all economy taxes (admin/trusted players)
-[*]ezeconomy.tax.admin: Use /tax and /tax reset commands (view/reset tax totals)
+[*]Note: Tax permissions and configuration have been removed from EzEconomy and moved to EzTax (https://modrinth.com/plugin/eztax)
 [*][B]Bank Permissions[/B]:
  
 [LIST]
@@ -76,7 +75,7 @@ Missing your plugin here? [URL='https://discord.gg/yWP95XfmBS']Message me throug
 
 [B][COLOR=#0099ff] Security Notes for Server Owners[/COLOR][/B]
 [LIST]
-[*][B]Limit admin permissions[/B]: Only grant [icode]ezeconomy.eco[/icode], [icode]ezeconomy.tax.admin[/icode], and [icode]ezeconomy.bank.admin[/icode] to trusted staff.
+[*][B]Limit admin permissions[/B]: Only grant [icode]ezeconomy.eco[/icode] and [icode]ezeconomy.bank.admin[/icode] to trusted staff. Tax management is handled by EzTax.
 [*][B]Use a permissions plugin[/B]: Manage access with groups/roles so players cannot self-assign economy powers.
 [*][B]Lock down database access[/B]: Use a dedicated database user with minimal privileges and keep credentials private.
 [*][B]Back up economy data[/B]: Schedule regular backups of your storage files or database to recover from mistakes or exploits.
