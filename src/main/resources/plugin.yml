@@ -11,6 +11,7 @@ commands:
   balance:
     description: Check your balance or another player's balance
     usage: /balance [player]
+    aliases: [bal]
   eco:
     description: Admin economy control (give, take, set)
     usage: /eco <give|take|set> <player> <amount>
