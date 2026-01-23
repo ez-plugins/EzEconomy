@@ -217,6 +217,43 @@ public class YMLStorageProvider implements StorageProvider {
         }
     }
 
+    @Override
+    public com.skyblockexp.ezeconomy.storage.TransferResult transfer(UUID fromUuid, UUID toUuid, String currency, double debitAmount, double creditAmount) {
+        double fromBefore = getBalance(fromUuid, currency);
+        double toBefore = getBalance(toUuid, currency);
+
+        com.skyblockexp.ezeconomy.api.events.PreTransactionEvent pre = new com.skyblockexp.ezeconomy.api.events.PreTransactionEvent(fromUuid, toUuid, java.math.BigDecimal.valueOf(debitAmount), com.skyblockexp.ezeconomy.api.events.TransactionType.TRANSFER);
+        try {
+            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                plugin.getServer().getPluginManager().callEvent(pre);
+                return null;
+            }).get();
+        } catch (Exception e) {
+            System.err.println("[EzEconomy] Failed to fire PreTransactionEvent: " + e.getMessage());
+        }
+        if (pre.isCancelled()) {
+            return com.skyblockexp.ezeconomy.storage.TransferResult.failure(fromBefore, toBefore);
+        }
+
+        com.skyblockexp.ezeconomy.storage.TransferResult result = StorageProvider.super.transfer(fromUuid, toUuid, currency, debitAmount, creditAmount);
+
+        com.skyblockexp.ezeconomy.api.events.PostTransactionEvent post = new com.skyblockexp.ezeconomy.api.events.PostTransactionEvent(
+            fromUuid, toUuid, java.math.BigDecimal.valueOf(debitAmount), com.skyblockexp.ezeconomy.api.events.TransactionType.TRANSFER,
+            result.isSuccess(), java.math.BigDecimal.valueOf(fromBefore), java.math.BigDecimal.valueOf(result.getFromBalance()),
+            java.math.BigDecimal.valueOf(toBefore), java.math.BigDecimal.valueOf(result.getToBalance())
+        );
+        try {
+            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                plugin.getServer().getPluginManager().callEvent(post);
+                return null;
+            }).get();
+        } catch (Exception e) {
+            System.err.println("[EzEconomy] Failed to fire PostTransactionEvent: " + e.getMessage());
+        }
+
+        return result;
+    }
+
     // --- Bank support: all data in owner's YML file ---
     // Helper: find the owner file for a bank (by scanning all YMLs)
     private File findBankOwnerFile(String bankName) {

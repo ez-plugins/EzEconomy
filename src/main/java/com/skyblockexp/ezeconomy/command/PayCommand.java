@@ -7,6 +7,8 @@ import com.skyblockexp.ezeconomy.util.NumberUtil;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.storage.TransferResult;
+import com.skyblockexp.ezeconomy.api.events.PlayerPayPlayerEvent;
+import java.math.BigDecimal;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
@@ -67,6 +69,20 @@ public class PayCommand implements CommandExecutor {
         if (storage == null) {
             return true;
         }
+
+        // Fire a cancellable pay event so other plugins can intercept
+        PlayerPayPlayerEvent payEvent = new PlayerPayPlayerEvent(from.getUniqueId(), to.getUniqueId(), BigDecimal.valueOf(amount));
+        Bukkit.getPluginManager().callEvent(payEvent);
+        if (payEvent.isCancelled()) {
+            String reason = payEvent.getCancelReason();
+            if (reason != null && !reason.isEmpty()) {
+                sender.sendMessage(reason);
+            } else {
+                sender.sendMessage(messages.color("&cPayment cancelled."));
+            }
+            return true;
+        }
+
         TransferResult transfer = storage.transfer(from.getUniqueId(), to.getUniqueId(), plugin.getDefaultCurrency(), amount, netAmount);
         if (!transfer.isSuccess()) {
             sender.sendMessage(messages.color(messages.get("not_enough_money")));
