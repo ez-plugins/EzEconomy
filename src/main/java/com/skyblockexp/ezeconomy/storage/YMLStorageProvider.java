@@ -13,6 +13,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.math.BigDecimal;
+import com.skyblockexp.ezeconomy.api.events.BankPreTransactionEvent;
+import com.skyblockexp.ezeconomy.api.events.BankPostTransactionEvent;
+import com.skyblockexp.ezeconomy.api.events.TransactionType;
 
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
@@ -345,9 +349,31 @@ public class YMLStorageProvider implements StorageProvider {
             YamlConfiguration pdata = loadBankData(name);
             if (pdata == null) return false;
             double balance = pdata.getDouble("banks." + name + ".balances." + currency, 0.0);
+
+            BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW);
+            try {
+                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                    plugin.getServer().getPluginManager().callEvent(pre);
+                    return null;
+                }).get();
+            } catch (Exception e) {
+                System.err.println("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+            }
+            if (pre.isCancelled()) return false;
+
             if (balance < amount) return false;
             pdata.set("banks." + name + ".balances." + currency, balance - amount);
             saveBankData(name, pdata);
+
+            BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(balance), BigDecimal.valueOf(balance - amount));
+            try {
+                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                    plugin.getServer().getPluginManager().callEvent(post);
+                    return null;
+                }).get();
+            } catch (Exception e) {
+                System.err.println("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+            }
             return true;
         }
     }
@@ -358,8 +384,30 @@ public class YMLStorageProvider implements StorageProvider {
             YamlConfiguration pdata = loadBankData(name);
             if (pdata == null) return;
             double balance = pdata.getDouble("banks." + name + ".balances." + currency, 0.0);
+
+            BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT);
+            try {
+                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                    plugin.getServer().getPluginManager().callEvent(pre);
+                    return null;
+                }).get();
+            } catch (Exception e) {
+                System.err.println("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+            }
+            if (pre.isCancelled()) return;
+
             pdata.set("banks." + name + ".balances." + currency, balance + amount);
             saveBankData(name, pdata);
+
+            BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(balance), BigDecimal.valueOf(balance + amount));
+            try {
+                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                    plugin.getServer().getPluginManager().callEvent(post);
+                    return null;
+                }).get();
+            } catch (Exception e) {
+                System.err.println("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+            }
         }
     }
 
