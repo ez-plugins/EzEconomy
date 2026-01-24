@@ -351,13 +351,17 @@ public class YMLStorageProvider implements StorageProvider {
             double balance = pdata.getDouble("banks." + name + ".balances." + currency, 0.0);
 
             BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW);
-            try {
-                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                    plugin.getServer().getPluginManager().callEvent(pre);
-                    return null;
-                }).get();
-            } catch (Exception e) {
-                System.err.println("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+            if (plugin.getServer().isPrimaryThread()) {
+                plugin.getServer().getPluginManager().callEvent(pre);
+            } else {
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(pre);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    System.err.println("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+                }
             }
             if (pre.isCancelled()) return false;
 
@@ -366,13 +370,17 @@ public class YMLStorageProvider implements StorageProvider {
             saveBankData(name, pdata);
 
             BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(balance), BigDecimal.valueOf(balance - amount));
-            try {
-                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                    plugin.getServer().getPluginManager().callEvent(post);
-                    return null;
-                }).get();
-            } catch (Exception e) {
-                System.err.println("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+            if (plugin.getServer().isPrimaryThread()) {
+                plugin.getServer().getPluginManager().callEvent(post);
+            } else {
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(post);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    System.err.println("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+                }
             }
             return true;
         }
@@ -386,13 +394,17 @@ public class YMLStorageProvider implements StorageProvider {
             double balance = pdata.getDouble("banks." + name + ".balances." + currency, 0.0);
 
             BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT);
-            try {
-                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                    plugin.getServer().getPluginManager().callEvent(pre);
-                    return null;
-                }).get();
-            } catch (Exception e) {
-                System.err.println("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+            if (plugin.getServer().isPrimaryThread()) {
+                plugin.getServer().getPluginManager().callEvent(pre);
+            } else {
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(pre);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    System.err.println("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+                }
             }
             if (pre.isCancelled()) return;
 
@@ -400,13 +412,17 @@ public class YMLStorageProvider implements StorageProvider {
             saveBankData(name, pdata);
 
             BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(balance), BigDecimal.valueOf(balance + amount));
-            try {
-                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                    plugin.getServer().getPluginManager().callEvent(post);
-                    return null;
-                }).get();
-            } catch (Exception e) {
-                System.err.println("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+            if (plugin.getServer().isPrimaryThread()) {
+                plugin.getServer().getPluginManager().callEvent(post);
+            } else {
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(post);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    System.err.println("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+                }
             }
         }
     }

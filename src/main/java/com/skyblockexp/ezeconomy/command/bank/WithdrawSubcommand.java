@@ -27,7 +27,7 @@ public class WithdrawSubcommand implements Subcommand {
             return true;
         }
         if (args.length < 2) {
-            sender.sendMessage(messages.color(messages.get("usage_bank")));
+            sender.sendMessage(messages.color(messages.get("usage_bank_withdraw")));
             return true;
         }
         String currency = args.length >= 3 ? args[2] : "dollar";
@@ -45,7 +45,7 @@ public class WithdrawSubcommand implements Subcommand {
         placeholders.put("name", String.valueOf(args[0]));
         placeholders.put("amount", String.valueOf(formattedAmount));
         placeholders.put("currency", String.valueOf(currency));
-        sender.sendMessage(messages.color(messages.get("bank_withdraw_success", placeholders)));
+        sender.sendMessage(messages.color(messages.get("withdrew", placeholders)));
         return true;
     }
 

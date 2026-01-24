@@ -8,6 +8,8 @@ messages:
     usage_daily_reset: "&eUsage: /ezeconomy daily reset <player>"
     usage_pay: "&eUsage: /pay <player> <amount>"
     usage_bank: "&eUsage: /bank <create|delete|balance|deposit|withdraw|addmember|removemember|info> ..."
+    usage_bank_deposit: "&eUsage: /bank deposit <name> <amount> [currency]"
+    usage_bank_withdraw: "&eUsage: /bank withdraw <name> <amount> [currency]"
     invalid_amount: "&cInvalid amount."
     not_enough_money: "&cYou do not have enough money."
     paid: "&aYou paid {player} {amount}."
