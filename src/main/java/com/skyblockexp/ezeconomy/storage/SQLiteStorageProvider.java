@@ -19,6 +19,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
+import java.math.BigDecimal;
+import com.skyblockexp.ezeconomy.api.events.BankPreTransactionEvent;
+import com.skyblockexp.ezeconomy.api.events.BankPostTransactionEvent;
+import com.skyblockexp.ezeconomy.api.events.TransactionType;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 /**
@@ -257,6 +261,45 @@ public class SQLiteStorageProvider implements StorageProvider {
     }
 
     @Override
+    public com.skyblockexp.ezeconomy.storage.TransferResult transfer(UUID fromUuid, UUID toUuid, String currency, double debitAmount, double creditAmount) {
+        double fromBefore = getBalance(fromUuid, currency);
+        double toBefore = getBalance(toUuid, currency);
+
+        com.skyblockexp.ezeconomy.api.events.PreTransactionEvent pre = new com.skyblockexp.ezeconomy.api.events.PreTransactionEvent(fromUuid, toUuid, java.math.BigDecimal.valueOf(debitAmount), com.skyblockexp.ezeconomy.api.events.TransactionType.TRANSFER);
+        try {
+            // Fire synchronously on main thread and wait for result
+            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                plugin.getServer().getPluginManager().callEvent(pre);
+                return null;
+            }).get();
+        } catch (Exception e) {
+            plugin.getLogger().warning("[EzEconomy] Failed to fire PreTransactionEvent: " + e.getMessage());
+        }
+        if (pre.isCancelled()) {
+            return com.skyblockexp.ezeconomy.storage.TransferResult.failure(fromBefore, toBefore);
+        }
+
+        // Perform the actual transfer using the default implementation
+        com.skyblockexp.ezeconomy.storage.TransferResult result = StorageProvider.super.transfer(fromUuid, toUuid, currency, debitAmount, creditAmount);
+
+        com.skyblockexp.ezeconomy.api.events.PostTransactionEvent post = new com.skyblockexp.ezeconomy.api.events.PostTransactionEvent(
+            fromUuid, toUuid, java.math.BigDecimal.valueOf(debitAmount), com.skyblockexp.ezeconomy.api.events.TransactionType.TRANSFER,
+            result.isSuccess(), java.math.BigDecimal.valueOf(fromBefore), java.math.BigDecimal.valueOf(result.getFromBalance()),
+            java.math.BigDecimal.valueOf(toBefore), java.math.BigDecimal.valueOf(result.getToBalance())
+        );
+        try {
+            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                plugin.getServer().getPluginManager().callEvent(post);
+                return null;
+            }).get();
+        } catch (Exception e) {
+            plugin.getLogger().warning("[EzEconomy] Failed to fire PostTransactionEvent: " + e.getMessage());
+        }
+
+        return result;
+    }
+
+    @Override
     public void shutdown() {
         try { if (connection != null) connection.close(); } catch (SQLException ignored) {}
     }
@@ -361,6 +404,22 @@ public class SQLiteStorageProvider implements StorageProvider {
                 }
                 Map<String, Double> balances = parseBalances(rs.getString(1));
                 double current = balances.getOrDefault(currency, 0.0);
+                BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW);
+                if (plugin.getServer().isPrimaryThread()) {
+                    plugin.getServer().getPluginManager().callEvent(pre);
+                } else {
+                    try {
+                        plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                            plugin.getServer().getPluginManager().callEvent(pre);
+                            return null;
+                        }).get();
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+                    }
+                }
+                if (pre.isCancelled()) {
+                    return false;
+                }
                 if (current < amount) {
                     return false;
                 }
@@ -370,6 +429,20 @@ public class SQLiteStorageProvider implements StorageProvider {
                 ps2.setString(1, newJson);
                 ps2.setString(2, name);
                 ps2.executeUpdate();
+                // Fire post event
+                BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount));
+                if (plugin.getServer().isPrimaryThread()) {
+                    plugin.getServer().getPluginManager().callEvent(post);
+                } else {
+                    try {
+                        plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                            plugin.getServer().getPluginManager().callEvent(post);
+                            return null;
+                        }).get();
+                    } catch (Exception e) {
+                        plugin.getLogger().warning("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+                    }
+                }
                 return true;
             } catch (SQLException e) {
                 plugin.getLogger().severe("[EzEconomy] SQLite tryWithdrawBank failed: " + e.getMessage());
@@ -389,12 +462,38 @@ public class SQLiteStorageProvider implements StorageProvider {
                     return;
                 }
                 Map<String, Double> balances = parseBalances(rs.getString(1));
-                balances.put(currency, balances.getOrDefault(currency, 0.0) + amount);
+                double before = balances.getOrDefault(currency, 0.0);
+
+                BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT);
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(pre);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    plugin.getLogger().warning("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+                }
+                if (pre.isCancelled()) {
+                    return;
+                }
+
+                balances.put(currency, before + amount);
                 String newJson = toJson(balances);
                 PreparedStatement ps2 = connection.prepareStatement("UPDATE '" + banksTable + "' SET balances=? WHERE name=?");
                 ps2.setString(1, newJson);
                 ps2.setString(2, name);
                 ps2.executeUpdate();
+
+                // Fire post event
+                BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(before), BigDecimal.valueOf(before + amount));
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(post);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    plugin.getLogger().warning("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+                }
             } catch (SQLException e) {
                 plugin.getLogger().severe("[EzEconomy] SQLite depositBank failed: " + e.getMessage());
             }

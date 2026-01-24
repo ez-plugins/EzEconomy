@@ -32,3 +32,5 @@ EzEconomy targets modern Paper/Spigot servers that support Vault. For best resul
 - **Configuration**: See storage-specific settings and multi-currency setup.
 - **Commands & Permissions**: Confirm staff and player access rules.
 - **Storage Details**: Understand backend behavior and data safety.
+
+- **Events**: EzEconomy now exposes pre/post transaction events for integrations and moderation. See `docs/api/event/PreTransactionEvent.md`, `docs/api/event/PostTransactionEvent.md`, `docs/api/event/PlayerPayPlayerEvent.md`, and `docs/api/event/TransactionType.md` for details and examples.

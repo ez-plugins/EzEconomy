@@ -13,6 +13,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.math.BigDecimal;
+import com.skyblockexp.ezeconomy.api.events.BankPreTransactionEvent;
+import com.skyblockexp.ezeconomy.api.events.BankPostTransactionEvent;
+import com.skyblockexp.ezeconomy.api.events.TransactionType;
 
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.api.storage.models.Transaction;
@@ -217,6 +221,43 @@ public class YMLStorageProvider implements StorageProvider {
         }
     }
 
+    @Override
+    public com.skyblockexp.ezeconomy.storage.TransferResult transfer(UUID fromUuid, UUID toUuid, String currency, double debitAmount, double creditAmount) {
+        double fromBefore = getBalance(fromUuid, currency);
+        double toBefore = getBalance(toUuid, currency);
+
+        com.skyblockexp.ezeconomy.api.events.PreTransactionEvent pre = new com.skyblockexp.ezeconomy.api.events.PreTransactionEvent(fromUuid, toUuid, java.math.BigDecimal.valueOf(debitAmount), com.skyblockexp.ezeconomy.api.events.TransactionType.TRANSFER);
+        try {
+            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                plugin.getServer().getPluginManager().callEvent(pre);
+                return null;
+            }).get();
+        } catch (Exception e) {
+            System.err.println("[EzEconomy] Failed to fire PreTransactionEvent: " + e.getMessage());
+        }
+        if (pre.isCancelled()) {
+            return com.skyblockexp.ezeconomy.storage.TransferResult.failure(fromBefore, toBefore);
+        }
+
+        com.skyblockexp.ezeconomy.storage.TransferResult result = StorageProvider.super.transfer(fromUuid, toUuid, currency, debitAmount, creditAmount);
+
+        com.skyblockexp.ezeconomy.api.events.PostTransactionEvent post = new com.skyblockexp.ezeconomy.api.events.PostTransactionEvent(
+            fromUuid, toUuid, java.math.BigDecimal.valueOf(debitAmount), com.skyblockexp.ezeconomy.api.events.TransactionType.TRANSFER,
+            result.isSuccess(), java.math.BigDecimal.valueOf(fromBefore), java.math.BigDecimal.valueOf(result.getFromBalance()),
+            java.math.BigDecimal.valueOf(toBefore), java.math.BigDecimal.valueOf(result.getToBalance())
+        );
+        try {
+            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                plugin.getServer().getPluginManager().callEvent(post);
+                return null;
+            }).get();
+        } catch (Exception e) {
+            System.err.println("[EzEconomy] Failed to fire PostTransactionEvent: " + e.getMessage());
+        }
+
+        return result;
+    }
+
     // --- Bank support: all data in owner's YML file ---
     // Helper: find the owner file for a bank (by scanning all YMLs)
     private File findBankOwnerFile(String bankName) {
@@ -308,9 +349,39 @@ public class YMLStorageProvider implements StorageProvider {
             YamlConfiguration pdata = loadBankData(name);
             if (pdata == null) return false;
             double balance = pdata.getDouble("banks." + name + ".balances." + currency, 0.0);
+
+            BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW);
+            if (plugin.getServer().isPrimaryThread()) {
+                plugin.getServer().getPluginManager().callEvent(pre);
+            } else {
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(pre);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    System.err.println("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+                }
+            }
+            if (pre.isCancelled()) return false;
+
             if (balance < amount) return false;
             pdata.set("banks." + name + ".balances." + currency, balance - amount);
             saveBankData(name, pdata);
+
+            BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(balance), BigDecimal.valueOf(balance - amount));
+            if (plugin.getServer().isPrimaryThread()) {
+                plugin.getServer().getPluginManager().callEvent(post);
+            } else {
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(post);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    System.err.println("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+                }
+            }
             return true;
         }
     }
@@ -321,8 +392,38 @@ public class YMLStorageProvider implements StorageProvider {
             YamlConfiguration pdata = loadBankData(name);
             if (pdata == null) return;
             double balance = pdata.getDouble("banks." + name + ".balances." + currency, 0.0);
+
+            BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT);
+            if (plugin.getServer().isPrimaryThread()) {
+                plugin.getServer().getPluginManager().callEvent(pre);
+            } else {
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(pre);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    System.err.println("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
+                }
+            }
+            if (pre.isCancelled()) return;
+
             pdata.set("banks." + name + ".balances." + currency, balance + amount);
             saveBankData(name, pdata);
+
+            BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(balance), BigDecimal.valueOf(balance + amount));
+            if (plugin.getServer().isPrimaryThread()) {
+                plugin.getServer().getPluginManager().callEvent(post);
+            } else {
+                try {
+                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                        plugin.getServer().getPluginManager().callEvent(post);
+                        return null;
+                    }).get();
+                } catch (Exception e) {
+                    System.err.println("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
+                }
+            }
         }
     }
 

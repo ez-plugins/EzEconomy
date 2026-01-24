@@ -84,6 +84,7 @@ multi-currency:
       symbol: "€"
       decimals: 2
   # Tax configuration has been removed from EzEconomy and moved to EzTax.
+  # EzTax on Modrinth: https://modrinth.com/plugin/eztax
   conversion:
     dollar:
       euro: 0.95
