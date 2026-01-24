@@ -128,3 +128,5 @@ See [commands.md](../commands.md) for usage details.
 	- [PostTransactionEvent](event/PostTransactionEvent.md)
 	- [PlayerPayPlayerEvent](event/PlayerPayPlayerEvent.md)
 	- [TransactionType (enum)](event/TransactionType.md)
+	- [BankPreTransactionEvent](event/BankPreTransactionEvent.md)
+	- [BankPostTransactionEvent](event/BankPostTransactionEvent.md)
