@@ -32,4 +32,4 @@ jobs:
             ${{ runner.os }}-m2-
 
       - name: Build and test Bukkit module
-        run: mvn -B -DskipTests=false -Dmockbukkit.artifactId=mockbukkit-v1.21 -Dmockbukkit.version=4.101.0 -pl ezeconomy-bukkit -am clean test package
+        run: mvn -B -DskipTests=false -pl ezeconomy-bukkit -am clean test package

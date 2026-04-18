@@ -31,7 +31,7 @@ jobs:
         run: docker --version
 
       - name: Build project and extension
-        run: mvn -B -V -Dmockbukkit.artifactId=mockbukkit-v1.21 -Dmockbukkit.version=4.101.0 package
+        run: mvn -B -V package
 
       - name: Install ezeconomy-redis into test plugins folder
         run: |
@@ -43,4 +43,4 @@ jobs:
           # Testcontainers will manage containers on the runner via Docker
           TESTCONTAINERS_RYUK_DISABLED: 'false'
           EZECONOMY_TEST_PLUGINS: test-plugins
-        run: mvn -B -V -DskipTests=false -Dmockbukkit.artifactId=mockbukkit-v1.21 -Dmockbukkit.version=4.101.0 test
+        run: mvn -B -V -DskipTests=false test

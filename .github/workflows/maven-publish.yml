@@ -26,7 +26,7 @@ jobs:
         settings-path: ${{ github.workspace }} # location for the settings.xml file
 
     - name: Build with Maven
-      run: mvn -B -Dmockbukkit.artifactId=mockbukkit-v1.21 -Dmockbukkit.version=4.101.0 package --file pom.xml
+      run: mvn -B package --file pom.xml
 
     - name: Check if package version already published
       id: check_package
