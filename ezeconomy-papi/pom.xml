@@ -5,17 +5,17 @@
     <parent>
         <groupId>com.github.ez-plugins</groupId>
         <artifactId>ezeconomy-parent</artifactId>
-        <version>2.5.1</version>
+        <version>3.0.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
+    
     <artifactId>ezeconomy-papi</artifactId>
     <version>1.0.3</version>
     <packaging>jar</packaging>
     <name>EzEconomy PlaceholderAPI Expansion</name>
     <properties>
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
-        <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
         <placeholderapi.version>2.12.2</placeholderapi.version>
     </properties>
     <dependencies>
@@ -26,9 +26,9 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.mockbukkit.mockbukkit</groupId>
-            <artifactId>mockbukkit-v1.21</artifactId>
-            <version>4.108.0</version>
+            <groupId>${mockbukkit.groupId}</groupId>
+            <artifactId>${mockbukkit.artifactId}</artifactId>
+            <version>${mockbukkit.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -40,7 +40,7 @@
         <dependency>
             <groupId>com.github.ez-plugins</groupId>
             <artifactId>ezeconomy-bukkit</artifactId>
-            <version>2.5.1</version>
+            <version>3.0.0</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
@@ -60,6 +60,14 @@
     </repositories>
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.5.5</version>
+                <configuration>
+                    <useModulePath>false</useModulePath>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

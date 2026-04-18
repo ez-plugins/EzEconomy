@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.github.ez-plugins</groupId>
         <artifactId>ezeconomy-parent</artifactId>
-        <version>2.5.1</version>
+        <version>3.0.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>ezeconomy-bungeecord-proxy</artifactId>
@@ -26,7 +26,7 @@
         <dependency>
             <groupId>net.md-5</groupId>
             <artifactId>bungeecord-api</artifactId>
-            <version>1.21-R0.4</version>
+            <version>26.1-R0.1-SNAPSHOT</version>
             <type>jar</type>
             <scope>provided</scope>
         </dependency>
@@ -66,7 +66,10 @@
     <repositories>
         <repository>
             <id>bungeecord-repo</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+            <url>https://repo.papermc.io/repository/maven-public/</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
         </repository>
     </repositories>
 </project>
