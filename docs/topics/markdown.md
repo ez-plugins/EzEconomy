@@ -41,7 +41,7 @@ EzEconomy is built for performance, flexibility, and ease of use. Highlights inc
 - **/ezeconomy database info**: Show database connection info (`ezeconomy.admin`)
 - **/ezeconomy database test**: Test the database connection (`ezeconomy.admin`)
 - **/ezeconomy database reset**: Reset all database tables (DANGEROUS) (`ezeconomy.admin`)
-- **/tax**: Removed — tax functionality moved to EzTax (https://modrinth.com/plugin/eztax)
+- **/tax**: Removed — tax functionality moved to EzTax (<https://modrinth.com/plugin/eztax>)
 
 ---
 
@@ -52,7 +52,7 @@ EzEconomy is built for performance, flexibility, and ease of use. Highlights inc
 - `ezeconomy.pay`: Use /pay command
 - `ezeconomy.currency`: Use /currency command
 - `ezeconomy.admin`: Use /ezeconomy admin commands (cleanup, reload, database, daily reset)
- 
+
 - **Bank Permissions**:
   - `ezeconomy.bank.create`: Create a new bank
   - `ezeconomy.bank.delete`: Delete a bank
@@ -68,7 +68,8 @@ EzEconomy is built for performance, flexibility, and ease of use. Highlights inc
 
 ## ⚙️ Configuration Example
 
-### `config.yml` (Only global settings):
+### `config.yml` (Only global settings)
+
 ```yaml
 storage: yml
 multi-currency:
@@ -97,7 +98,8 @@ multi-currency:
       euro: 80
 ```
 
-### `config-yml.yml` (YML storage settings):
+### `config-yml.yml` (YML storage settings)
+
 ```yaml
 yml:
   file: balances.yml
@@ -105,7 +107,8 @@ yml:
   data-folder: data
 ```
 
-### `config-mysql.yml` (MySQL storage settings):
+### `config-mysql.yml` (MySQL storage settings)
+
 ```yaml
 mysql:
   host: localhost
@@ -116,7 +119,8 @@ mysql:
   table: balances
 ```
 
-### `config-sqlite.yml` (SQLite storage settings):
+### `config-sqlite.yml` (SQLite storage settings)
+
 ```yaml
 sqlite:
   file: ezeconomy.db
@@ -124,7 +128,8 @@ sqlite:
   banksTable: banks
 ```
 
-### `config-mongodb.yml` (MongoDB storage settings):
+### `config-mongodb.yml` (MongoDB storage settings)
+
 ```yaml
 mongodb:
   uri: mongodb://localhost:27017
@@ -166,9 +171,11 @@ EzEconomy supports custom storage backends (YML, MySQL, SQLite, MongoDB, or your
 
 1. Implement the `StorageProvider` interface in your plugin or module.
 2. Register your provider before EzEconomy loads:
+
    ```java
    EzEconomy.registerStorageProvider(new YourProvider(...));
    ```
+
 3. Only one provider can be registered. If set, EzEconomy will use it instead of YML/MySQL.
 4. See the [full StorageProvider reference](../api/storage-provider.md) for required methods and implementation details.
 

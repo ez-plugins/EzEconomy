@@ -75,7 +75,7 @@ public class ExampleProvider implements StorageProvider {
 
 ---
 
-# `StorageProvider` Interface Reference
+## `StorageProvider` Interface Reference
 
 This section documents all methods of the `StorageProvider` interface. Implement all required methods for a fully functional provider.
 
@@ -156,6 +156,7 @@ This section documents all methods of the `StorageProvider` interface. Implement
 ## Legacy Overloads (Single-Currency)
 
 All legacy methods use the default currency "dollar". Implement for compatibility with older plugins:
+
 - `double getBalance(UUID uuid)`
 - `void setBalance(UUID uuid, double amount)`
 - `boolean tryWithdraw(UUID uuid, double amount)`
@@ -179,6 +180,7 @@ All legacy methods use the default currency "dollar". Implement for compatibilit
 ---
 
 **See Also:**
+
 - [API Reference: StorageProvider](../../src/main/java/com/skyblockexp/ezeconomy/api/storage/StorageProvider.java)
 - [developer-api.md](../developer-api.md)
 - [storage.md](../storage.md)

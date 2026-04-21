@@ -1,3 +1,8 @@
+---
+title: Developer API
+nav_order: 7
+---
+
 # Developer API (v2)
 
 This file has moved to the API folder. See the full developer API documentation at:

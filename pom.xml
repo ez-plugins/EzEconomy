@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.ez-plugins</groupId>
     <artifactId>ezeconomy-parent</artifactId>
-    <version>2.5.1</version>
+    <version>3.0.0</version>
     <packaging>pom</packaging>
     <name>EzEconomy</name>
     <description>Vault-compatible economy provider with YML and MySQL support</description>
@@ -17,16 +17,16 @@
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <maven.compiler.release>21</maven.compiler.release>
-        <!-- Target Java 21 to match Paper API (class file version 65) -->
+        <maven.compiler.source>25</maven.compiler.source>
+        <maven.compiler.target>25</maven.compiler.target>
+        <maven.compiler.release>25</maven.compiler.release>
+        <!-- Target Java 25 to match Paper API (class file version 69) -->
         <!-- Allow CI to override the Paper API version with -Dpaper.version -->
-        <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
+        <paper.version>[26.1.2.build,)</paper.version>
         <!-- MockBukkit coordinates are configurable so CI can select the right artifact per Paper matrix entry -->
         <mockbukkit.groupId>org.mockbukkit.mockbukkit</mockbukkit.groupId>
-        <mockbukkit.artifactId>mockbukkit-v1.21</mockbukkit.artifactId>
-        <mockbukkit.version>4.108.0</mockbukkit.version>
+        <mockbukkit.artifactId>mockbukkit-v26.1</mockbukkit.artifactId>
+        <mockbukkit.version>dev-9f320b33</mockbukkit.version>
         
         <github.owner>ez-plugins</github.owner>
         <github.repository>ezeconomy</github.repository>
@@ -70,6 +70,8 @@
                                     <include>net.kyori:adventure-text-minimessage</include>
                                     <include>net.kyori:adventure-text-serializer-legacy</include>
                                     <include>net.kyori:examination-api</include>
+                                    <include>com.github.EzFramework:Jaloquent</include>
+                                    <include>com.github.EzFramework:JavaQueryBuilder</include>
                                 </includes>
                             </artifactSet>
                             <relocations>
@@ -80,6 +82,14 @@
                                 <relocation>
                                     <pattern>net.kyori</pattern>
                                     <shadedPattern>com.skyblockexp.ezeconomy.shaded.net.kyori</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.github.ezframework.jaloquent</pattern>
+                                    <shadedPattern>com.skyblockexp.ezeconomy.shaded.jaloquent</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.github.ezframework.javaquerybuilder</pattern>
+                                    <shadedPattern>com.skyblockexp.ezeconomy.shaded.jqb</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
@@ -114,6 +124,22 @@
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
+                        <configuration>
+                            <!-- Scope JaCoCo instrumentation exclusively to our own production
+                                 classes. Instrumenting third-party classes (adventure-api, paper-api,
+                                 MockBukkit, etc.) on JDK 25+ can corrupt class-file attributes such
+                                 as StackMapTable frames and PermittedSubclasses, leading to
+                                 IncompatibleClassChangeError when the JVM verifies sealed interfaces.
+                                 Additionally, exclude our own test helper classes. -->
+                            <includes>
+                                <include>com/skyblockexp/ezeconomy/**</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/*Test</exclude>
+                                <exclude>**/*IT</exclude>
+                                <exclude>**/*IntegrationTest</exclude>
+                            </excludes>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>report</id>
@@ -127,8 +153,94 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.2.1</version>
+                <executions>
+                    <execution>
+                        <id>enforce-java</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion>
+                                    <version>[25,)</version>
+                                </requireJavaVersion>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>ban-adventure-5x</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <!--
+                                Fail fast if adventure-api 5.x somehow reaches the classpath.
+                                adventure-api 5.0.0+ seals the Book interface; Paper's BookMeta
+                                implements that interface, causing IncompatibleClassChangeError.
+                                The dependencyManagement block above should prevent this, but
+                                this rule provides an early, human-readable error if it ever
+                                slips through (e.g. via a corrupted or restored Maven cache).
+                            -->
+                            <rules>
+                                <bannedDependencies>
+                                    <searchTransitive>true</searchTransitive>
+                                    <excludes>
+                                        <exclude>net.kyori:adventure-api:[5,)</exclude>
+                                    </excludes>
+                                    <message>
+                                        adventure-api 5.x was detected on the classpath.
+                                        adventure-api 5.0.0+ seals net.kyori.adventure.inventory.Book
+                                        with PermittedSubclasses restricted to BookImpl only, which
+                                        breaks Paper's BookMeta (IncompatibleClassChangeError).
+                                        Check the dependency tree and ensure adventure-api resolves
+                                        to 4.26.1 as declared in dependencyManagement.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-toolchains-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <toolchains>
+                        <jdk>
+                            <version>25</version>
+                        </jdk>
+                    </toolchains>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
+    <!--
+        Pin adventure-api to the 4.26.1 release across the entire dependency graph.
+        adventure-api 5.0.0+ seals the Book interface with PermittedSubclasses restricted
+        to BookImpl only. Paper's BookMeta extends that interface, so loading it when 5.x
+        is on the classpath throws IncompatibleClassChangeError at test-time.
+        PaperMC's Maven repo already hosts adventure-bom 5.x, so any stale or restored
+        CI cache that contains a mismatched adventure-api-4.26.1.jar (or a corrupted
+        metadata file pointing at 5.x) can silently pull in the wrong bytes.
+        The dependencyManagement entry below acts as the definitive override: regardless
+        of what any transitive dependency requests, Maven will always select 4.26.1.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-api</artifactId>
+                <version>4.26.1</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>org.bstats</groupId>
@@ -139,22 +251,22 @@
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
-            <version>5.0.1</version>
+            <version>4.26.1</version>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-key</artifactId>
-            <version>5.0.1</version>
+            <version>4.26.1</version>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-minimessage</artifactId>
-            <version>5.0.1</version>
+            <version>4.26.1</version>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-legacy</artifactId>
-            <version>5.0.1</version>
+            <version>4.26.1</version>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
@@ -207,6 +319,29 @@
             <version>5.6.5</version>
         </dependency>
         <dependency>
+            <groupId>com.github.EzFramework</groupId>
+            <artifactId>Jaloquent</artifactId>
+            <version>1.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.EzFramework</groupId>
+            <artifactId>JavaQueryBuilder</artifactId>
+            <version>1.0.7</version>
+        </dependency>
+        <!-- Jaker is optional in Jaloquent but required for Factory definitions in tests -->
+        <dependency>
+            <groupId>com.github.EzFramework.jaker</groupId>
+            <artifactId>jaker</artifactId>
+            <version>1.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.EzFramework.jaker</groupId>
+            <artifactId>jaker-data-en-US</artifactId>
+            <version>1.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>${mockbukkit.groupId}</groupId>
             <artifactId>${mockbukkit.artifactId}</artifactId>
             <version>${mockbukkit.version}</version>
@@ -215,25 +350,25 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>6.0.3</version>
+            <version>5.12.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>6.0.3</version>
+            <version>5.12.2</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
-            <version>2.0.4</version>
+            <version>1.21.1</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>1.21.4</version>
+            <version>1.21.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -274,6 +409,12 @@
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
         </repository>
         <repository>
             <id>placeholderapi-repo</id>
@@ -345,16 +486,16 @@
             </properties>
         </profile>
         
-        <!-- If the build runs on JDK 21 or newer, enable Java 21 compilation. -->
+        <!-- If the build runs on JDK 25 or newer, enable Java 25 compilation. -->
         <profile>
-            <id>jdk21</id>
+            <id>jdk25</id>
             <activation>
-                <jdk>[21,)</jdk>
+                <jdk>[25,)</jdk>
             </activation>
             <properties>
-                <maven.compiler.source>21</maven.compiler.source>
-                <maven.compiler.target>21</maven.compiler.target>
-                <maven.compiler.release>21</maven.compiler.release>
+                <maven.compiler.source>25</maven.compiler.source>
+                <maven.compiler.target>25</maven.compiler.target>
+                <maven.compiler.release>25</maven.compiler.release>
             </properties>
         </profile>
         <profile>

@@ -9,6 +9,7 @@
 EzEconomy automatically registers as a Vault economy provider at startup. Any plugin using `net.milkbowl.vault.economy.Economy` will interact with EzEconomy without extra configuration.
 
 **Steps:**
+
 1. Install Vault and EzEconomy.
 2. Start your server. EzEconomy will register itself as the economy provider.
 3. Plugins using Vault will now use EzEconomy for all economy operations.
@@ -100,6 +101,7 @@ String version = EzEconomyAPI.VERSION; // e.g., "2.0.0"
 The `/ezeconomy` admin command provides advanced server management utilities. It supports professional tab completion for all subcommands and database actions.
 
 **Subcommands:**
+
 - `cleanup`: Remove orphaned player data from all storage types
 - `daily reset`: Reset all daily rewards for all players
 - `reload`: Reload the plugin configuration
@@ -109,6 +111,7 @@ The `/ezeconomy` admin command provides advanced server management utilities. It
 - `database reset`: Reset all database tables (DANGEROUS)
 
 **Tab Completion:**
+
 - Context-aware suggestions for all subcommands and database actions
 - Permission-sensitive (only shows what the user can access)
 
@@ -124,9 +127,9 @@ See [commands.md](../commands.md) for usage details.
 - [placeholders.md](../placeholders.md): PlaceholderAPI integration
 
 - **Events:**
-	- [PreTransactionEvent](event/PreTransactionEvent.md)
-	- [PostTransactionEvent](event/PostTransactionEvent.md)
-	- [PlayerPayPlayerEvent](event/PlayerPayPlayerEvent.md)
-	- [TransactionType (enum)](event/TransactionType.md)
-	- [BankPreTransactionEvent](event/BankPreTransactionEvent.md)
-	- [BankPostTransactionEvent](event/BankPostTransactionEvent.md)
+  - [PreTransactionEvent](event/PreTransactionEvent.md)
+  - [PostTransactionEvent](event/PostTransactionEvent.md)
+  - [PlayerPayPlayerEvent](event/PlayerPayPlayerEvent.md)
+  - [TransactionType (enum)](event/TransactionType.md)
+  - [BankPreTransactionEvent](event/BankPreTransactionEvent.md)
+  - [BankPostTransactionEvent](event/BankPostTransactionEvent.md)

@@ -3,6 +3,7 @@
 Enum: `com.skyblockexp.ezeconomy.api.events.TransactionType`
 
 Values:
+
 - `DEPOSIT` — money added to a single account.
 - `WITHDRAW` — money removed from a single account.
 - `TRANSFER` — generic transfer between two accounts (internal use by storage `transfer`).

@@ -17,19 +17,39 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
 
       - name: Cache Maven local repository
         uses: actions/cache@v5
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-m2-v2-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-m2-
+            ${{ runner.os }}-m2-v2-
+
+      - name: Build and install MockBukkit dev/26.1.1
+        run: |
+          git clone --depth=1 --branch dev/26.1.1 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
+          cd /tmp/MockBukkit
+          COMMIT=$(git rev-parse --short HEAD)
+          ./gradlew publishToMavenLocal -xtest -xjavadoc
+          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
+
+      - name: Print resolved adventure-api version
+        run: |
+          mvn -B -Dmockbukkit.version=$MOCKBUKKIT_VERSION -pl ezeconomy-bungeecord -am dependency:tree -Dincludes="net.kyori:adventure-api" --no-transfer-progress 2>&1 | grep -E "adventure-api|BUILD" || true
 
       - name: Build and test BungeeCord module
-        run: mvn -B -DskipTests=false -pl ezeconomy-bungeecord -am clean test package
+        run: mvn -B -DskipTests=false -Dmockbukkit.version=$MOCKBUKKIT_VERSION -pl ezeconomy-bungeecord -am clean test package
+
+      - name: Upload surefire reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-bungeecord
+          path: '**/target/surefire-reports/**'
+          if-no-files-found: warn

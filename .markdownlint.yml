@@ -1,0 +1,35 @@
+---
+# markdownlint configuration
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+default: true
+
+# MD013 — Line length: documentation lines are allowed to exceed 80 chars
+MD013: false
+
+# MD022 — Blanks around headings: Kramdown attribute syntax ({: .no_toc }) must
+#          immediately follow a heading with no blank line — disable this rule
+MD022: false
+
+# MD025 — Single H1: pages have both front-matter title: and an # H1 heading;
+#          disable front-matter title detection to avoid false positives
+MD025:
+  front_matter_title: ""
+
+# MD033 — Inline HTML: needed for Jekyll/Liquid includes and badge images
+MD033: false
+
+# MD036 — Emphasis as heading: just-the-docs sub-sections inside API tables use
+#          bold labels that markdownlint mistakes for headings
+MD036: false
+
+# MD041 — First line must be H1: front-matter pages don't start with a heading
+MD041: false
+
+# MD024 — No duplicate headings: allow sibling duplicates across sections
+MD024:
+  siblings_only: true
+
+# MD007 — Unordered list indentation: use 2-space indent under list items
+MD007:
+  indent: 2

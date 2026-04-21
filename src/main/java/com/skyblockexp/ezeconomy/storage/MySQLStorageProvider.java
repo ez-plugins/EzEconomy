@@ -8,12 +8,25 @@ import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageSaveException;
 
+import com.github.ezframework.jaloquent.exception.StorageException;
+import com.github.ezframework.jaloquent.model.ModelRepository;
+import com.github.ezframework.javaquerybuilder.query.builder.QueryBuilder;
+import com.github.ezframework.javaquerybuilder.query.sql.SqlDialect;
+import com.skyblockexp.ezeconomy.storage.jaloquent.EzJdbcStore;
+import com.skyblockexp.ezeconomy.storage.jaloquent.EzTableRegistry;
+import com.skyblockexp.ezeconomy.storage.jaloquent.model.BalanceModel;
+import com.skyblockexp.ezeconomy.storage.jaloquent.model.BankMemberModel;
+import com.skyblockexp.ezeconomy.storage.jaloquent.model.BankModel;
+import com.skyblockexp.ezeconomy.storage.jaloquent.model.PlayerModel;
+import com.skyblockexp.ezeconomy.storage.jaloquent.model.TransactionModel;
 import java.sql.*;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.math.BigDecimal;
+import java.util.stream.Collectors;
 import com.skyblockexp.ezeconomy.api.events.BankPreTransactionEvent;
 import com.skyblockexp.ezeconomy.api.events.BankPostTransactionEvent;
 import com.skyblockexp.ezeconomy.api.events.TransactionType;
@@ -29,6 +42,14 @@ public class MySQLStorageProvider implements StorageProvider {
     private String table;
     private final Object lock = new Object();
     private final YamlConfiguration dbConfig;
+
+    // Jaloquent repositories
+    private EzJdbcStore jdbcStore;
+    private ModelRepository<BalanceModel>    balanceRepo;
+    private ModelRepository<PlayerModel>     playerRepo;
+    private ModelRepository<BankModel>       bankRepo;
+    private ModelRepository<BankMemberModel> bankMemberRepo;
+    private ModelRepository<TransactionModel> transactionRepo;
 
     /**
      * Constructs a MySQLStorageProvider with the given plugin and configuration.
@@ -55,13 +76,30 @@ public class MySQLStorageProvider implements StorageProvider {
             try (Connection tempConn = DriverManager.getConnection(
                     "jdbc:mysql://" + host + ":" + port + "/" + database,
                     username, password)) {
-                Statement stmt = tempConn.createStatement();
-                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS `" + table + "` (uuid VARCHAR(36), currency VARCHAR(32), balance DOUBLE, PRIMARY KEY (uuid, currency))");
-                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS banks (name VARCHAR(64), currency VARCHAR(32), balance DOUBLE, PRIMARY KEY (name, currency))");
-                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS bank_members (bank VARCHAR(64), uuid VARCHAR(36), owner BOOLEAN, PRIMARY KEY (bank, uuid))");
-                // Optional player info table to persist last-known name and displayName
-                stmt.executeUpdate("CREATE TABLE IF NOT EXISTS players (uuid VARCHAR(36) PRIMARY KEY, name VARCHAR(64), displayName VARCHAR(128))");
-            } catch (SQLException e) {
+                EzJdbcStore tempJdbc = new EzJdbcStore(tempConn);
+                java.util.List<Object> noParams = java.util.Collections.emptyList();
+                tempJdbc.executeUpdate(QueryBuilder.createTable(table).ifNotExists()
+                        .column("id", "VARCHAR(69)").primaryKey("id")
+                        .column("uuid", "VARCHAR(36)").column("currency", "VARCHAR(32)").column("balance", "DOUBLE")
+                        .build(SqlDialect.MYSQL).getSql(), noParams);
+                tempJdbc.executeUpdate(QueryBuilder.createTable("banks").ifNotExists()
+                        .column("id", "VARCHAR(97)").primaryKey("id")
+                        .column("name", "VARCHAR(64)").column("currency", "VARCHAR(32)").column("balance", "DOUBLE")
+                        .build(SqlDialect.MYSQL).getSql(), noParams);
+                tempJdbc.executeUpdate(QueryBuilder.createTable("bank_members").ifNotExists()
+                        .column("id", "VARCHAR(101)").primaryKey("id")
+                        .column("bank", "VARCHAR(64)").column("uuid", "VARCHAR(36)").column("owner", "BOOLEAN")
+                        .build(SqlDialect.MYSQL).getSql(), noParams);
+                tempJdbc.executeUpdate(QueryBuilder.createTable("players").ifNotExists()
+                        .column("id", "VARCHAR(36)").primaryKey("id")
+                        .column("name", "VARCHAR(64)").column("displayName", "VARCHAR(128)")
+                        .build(SqlDialect.MYSQL).getSql(), noParams);
+                tempJdbc.executeUpdate(QueryBuilder.createTable("transactions").ifNotExists()
+                        .column("id", "VARCHAR(36)").primaryKey("id")
+                        .column("uuid", "VARCHAR(36)").column("currency", "VARCHAR(32)")
+                        .column("amount", "DOUBLE").column("timestamp", "BIGINT")
+                        .build(SqlDialect.MYSQL).getSql(), noParams);
+            } catch (Exception e) {
                 plugin.getLogger().warning("MySQL schema init failed: " + e.getMessage());
                 throw new StorageInitException("Failed to initialize MySQL schema", e);
             }
@@ -83,6 +121,7 @@ public class MySQLStorageProvider implements StorageProvider {
             connection = DriverManager.getConnection(
                 "jdbc:mysql://" + host + ":" + port + "/" + database,
                 username, password);
+            initRepositories();
         } catch (SQLException e) {
             plugin.getLogger().warning("MySQL connection failed: " + e.getMessage());
             throw new StorageLoadException("Failed to connect to MySQL", e);
@@ -92,6 +131,21 @@ public class MySQLStorageProvider implements StorageProvider {
     @Override
     public void save() throws StorageSaveException {
         // No in-memory cache, so nothing to save
+    }
+
+    /**
+     * Initialises Jaloquent stores and repositories after a connection is established.
+     * Called automatically from {@link #load()}.  May also be called in tests that
+     * inject a connection via reflection.
+     */
+    public void initRepositories() {
+        EzTableRegistry.registerAll(table, "players", "banks", "bank_members", "transactions");
+        jdbcStore       = new EzJdbcStore(connection);
+        balanceRepo     = new ModelRepository<>(jdbcStore, BalanceModel.PREFIX,    BalanceModel::new,    SqlDialect.MYSQL);
+        playerRepo      = new ModelRepository<>(jdbcStore, PlayerModel.PREFIX,     PlayerModel::new,     SqlDialect.MYSQL);
+        bankRepo        = new ModelRepository<>(jdbcStore, BankModel.PREFIX,       BankModel::new,       SqlDialect.MYSQL);
+        bankMemberRepo  = new ModelRepository<>(jdbcStore, BankMemberModel.PREFIX, BankMemberModel::new, SqlDialect.MYSQL);
+        transactionRepo = new ModelRepository<>(jdbcStore, TransactionModel.PREFIX,TransactionModel::new,SqlDialect.MYSQL);
     }
 
     @Override
@@ -108,19 +162,16 @@ public class MySQLStorageProvider implements StorageProvider {
         java.util.List<Transaction> transactions = new java.util.ArrayList<>();
         synchronized (lock) {
             try {
-                // Assumes a table: transactions(uuid VARCHAR(36), currency VARCHAR(32), amount DOUBLE, timestamp BIGINT)
-                String sql = "SELECT amount, timestamp FROM transactions WHERE uuid=? AND currency=? ORDER BY timestamp DESC";
-                PreparedStatement ps = connection.prepareStatement(sql);
-                ps.setString(1, uuid.toString());
-                ps.setString(2, currency);
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    double amount = rs.getDouble("amount");
-                    long timestamp = rs.getLong("timestamp");
-                    Transaction t = new Transaction(uuid, currency, amount, timestamp);
-                    transactions.add(t);
+                java.util.List<TransactionModel> rows = transactionRepo.query(
+                        TransactionModel.queryBuilder()
+                                .whereEquals("uuid", uuid.toString())
+                                .whereEquals("currency", currency)
+                                .orderBy("timestamp", false)
+                                .build());
+                for (TransactionModel tm : rows) {
+                    transactions.add(new Transaction(uuid, currency, tm.getAmount(), tm.getTimestamp()));
                 }
-            } catch (SQLException e) {
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL getTransactions failed for " + uuid + " (" + currency + "): " + e.getMessage());
             }
         }
@@ -139,17 +190,12 @@ public class MySQLStorageProvider implements StorageProvider {
                 token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
                 if (token != null) {
                     try {
-                        PreparedStatement ps = connection.prepareStatement("SELECT balance FROM `" + table + "` WHERE uuid=? AND currency=?");
-                        ps.setString(1, uuid.toString());
-                        ps.setString(2, currency);
-                        ResultSet rs = ps.executeQuery();
-                        if (rs.next()) return rs.getDouble(1);
-                    } catch (SQLException e) {
+                        return balanceRepo.find(BalanceModel.idFor(uuid, currency))
+                               .map(BalanceModel::getBalance).orElse(0.0);
+                    } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL getBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                    } catch (Exception e) {
-                        plugin.getLogger().severe("[EzEconomy] Unexpected error in getBalance for " + uuid + " (" + currency + "): " + e.getMessage());
+                        return 0.0;
                     }
-                    return 0.0;
                 }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
@@ -159,15 +205,10 @@ public class MySQLStorageProvider implements StorageProvider {
         }
         synchronized (lock) {
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT balance FROM `" + table + "` WHERE uuid=? AND currency=?");
-                ps.setString(1, uuid.toString());
-                ps.setString(2, currency);
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) return rs.getDouble(1);
-            } catch (SQLException e) {
+                return balanceRepo.find(BalanceModel.idFor(uuid, currency))
+                       .map(BalanceModel::getBalance).orElse(0.0);
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL getBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-            } catch (Exception e) {
-                plugin.getLogger().severe("[EzEconomy] Unexpected error in getBalance for " + uuid + " (" + currency + "): " + e.getMessage());
             }
             return 0.0;
         }
@@ -176,23 +217,25 @@ public class MySQLStorageProvider implements StorageProvider {
     @Override
     public com.skyblockexp.ezeconomy.dto.EconomyPlayer getPlayer(UUID uuid) {
         com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
+        if (playerRepo == null) {
+            org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
+            String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
+            String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
+            return new com.skyblockexp.ezeconomy.dto.EconomyPlayer(uuid, name, display);
+        }
         if (lm != null) {
             String token = null;
             try {
                 token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
                 if (token != null) {
                     try {
-                        PreparedStatement ps = connection.prepareStatement("SELECT name, displayName FROM players WHERE uuid=?");
-                        ps.setString(1, uuid.toString());
-                        ResultSet rs = ps.executeQuery();
-                        if (rs.next()) {
-                            String name = rs.getString(1);
-                            String display = rs.getString(2);
-                            if (name == null) name = uuid.toString();
-                            if (display == null) display = name;
-                            return new com.skyblockexp.ezeconomy.dto.EconomyPlayer(uuid, name, display);
+                        PlayerModel pm = playerRepo.find(uuid.toString()).orElse(null);
+                        if (pm != null) {
+                            String pname = pm.getName() != null ? pm.getName() : uuid.toString();
+                            String pdisplay = pm.getDisplayName() != null ? pm.getDisplayName() : pname;
+                            return new com.skyblockexp.ezeconomy.dto.EconomyPlayer(uuid, pname, pdisplay);
                         }
-                    } catch (Exception ignored) {}
+                    } catch (StorageException ignored) {}
                     org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
                     String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
                     String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
@@ -206,24 +249,19 @@ public class MySQLStorageProvider implements StorageProvider {
         }
         synchronized (lock) {
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT name, displayName FROM players WHERE uuid=?");
-                ps.setString(1, uuid.toString());
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    String name = rs.getString(1);
-                    String display = rs.getString(2);
-                    if (name == null) name = uuid.toString();
-                    if (display == null) display = name;
-                    return new com.skyblockexp.ezeconomy.dto.EconomyPlayer(uuid, name, display);
+                PlayerModel pm = playerRepo.find(uuid.toString()).orElse(null);
+                if (pm != null) {
+                    String pname = pm.getName() != null ? pm.getName() : uuid.toString();
+                    String pdisplay = pm.getDisplayName() != null ? pm.getDisplayName() : pname;
+                    return new com.skyblockexp.ezeconomy.dto.EconomyPlayer(uuid, pname, pdisplay);
                 }
-            } catch (Exception ignored) {}
+            } catch (StorageException ignored) {}
             org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
             String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
             String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
             return new com.skyblockexp.ezeconomy.dto.EconomyPlayer(uuid, name, display);
         }
     }
-
     @Override
     public boolean playerExists(UUID uuid) {
         com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
@@ -233,11 +271,8 @@ public class MySQLStorageProvider implements StorageProvider {
                 token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
                 if (token != null) {
                     try {
-                        PreparedStatement ps = connection.prepareStatement("SELECT 1 FROM `" + table + "` WHERE uuid=? LIMIT 1");
-                        ps.setString(1, uuid.toString());
-                        ResultSet rs = ps.executeQuery();
-                        return rs.next();
-                    } catch (SQLException e) {
+                        return !balanceRepo.query(BalanceModel.queryBuilder().whereEquals("uuid", uuid.toString()).limit(1).build()).isEmpty();
+                    } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL playerExists failed for " + uuid + ": " + e.getMessage());
                         return false;
                     }
@@ -250,11 +285,8 @@ public class MySQLStorageProvider implements StorageProvider {
         }
         synchronized (lock) {
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT 1 FROM `" + table + "` WHERE uuid=? LIMIT 1");
-                ps.setString(1, uuid.toString());
-                ResultSet rs = ps.executeQuery();
-                return rs.next();
-            } catch (SQLException e) {
+                return !balanceRepo.query(BalanceModel.queryBuilder().whereEquals("uuid", uuid.toString()).limit(1).build()).isEmpty();
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL playerExists failed for " + uuid + ": " + e.getMessage());
                 return false;
             }
@@ -270,25 +302,14 @@ public class MySQLStorageProvider implements StorageProvider {
                 token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
                 if (token != null) {
                     try {
-                        PreparedStatement ps = connection.prepareStatement("REPLACE INTO `" + table + "` (uuid, currency, balance) VALUES (?, ?, ?)");
-                        ps.setString(1, uuid.toString());
-                        ps.setString(2, currency);
-                        ps.setDouble(3, amount);
-                        ps.executeUpdate();
+                        balanceRepo.save(BalanceModel.create(uuid, currency, amount));
                         org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
-                        String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
-                        String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
-                        PreparedStatement ps2 = connection.prepareStatement("REPLACE INTO players (uuid, name, displayName) VALUES (?, ?, ?)");
-                        ps2.setString(1, uuid.toString());
-                        ps2.setString(2, name);
-                        ps2.setString(3, display);
-                        ps2.executeUpdate();
+                        String pname = of != null && of.getName() != null ? of.getName() : uuid.toString();
+                        String pdisplay = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : pname;
+                        playerRepo.save(PlayerModel.create(uuid, pname, pdisplay));
                         return;
-                    } catch (SQLException e) {
+                    } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL setBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                        return;
-                    } catch (Exception e) {
-                        plugin.getLogger().severe("[EzEconomy] Unexpected error in setBalance for " + uuid + " (" + currency + "): " + e.getMessage());
                         return;
                     }
                 }
@@ -300,24 +321,13 @@ public class MySQLStorageProvider implements StorageProvider {
         }
         synchronized (lock) {
             try {
-                PreparedStatement ps = connection.prepareStatement("REPLACE INTO `" + table + "` (uuid, currency, balance) VALUES (?, ?, ?)");
-                ps.setString(1, uuid.toString());
-                ps.setString(2, currency);
-                ps.setDouble(3, amount);
-                ps.executeUpdate();
-                // Persist last known name/displayName
+                balanceRepo.save(BalanceModel.create(uuid, currency, amount));
                 org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
-                String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
-                String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
-                PreparedStatement ps2 = connection.prepareStatement("REPLACE INTO players (uuid, name, displayName) VALUES (?, ?, ?)");
-                ps2.setString(1, uuid.toString());
-                ps2.setString(2, name);
-                ps2.setString(3, display);
-                ps2.executeUpdate();
-            } catch (SQLException e) {
+                String pname = of != null && of.getName() != null ? of.getName() : uuid.toString();
+                String pdisplay = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : pname;
+                playerRepo.save(PlayerModel.create(uuid, pname, pdisplay));
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL setBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-            } catch (Exception e) {
-                plugin.getLogger().severe("[EzEconomy] Unexpected error in setBalance for " + uuid + " (" + currency + "): " + e.getMessage());
             }
         }
     }
@@ -331,15 +341,12 @@ public class MySQLStorageProvider implements StorageProvider {
                 token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
                 if (token != null) {
                     try {
-                        PreparedStatement ps = connection.prepareStatement(
-                            "UPDATE `" + table + "` SET balance = balance - ? WHERE uuid=? AND currency=? AND balance >= ?"
-                        );
-                        ps.setDouble(1, amount);
-                        ps.setString(2, uuid.toString());
-                        ps.setString(3, currency);
-                        ps.setDouble(4, amount);
-                        return ps.executeUpdate() > 0;
-                    } catch (SQLException e) {
+                        java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
+                        double current = opt.map(BalanceModel::getBalance).orElse(0.0);
+                        if (current < amount) return false;
+                        balanceRepo.save(BalanceModel.create(uuid, currency, current - amount));
+                        return true;
+                    } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL tryWithdraw failed for " + uuid + " (" + currency + "): " + e.getMessage());
                         return false;
                     } catch (Exception e) {
@@ -355,15 +362,12 @@ public class MySQLStorageProvider implements StorageProvider {
         }
         synchronized (lock) {
             try {
-                PreparedStatement ps = connection.prepareStatement(
-                    "UPDATE `" + table + "` SET balance = balance - ? WHERE uuid=? AND currency=? AND balance >= ?"
-                );
-                ps.setDouble(1, amount);
-                ps.setString(2, uuid.toString());
-                ps.setString(3, currency);
-                ps.setDouble(4, amount);
-                return ps.executeUpdate() > 0;
-            } catch (SQLException e) {
+                java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
+                double current = opt.map(BalanceModel::getBalance).orElse(0.0);
+                if (current < amount) return false;
+                balanceRepo.save(BalanceModel.create(uuid, currency, current - amount));
+                return true;
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL tryWithdraw failed for " + uuid + " (" + currency + "): " + e.getMessage());
             } catch (Exception e) {
                 plugin.getLogger().severe("[EzEconomy] Unexpected error in tryWithdraw for " + uuid + " (" + currency + "): " + e.getMessage());
@@ -381,24 +385,15 @@ public class MySQLStorageProvider implements StorageProvider {
                 token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
                 if (token != null) {
                     try {
-                        PreparedStatement ps = connection.prepareStatement(
-                            "INSERT INTO `" + table + "` (uuid, currency, balance) VALUES (?, ?, ?) " +
-                                "ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)"
-                        );
-                        ps.setString(1, uuid.toString());
-                        ps.setString(2, currency);
-                        ps.setDouble(3, amount);
-                        ps.executeUpdate();
+                        java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
+                        double current = opt.map(BalanceModel::getBalance).orElse(0.0);
+                        balanceRepo.save(BalanceModel.create(uuid, currency, current + amount));
                         org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
                         String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
                         String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
-                        PreparedStatement ps2 = connection.prepareStatement("REPLACE INTO players (uuid, name, displayName) VALUES (?, ?, ?)");
-                        ps2.setString(1, uuid.toString());
-                        ps2.setString(2, name);
-                        ps2.setString(3, display);
-                        ps2.executeUpdate();
+                        try { playerRepo.save(PlayerModel.create(uuid, name, display)); } catch (StorageException ignored) {}
                         return;
-                    } catch (SQLException e) {
+                    } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL deposit failed for " + uuid + " (" + currency + "): " + e.getMessage());
                         return;
                     } catch (Exception e) {
@@ -414,24 +409,14 @@ public class MySQLStorageProvider implements StorageProvider {
         }
         synchronized (lock) {
             try {
-                PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO `" + table + "` (uuid, currency, balance) VALUES (?, ?, ?) " +
-                        "ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)"
-                );
-                ps.setString(1, uuid.toString());
-                ps.setString(2, currency);
-                ps.setDouble(3, amount);
-                ps.executeUpdate();
-                // Persist last known name/displayName
+                java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
+                double current = opt.map(BalanceModel::getBalance).orElse(0.0);
+                balanceRepo.save(BalanceModel.create(uuid, currency, current + amount));
                 org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
                 String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
                 String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
-                PreparedStatement ps2 = connection.prepareStatement("REPLACE INTO players (uuid, name, displayName) VALUES (?, ?, ?)");
-                ps2.setString(1, uuid.toString());
-                ps2.setString(2, name);
-                ps2.setString(3, display);
-                ps2.executeUpdate();
-            } catch (SQLException e) {
+                try { playerRepo.save(PlayerModel.create(uuid, name, display)); } catch (StorageException ignored) {}
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL deposit failed for " + uuid + " (" + currency + "): " + e.getMessage());
             } catch (Exception e) {
                 plugin.getLogger().severe("[EzEconomy] Unexpected error in deposit for " + uuid + " (" + currency + "): " + e.getMessage());
@@ -454,17 +439,11 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             Map<UUID, Double> map = new ConcurrentHashMap<>();
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT uuid, balance FROM `" + table + "` WHERE currency=?");
-                ps.setString(1, currency);
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    try {
-                        UUID uuid = UUID.fromString(rs.getString(1));
-                        double bal = rs.getDouble(2);
-                        map.put(uuid, bal);
-                    } catch (IllegalArgumentException ignored) {}
+                List<BalanceModel> rows = balanceRepo.query(BalanceModel.queryBuilder().whereEquals("currency", currency).build());
+                for (BalanceModel bm : rows) {
+                    try { map.put(UUID.fromString(bm.getUuid()), bm.getBalance()); } catch (IllegalArgumentException ignored) {}
                 }
-            } catch (SQLException e) {
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL getAllBalances failed (" + currency + "): " + e.getMessage());
             }
             return map;
@@ -540,17 +519,9 @@ public class MySQLStorageProvider implements StorageProvider {
             double fromBefore;
             double toBefore;
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT balance FROM `" + table + "` WHERE uuid=? AND currency=?");
-                ps.setString(1, fromUuid.toString());
-                ps.setString(2, currency);
-                ResultSet rs = ps.executeQuery();
-                fromBefore = rs.next() ? rs.getDouble(1) : 0.0;
-                PreparedStatement ps2 = connection.prepareStatement("SELECT balance FROM `" + table + "` WHERE uuid=? AND currency=?");
-                ps2.setString(1, toUuid.toString());
-                ps2.setString(2, currency);
-                ResultSet rs2 = ps2.executeQuery();
-                toBefore = rs2.next() ? rs2.getDouble(1) : 0.0;
-            } catch (SQLException e) {
+                fromBefore = balanceRepo.find(BalanceModel.idFor(fromUuid, currency)).map(BalanceModel::getBalance).orElse(0.0);
+                toBefore = balanceRepo.find(BalanceModel.idFor(toUuid, currency)).map(BalanceModel::getBalance).orElse(0.0);
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL transfer balance read failed: " + e.getMessage());
                 return com.skyblockexp.ezeconomy.storage.TransferResult.failure(0.0, 0.0);
             }
@@ -572,28 +543,23 @@ public class MySQLStorageProvider implements StorageProvider {
                 return com.skyblockexp.ezeconomy.storage.TransferResult.failure(fromBefore, toBefore);
             }
 
-            // Perform atomic withdraw
+            // Perform withdraw and credit using Jaloquent
             try {
-                PreparedStatement psw = connection.prepareStatement(
-                    "UPDATE `" + table + "` SET balance = balance - ? WHERE uuid=? AND currency=? AND balance >= ?"
-                );
-                psw.setDouble(1, debitAmount);
-                psw.setString(2, fromUuid.toString());
-                psw.setString(3, currency);
-                psw.setDouble(4, debitAmount);
-                int updated = psw.executeUpdate();
-                if (updated <= 0) {
+                java.util.Optional<BalanceModel> fromOpt = balanceRepo.find(BalanceModel.idFor(fromUuid, currency));
+                double fromBal = fromOpt.map(BalanceModel::getBalance).orElse(0.0);
+                if (fromBal < debitAmount) {
                     double refreshedFrom = getBalance(fromUuid, currency);
                     double refreshedTo = getBalance(toUuid, currency);
                     return com.skyblockexp.ezeconomy.storage.TransferResult.failure(refreshedFrom, refreshedTo);
                 }
-                if (creditAmount > 0) {
-                    PreparedStatement psd = connection.prepareStatement("INSERT INTO `" + table + "` (uuid, currency, balance) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)");
-                    psd.setString(1, toUuid.toString());
-                    psd.setString(2, currency);
-                    psd.setDouble(3, creditAmount);
-                    psd.executeUpdate();
-                }
+                balanceRepo.transaction(() -> {
+                    balanceRepo.save(BalanceModel.create(fromUuid, currency, fromBal - debitAmount));
+                    if (creditAmount > 0) {
+                        java.util.Optional<BalanceModel> toOpt = balanceRepo.find(BalanceModel.idFor(toUuid, currency));
+                        double toBal = toOpt.map(BalanceModel::getBalance).orElse(0.0);
+                        balanceRepo.save(BalanceModel.create(toUuid, currency, toBal + creditAmount));
+                    }
+                });
                 double updatedFrom = getBalance(fromUuid, currency);
                 double updatedTo = getBalance(toUuid, currency);
                 com.skyblockexp.ezeconomy.storage.TransferResult tr = com.skyblockexp.ezeconomy.storage.TransferResult.success(updatedFrom, updatedTo);
@@ -617,7 +583,7 @@ public class MySQLStorageProvider implements StorageProvider {
                 }
 
                 return tr;
-            } catch (SQLException e) {
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL transfer failed: " + e.getMessage());
                 return com.skyblockexp.ezeconomy.storage.TransferResult.failure(fromBefore, toBefore);
             }
@@ -629,10 +595,16 @@ public class MySQLStorageProvider implements StorageProvider {
     // --- Bank support ---
     private void ensureBankTables() {
         try {
-            Statement stmt = connection.createStatement();
-            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS banks (name VARCHAR(64), currency VARCHAR(32), balance DOUBLE, PRIMARY KEY (name, currency))");
-            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS bank_members (bank VARCHAR(64), uuid VARCHAR(36), owner BOOLEAN, PRIMARY KEY (bank, uuid))");
-        } catch (SQLException e) {
+            java.util.List<Object> noParams = java.util.Collections.emptyList();
+            jdbcStore.executeUpdate(QueryBuilder.createTable("banks").ifNotExists()
+                    .column("id", "VARCHAR(97)").primaryKey("id")
+                    .column("name", "VARCHAR(64)").column("currency", "VARCHAR(32)").column("balance", "DOUBLE")
+                    .build(SqlDialect.MYSQL).getSql(), noParams);
+            jdbcStore.executeUpdate(QueryBuilder.createTable("bank_members").ifNotExists()
+                    .column("id", "VARCHAR(101)").primaryKey("id")
+                    .column("bank", "VARCHAR(64)").column("uuid", "VARCHAR(36)").column("owner", "BOOLEAN")
+                    .build(SqlDialect.MYSQL).getSql(), noParams);
+        } catch (Exception e) {
             plugin.getLogger().severe("[EzEconomy] MySQL ensureBankTables failed: " + e.getMessage());
         }
     }
@@ -647,17 +619,10 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement ps = connection.prepareStatement("INSERT INTO banks (name, currency, balance) VALUES (?, ?, 0.0)");
-                        ps.setString(1, name);
-                        ps.setString(2, "dollar"); // default currency
-                        ps.executeUpdate();
-                        ps = connection.prepareStatement("INSERT INTO bank_members (bank, uuid, owner) VALUES (?, ?, ?)");
-                        ps.setString(1, name);
-                        ps.setString(2, owner.toString());
-                        ps.setBoolean(3, true);
-                        ps.executeUpdate();
+                        bankRepo.save(BankModel.create(name, "dollar", 0.0));
+                        bankMemberRepo.save(BankMemberModel.create(name, owner, true));
                         return true;
-                    } catch (SQLException e) {
+                    } catch (StorageException e) {
                         return false;
                     }
                 }
@@ -670,17 +635,10 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement ps = connection.prepareStatement("INSERT INTO banks (name, currency, balance) VALUES (?, ?, 0.0)");
-                ps.setString(1, name);
-                ps.setString(2, "dollar"); // default currency
-                ps.executeUpdate();
-                ps = connection.prepareStatement("INSERT INTO bank_members (bank, uuid, owner) VALUES (?, ?, ?)");
-                ps.setString(1, name);
-                ps.setString(2, owner.toString());
-                ps.setBoolean(3, true);
-                ps.executeUpdate();
+                bankRepo.save(BankModel.create(name, "dollar", 0.0));
+                bankMemberRepo.save(BankMemberModel.create(name, owner, true));
                 return true;
-            } catch (SQLException e) {
+            } catch (StorageException e) {
                 return false;
             }
         }
@@ -696,14 +654,11 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement ps = connection.prepareStatement("DELETE FROM banks WHERE name=?");
-                        ps.setString(1, name);
-                        int affected = ps.executeUpdate();
-                        ps = connection.prepareStatement("DELETE FROM bank_members WHERE bank=?");
-                        ps.setString(1, name);
-                        ps.executeUpdate();
-                        return affected > 0;
-                    } catch (SQLException e) {
+                        List<BankModel> existing = bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build());
+                        bankRepo.deleteWhere("name", name);
+                        bankMemberRepo.deleteWhere("bank", name);
+                        return !existing.isEmpty();
+                    } catch (StorageException e) {
                         return false;
                     }
                 }
@@ -716,14 +671,11 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement ps = connection.prepareStatement("DELETE FROM banks WHERE name=?");
-                ps.setString(1, name);
-                int affected = ps.executeUpdate();
-                ps = connection.prepareStatement("DELETE FROM bank_members WHERE bank=?");
-                ps.setString(1, name);
-                ps.executeUpdate();
-                return affected > 0;
-            } catch (SQLException e) {
+                List<BankModel> existing = bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build());
+                bankRepo.deleteWhere("name", name);
+                bankMemberRepo.deleteWhere("bank", name);
+                return !existing.isEmpty();
+            } catch (StorageException e) {
                 return false;
             }
         }
@@ -739,11 +691,8 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement ps = connection.prepareStatement("SELECT name FROM banks WHERE name=?");
-                        ps.setString(1, name);
-                        ResultSet rs = ps.executeQuery();
-                        return rs.next();
-                    } catch (SQLException e) {
+                        return !bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build()).isEmpty();
+                    } catch (StorageException e) {
                         return false;
                     }
                 }
@@ -756,11 +705,8 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT name FROM banks WHERE name=?");
-                ps.setString(1, name);
-                ResultSet rs = ps.executeQuery();
-                return rs.next();
-            } catch (SQLException e) {
+                return !bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build()).isEmpty();
+            } catch (StorageException e) {
                 return false;
             }
         }
@@ -776,12 +722,8 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement ps = connection.prepareStatement("SELECT balance FROM banks WHERE name=? AND currency=?");
-                        ps.setString(1, name);
-                        ps.setString(2, currency);
-                        ResultSet rs = ps.executeQuery();
-                        if (rs.next()) return rs.getDouble(1);
-                    } catch (SQLException e) {}
+                        return bankRepo.find(BankModel.idFor(name, currency)).map(BankModel::getBalance).orElse(0.0);
+                    } catch (StorageException e) {}
                     return 0.0;
                 }
             } catch (InterruptedException ex) {
@@ -793,12 +735,8 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT balance FROM banks WHERE name=? AND currency=?");
-                ps.setString(1, name);
-                ps.setString(2, currency);
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) return rs.getDouble(1);
-            } catch (SQLException e) {}
+                return bankRepo.find(BankModel.idFor(name, currency)).map(BankModel::getBalance).orElse(0.0);
+            } catch (StorageException e) {}
             return 0.0;
         }
     }
@@ -813,13 +751,9 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement ps = connection.prepareStatement("REPLACE INTO banks (name, currency, balance) VALUES (?, ?, ?)");
-                        ps.setString(1, name);
-                        ps.setString(2, currency);
-                        ps.setDouble(3, amount);
-                        ps.executeUpdate();
+                        bankRepo.save(BankModel.create(name, currency, amount));
                         return;
-                    } catch (SQLException e) {}
+                    } catch (StorageException e) {}
                 }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
@@ -830,12 +764,8 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement ps = connection.prepareStatement("REPLACE INTO banks (name, currency, balance) VALUES (?, ?, ?)");
-                ps.setString(1, name);
-                ps.setString(2, currency);
-                ps.setDouble(3, amount);
-                ps.executeUpdate();
-            } catch (SQLException e) {}
+                bankRepo.save(BankModel.create(name, currency, amount));
+            } catch (StorageException e) {}
         }
     }
 
@@ -850,12 +780,9 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement sel = connection.prepareStatement("SELECT balance FROM banks WHERE name=? AND currency=?");
-                        sel.setString(1, name);
-                        sel.setString(2, currency);
-                        ResultSet rs = sel.executeQuery();
-                        if (!rs.next()) return false;
-                        double current = rs.getDouble(1);
+                        java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
+                        if (!bankOpt.isPresent()) return false;
+                        double current = bankOpt.get().getBalance();
 
                         BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW);
                         if (plugin.getServer().isPrimaryThread()) {
@@ -871,28 +798,20 @@ public class MySQLStorageProvider implements StorageProvider {
                             }
                         }
                         if (pre.isCancelled()) return false;
+                        if (current < amount) return false;
 
-                        PreparedStatement ps = connection.prepareStatement(
-                            "UPDATE banks SET balance = balance - ? WHERE name=? AND currency=? AND balance >= ?"
-                        );
-                        ps.setDouble(1, amount);
-                        ps.setString(2, name);
-                        ps.setString(3, currency);
-                        ps.setDouble(4, amount);
-                        boolean ok = ps.executeUpdate() > 0;
-                        if (ok) {
-                            BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount));
-                            try {
-                                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                                    plugin.getServer().getPluginManager().callEvent(post);
-                                    return null;
-                                }).get();
-                            } catch (Exception e) {
-                                plugin.getLogger().warning("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
-                            }
+                        bankRepo.save(BankModel.create(name, currency, current - amount));
+                        BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount));
+                        try {
+                            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                                plugin.getServer().getPluginManager().callEvent(post);
+                                return null;
+                            }).get();
+                        } catch (Exception e) {
+                            plugin.getLogger().warning("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
                         }
-                        return ok;
-                    } catch (SQLException e) {
+                        return true;
+                    } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL tryWithdrawBank failed: " + e.getMessage());
                         return false;
                     }
@@ -906,12 +825,9 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement sel = connection.prepareStatement("SELECT balance FROM banks WHERE name=? AND currency=?");
-                sel.setString(1, name);
-                sel.setString(2, currency);
-                ResultSet rs = sel.executeQuery();
-                if (!rs.next()) return false;
-                double current = rs.getDouble(1);
+                java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
+                if (!bankOpt.isPresent()) return false;
+                double current = bankOpt.get().getBalance();
 
                 boolean bankingEnabled = plugin.getConfig().getBoolean("banking.enabled", true);
                 if (bankingEnabled) {
@@ -930,16 +846,10 @@ public class MySQLStorageProvider implements StorageProvider {
                     }
                     if (pre.isCancelled()) return false;
                 }
+                if (current < amount) return false;
 
-                PreparedStatement ps = connection.prepareStatement(
-                    "UPDATE banks SET balance = balance - ? WHERE name=? AND currency=? AND balance >= ?"
-                );
-                ps.setDouble(1, amount);
-                ps.setString(2, name);
-                ps.setString(3, currency);
-                ps.setDouble(4, amount);
-                boolean ok = ps.executeUpdate() > 0;
-                if (ok && bankingEnabled) {
+                bankRepo.save(BankModel.create(name, currency, current - amount));
+                if (bankingEnabled) {
                     BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount));
                     try {
                         plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
@@ -950,8 +860,8 @@ public class MySQLStorageProvider implements StorageProvider {
                         plugin.getLogger().warning("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
                     }
                 }
-                return ok;
-            } catch (SQLException e) {
+                return true;
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL tryWithdrawBank failed: " + e.getMessage());
                 return false;
             }
@@ -969,12 +879,8 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement sel = connection.prepareStatement("SELECT balance FROM banks WHERE name=? AND currency=?");
-                        sel.setString(1, name);
-                        sel.setString(2, currency);
-                        ResultSet rs = sel.executeQuery();
-                        double before = 0.0;
-                        if (rs.next()) before = rs.getDouble(1);
+                        java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
+                        double before = bankOpt.map(BankModel::getBalance).orElse(0.0);
 
                         BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT);
                         try {
@@ -987,14 +893,7 @@ public class MySQLStorageProvider implements StorageProvider {
                         }
                         if (pre.isCancelled()) return;
 
-                        PreparedStatement ps = connection.prepareStatement(
-                            "INSERT INTO banks (name, currency, balance) VALUES (?, ?, ?) " +
-                                "ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)"
-                        );
-                        ps.setString(1, name);
-                        ps.setString(2, currency);
-                        ps.setDouble(3, amount);
-                        ps.executeUpdate();
+                        bankRepo.save(BankModel.create(name, currency, before + amount));
 
                         BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(before), BigDecimal.valueOf(before + amount));
                         if (plugin.getServer().isPrimaryThread()) {
@@ -1010,7 +909,7 @@ public class MySQLStorageProvider implements StorageProvider {
                             }
                         }
                         return;
-                    } catch (SQLException e) {
+                    } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL depositBank failed: " + e.getMessage());
                         return;
                     }
@@ -1024,12 +923,8 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement sel = connection.prepareStatement("SELECT balance FROM banks WHERE name=? AND currency=?");
-                sel.setString(1, name);
-                sel.setString(2, currency);
-                ResultSet rs = sel.executeQuery();
-                double before = 0.0;
-                if (rs.next()) before = rs.getDouble(1);
+                java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
+                double before = bankOpt.map(BankModel::getBalance).orElse(0.0);
 
                 boolean bankingEnabled = plugin.getConfig().getBoolean("banking.enabled", true);
                 if (bankingEnabled) {
@@ -1045,14 +940,7 @@ public class MySQLStorageProvider implements StorageProvider {
                     if (pre.isCancelled()) return;
                 }
 
-                PreparedStatement ps = connection.prepareStatement(
-                    "INSERT INTO banks (name, currency, balance) VALUES (?, ?, ?) " +
-                        "ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)"
-                );
-                ps.setString(1, name);
-                ps.setString(2, currency);
-                ps.setDouble(3, amount);
-                ps.executeUpdate();
+                bankRepo.save(BankModel.create(name, currency, before + amount));
 
                 if (bankingEnabled) {
                     BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(before), BigDecimal.valueOf(before + amount));
@@ -1069,24 +957,22 @@ public class MySQLStorageProvider implements StorageProvider {
                         }
                     }
                 }
-            } catch (SQLException e) {
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL depositBank failed: " + e.getMessage());
             }
         }
     }
 
     public Set<String> getBanks() {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
         // bank list is global; use local lock for list operations to avoid distributed overhead
         synchronized (lock) {
             ensureBankTables();
-            Set<String> set = ConcurrentHashMap.newKeySet();
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT name FROM banks");
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) set.add(rs.getString(1));
-            } catch (SQLException e) {}
-            return set;
+                return bankRepo.query(BankModel.queryBuilder().build()).stream()
+                    .map(BankModel::getName).collect(java.util.stream.Collectors.toSet());
+            } catch (StorageException e) {
+                return ConcurrentHashMap.newKeySet();
+            }
         }
     }
 
@@ -1100,12 +986,8 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement ps = connection.prepareStatement("SELECT owner FROM bank_members WHERE bank=? AND uuid=?");
-                        ps.setString(1, name);
-                        ps.setString(2, uuid.toString());
-                        ResultSet rs = ps.executeQuery();
-                        if (rs.next()) return rs.getBoolean(1);
-                    } catch (SQLException e) {}
+                        return bankMemberRepo.find(BankMemberModel.idFor(name, uuid)).map(BankMemberModel::isOwner).orElse(false);
+                    } catch (StorageException e) {}
                     return false;
                 }
             } catch (InterruptedException ex) {
@@ -1117,12 +999,8 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT owner FROM bank_members WHERE bank=? AND uuid=?");
-                ps.setString(1, name);
-                ps.setString(2, uuid.toString());
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) return rs.getBoolean(1);
-            } catch (SQLException e) {}
+                return bankMemberRepo.find(BankMemberModel.idFor(name, uuid)).map(BankMemberModel::isOwner).orElse(false);
+            } catch (StorageException e) {}
             return false;
         }
     }
@@ -1137,12 +1015,8 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM bank_members WHERE bank=? AND uuid=?");
-                        ps.setString(1, name);
-                        ps.setString(2, uuid.toString());
-                        ResultSet rs = ps.executeQuery();
-                        return rs.next();
-                    } catch (SQLException e) {}
+                        return bankMemberRepo.exists(BankMemberModel.idFor(name, uuid));
+                    } catch (StorageException e) {}
                     return false;
                 }
             } catch (InterruptedException ex) {
@@ -1154,12 +1028,8 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM bank_members WHERE bank=? AND uuid=?");
-                ps.setString(1, name);
-                ps.setString(2, uuid.toString());
-                ResultSet rs = ps.executeQuery();
-                return rs.next();
-            } catch (SQLException e) {}
+                return bankMemberRepo.exists(BankMemberModel.idFor(name, uuid));
+            } catch (StorageException e) {}
             return false;
         }
     }
@@ -1175,13 +1045,9 @@ public class MySQLStorageProvider implements StorageProvider {
                     ensureBankTables();
                     if (isBankMember(name, uuid)) return false;
                     try {
-                        PreparedStatement ps = connection.prepareStatement("INSERT INTO bank_members (bank, uuid, owner) VALUES (?, ?, ?)");
-                        ps.setString(1, name);
-                        ps.setString(2, uuid.toString());
-                        ps.setBoolean(3, false);
-                        ps.executeUpdate();
+                        bankMemberRepo.save(BankMemberModel.create(name, uuid, false));
                         return true;
-                    } catch (SQLException e) { return false; }
+                    } catch (StorageException e) { return false; }
                 }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
@@ -1193,13 +1059,9 @@ public class MySQLStorageProvider implements StorageProvider {
             ensureBankTables();
             if (isBankMember(name, uuid)) return false;
             try {
-                PreparedStatement ps = connection.prepareStatement("INSERT INTO bank_members (bank, uuid, owner) VALUES (?, ?, ?)");
-                ps.setString(1, name);
-                ps.setString(2, uuid.toString());
-                ps.setBoolean(3, false);
-                ps.executeUpdate();
+                bankMemberRepo.save(BankMemberModel.create(name, uuid, false));
                 return true;
-            } catch (SQLException e) { return false; }
+            } catch (StorageException e) { return false; }
         }
     }
 
@@ -1213,12 +1075,10 @@ public class MySQLStorageProvider implements StorageProvider {
                 if (token != null) {
                     ensureBankTables();
                     try {
-                        PreparedStatement ps = connection.prepareStatement("DELETE FROM bank_members WHERE bank=? AND uuid=?");
-                        ps.setString(1, name);
-                        ps.setString(2, uuid.toString());
-                        int affected = ps.executeUpdate();
-                        return affected > 0;
-                    } catch (SQLException e) { return false; }
+                        boolean existed = bankMemberRepo.exists(BankMemberModel.idFor(name, uuid));
+                        bankMemberRepo.delete(BankMemberModel.idFor(name, uuid));
+                        return existed;
+                    } catch (StorageException e) { return false; }
                 }
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
@@ -1229,12 +1089,10 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             ensureBankTables();
             try {
-                PreparedStatement ps = connection.prepareStatement("DELETE FROM bank_members WHERE bank=? AND uuid=?");
-                ps.setString(1, name);
-                ps.setString(2, uuid.toString());
-                int affected = ps.executeUpdate();
-                return affected > 0;
-            } catch (SQLException e) { return false; }
+                boolean existed = bankMemberRepo.exists(BankMemberModel.idFor(name, uuid));
+                bankMemberRepo.delete(BankMemberModel.idFor(name, uuid));
+                return existed;
+            } catch (StorageException e) { return false; }
         }
     }
 
@@ -1249,13 +1107,10 @@ public class MySQLStorageProvider implements StorageProvider {
                     ensureBankTables();
                     Set<UUID> set = ConcurrentHashMap.newKeySet();
                     try {
-                        PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM bank_members WHERE bank=?");
-                        ps.setString(1, name);
-                        ResultSet rs = ps.executeQuery();
-                        while (rs.next()) {
-                            try { set.add(UUID.fromString(rs.getString(1))); } catch (IllegalArgumentException ignored) {}
-                        }
-                    } catch (SQLException e) {}
+                        BankModel nameLookup = BankModel.create(name, "", 0.0);
+                        nameLookup.members(bankMemberRepo).get()
+                            .forEach(m -> { try { set.add(UUID.fromString(m.getMemberUuid())); } catch (IllegalArgumentException ignored) {} });
+                    } catch (StorageException e) {}
                     return set;
                 }
             } catch (InterruptedException ex) {
@@ -1268,13 +1123,10 @@ public class MySQLStorageProvider implements StorageProvider {
             ensureBankTables();
             Set<UUID> set = ConcurrentHashMap.newKeySet();
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM bank_members WHERE bank=?");
-                ps.setString(1, name);
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    try { set.add(UUID.fromString(rs.getString(1))); } catch (IllegalArgumentException ignored) {}
-                }
-            } catch (SQLException e) {}
+                BankModel nameLookup = BankModel.create(name, "", 0.0);
+                nameLookup.members(bankMemberRepo).get()
+                    .forEach(m -> { try { set.add(UUID.fromString(m.getMemberUuid())); } catch (IllegalArgumentException ignored) {} });
+            } catch (StorageException e) {}
             return set;
         }
     }
@@ -1283,14 +1135,8 @@ public class MySQLStorageProvider implements StorageProvider {
     public void logTransaction(com.skyblockexp.ezeconomy.api.storage.models.Transaction tx) {
         synchronized (lock) {
             try {
-                String sql = "INSERT INTO transactions (uuid, currency, amount, timestamp) VALUES (?, ?, ?, ?)";
-                PreparedStatement ps = connection.prepareStatement(sql);
-                ps.setString(1, tx.getUuid().toString());
-                ps.setString(2, tx.getCurrency());
-                ps.setDouble(3, tx.getAmount());
-                ps.setLong(4, tx.getTimestamp());
-                ps.executeUpdate();
-            } catch (SQLException e) {
+                transactionRepo.save(TransactionModel.fromTransaction(tx));
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL logTransaction failed: " + e.getMessage());
             }
         }
@@ -1304,22 +1150,25 @@ public class MySQLStorageProvider implements StorageProvider {
         java.util.Set<String> removed = new java.util.HashSet<>();
         synchronized (lock) {
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM `" + table + "`");
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    String uuidStr = rs.getString(1);
+                java.util.List<BalanceModel> all = balanceRepo.query(BalanceModel.queryBuilder().build());
+                java.util.Set<String> seen = new java.util.HashSet<>();
+                for (BalanceModel bm : all) {
+                    String uuidStr = bm.getUuid();
+                    if (!seen.add(uuidStr)) continue;
                     try {
                         java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
                         org.bukkit.OfflinePlayer player = org.bukkit.Bukkit.getOfflinePlayer(uuid);
                         if (player == null || player.getName() == null) {
-                            PreparedStatement del = connection.prepareStatement("DELETE FROM `" + table + "` WHERE uuid=?");
-                            del.setString(1, uuidStr);
-                            del.executeUpdate();
                             removed.add(uuidStr);
                         }
                     } catch (IllegalArgumentException ignored) {}
                 }
-            } catch (SQLException e) {
+                if (!removed.isEmpty()) {
+                    balanceRepo.deleteWhere(
+                        BalanceModel.queryBuilder().whereIn("uuid", new java.util.ArrayList<Object>(removed)).build()
+                    );
+                }
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL cleanupOrphanedPlayers failed: " + e.getMessage());
             }
         }
@@ -1333,10 +1182,11 @@ public class MySQLStorageProvider implements StorageProvider {
         java.util.Set<String> orphaned = new java.util.HashSet<>();
         synchronized (lock) {
             try {
-                PreparedStatement ps = connection.prepareStatement("SELECT uuid FROM `" + table + "`");
-                ResultSet rs = ps.executeQuery();
-                while (rs.next()) {
-                    String uuidStr = rs.getString(1);
+                java.util.List<BalanceModel> all = balanceRepo.query(BalanceModel.queryBuilder().build());
+                java.util.Set<String> seen = new java.util.HashSet<>();
+                for (BalanceModel bm : all) {
+                    String uuidStr = bm.getUuid();
+                    if (!seen.add(uuidStr)) continue;
                     try {
                         java.util.UUID uuid = java.util.UUID.fromString(uuidStr);
                         org.bukkit.OfflinePlayer player = org.bukkit.Bukkit.getOfflinePlayer(uuid);
@@ -1345,7 +1195,7 @@ public class MySQLStorageProvider implements StorageProvider {
                         }
                     } catch (IllegalArgumentException ignored) {}
                 }
-            } catch (SQLException e) {
+            } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL previewOrphanedPlayers failed: " + e.getMessage());
             }
         }

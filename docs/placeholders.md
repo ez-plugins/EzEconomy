@@ -1,3 +1,8 @@
+---
+title: Placeholders
+nav_order: 8
+---
+
 # Placeholders
 
 EzEconomy integrates with PlaceholderAPI for use in chat, scoreboards, and other plugins.
@@ -23,7 +28,7 @@ Add the `price_message_format` key to your language file under `EzEconomy/langua
 
 Default (bundled):
 
-```
+```yaml
 price_message_format: "{amount} {symbol}"
 ```
 

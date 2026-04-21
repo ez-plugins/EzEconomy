@@ -1,3 +1,8 @@
+---
+title: Database
+nav_order: 6
+---
+
 # Database Documentation
 
 This document describes the database structures and setup procedures for the different storage providers supported by EzEconomy.
@@ -29,17 +34,22 @@ Each provider has its own configuration file (e.g., `config-sqlite.yml`) that is
 Stores data in YAML files on the filesystem. Each player has their own file, and bank data is stored in the owner's file.
 
 ### Setup
+
 1. Set `storage.type: yml` in `config.yml`
 2. Configure in `config-yml.yml`:
+
    ```yaml
    yml:
      data-folder: "data"  # Folder relative to plugin data folder
      per-player-file-naming: "uuid"  # "uuid" or "username"
    ```
+
 3. No additional setup required - files are created automatically.
 
 ### Structure
+
 - **Player files**: `data/<uuid>.yml` or `data/<username>.yml`
+
   ```yaml
   uuid: "player-uuid-here"
   balances:
@@ -66,19 +76,23 @@ Stores data in YAML files on the filesystem. Each player has their own file, and
 Uses a local SQLite database file for all data storage.
 
 ### Setup
+
 1. Set `storage.type: sqlite` in `config.yml`
 2. Configure in `config-sqlite.yml`:
+
    ```yaml
    sqlite:
      file: "ezeconomy.db"  # Database file name
      table: "balances"     # Player balances table
      banksTable: "banks"   # Bank data table
    ```
+
 3. No additional setup required - database and tables are created automatically.
 
 ### Table Structures
 
 #### balances
+
 ```sql
 CREATE TABLE balances (
     uuid TEXT,
@@ -89,6 +103,7 @@ CREATE TABLE balances (
 ```
 
 #### banks
+
 ```sql
 CREATE TABLE banks (
     name TEXT PRIMARY KEY,
@@ -99,6 +114,7 @@ CREATE TABLE banks (
 ```
 
 #### transactions (optional)
+
 ```sql
 CREATE TABLE transactions (
     uuid TEXT,
@@ -109,6 +125,7 @@ CREATE TABLE transactions (
 ```
 
 #### bank_members (optional, for advanced member management)
+
 ```sql
 CREATE TABLE bank_members (
     bank TEXT,
@@ -124,8 +141,10 @@ CREATE TABLE bank_members (
 Uses a remote MySQL database for scalable storage.
 
 ### Setup
+
 1. Set `storage.type: mysql` in `config.yml`
 2. Configure in `config-mysql.yml`:
+
    ```yaml
    mysql:
      host: "localhost"
@@ -135,16 +154,20 @@ Uses a remote MySQL database for scalable storage.
      password: "your_password"
      table: "balances"
    ```
+
 3. Create the MySQL database:
+
    ```sql
    CREATE DATABASE ezeconomy;
    GRANT ALL PRIVILEGES ON ezeconomy.* TO 'your_username'@'localhost' IDENTIFIED BY 'your_password';
    ```
+
 4. Tables are created automatically on first run.
 
 ### Table Structures
 
 #### balances
+
 ```sql
 CREATE TABLE balances (
     uuid VARCHAR(36),
@@ -155,6 +178,7 @@ CREATE TABLE balances (
 ```
 
 #### banks
+
 ```sql
 CREATE TABLE banks (
     name VARCHAR(64),
@@ -165,6 +189,7 @@ CREATE TABLE banks (
 ```
 
 #### bank_members
+
 ```sql
 CREATE TABLE bank_members (
     bank VARCHAR(64),
@@ -175,6 +200,7 @@ CREATE TABLE bank_members (
 ```
 
 #### transactions (optional)
+
 ```sql
 CREATE TABLE transactions (
     uuid VARCHAR(36),
@@ -190,8 +216,10 @@ CREATE TABLE transactions (
 Uses MongoDB for NoSQL document-based storage.
 
 ### Setup
+
 1. Set `storage.type: mongodb` in `config.yml`
 2. Configure in `config-mongodb.yml`:
+
    ```yaml
    mongodb:
      uri: "mongodb://localhost:27017"
@@ -199,12 +227,14 @@ Uses MongoDB for NoSQL document-based storage.
      collection: "balances"
      banksCollection: "banks"
    ```
+
 3. Ensure MongoDB is running and accessible.
 4. Collections and indexes are created automatically.
 
 ### Collection Structures
 
 #### balances
+
 ```javascript
 {
   "_id": ObjectId("..."),
@@ -218,6 +248,7 @@ Uses MongoDB for NoSQL document-based storage.
 ```
 
 #### banks
+
 ```javascript
 {
   "_id": ObjectId("..."),
@@ -235,6 +266,7 @@ Uses MongoDB for NoSQL document-based storage.
 ```
 
 #### transactions (optional)
+
 ```javascript
 {
   "_id": ObjectId("..."),

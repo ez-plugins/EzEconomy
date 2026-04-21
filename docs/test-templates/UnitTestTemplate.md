@@ -26,6 +26,7 @@ class AccountServiceTest {
 ```
 
 Guidelines:
+
 - Use `Arrange / Act / Assert` blocks with blank lines between them for readability.
 - Use builder/fixture helpers to keep setup concise.
 - Name tests to convey behavior (what, when, expected).
