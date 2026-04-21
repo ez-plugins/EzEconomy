@@ -55,4 +55,4 @@ jobs:
             ${{ runner.os }}-m2-feature-${{ matrix.paper-version }}-
 
       - name: Run feature tests
-        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=${{ matrix.mockbukkit-artifactId }} -Dmockbukkit.version=$MOCKBUKKIT_VERSION -Pfeature-tests -Dtest=*FeatureTest test
+        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=mockbukkit-v26.1 -Dmockbukkit.version=$MOCKBUKKIT_VERSION -Pfeature-tests -Dtest=*FeatureTest test

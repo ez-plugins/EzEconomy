@@ -59,7 +59,7 @@ jobs:
             ${{ runner.os }}-m2-${{ matrix.paper-version }}-
 
       - name: Run unit tests (exclude feature tests) and generate JaCoCo report
-        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=${{ matrix.mockbukkit-artifactId }} -Dmockbukkit.version=$MOCKBUKKIT_VERSION -Dtest='!*FeatureTest' -Dsurefire.failIfNoSpecifiedTests=false test jacoco:report
+        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=mockbukkit-v26.1 -Dmockbukkit.version=$MOCKBUKKIT_VERSION -Dtest='!*FeatureTest' -Dsurefire.failIfNoSpecifiedTests=false test jacoco:report
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
