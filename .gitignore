@@ -32,3 +32,8 @@ Thumbs.db
 # Ignore other common files
 *.swp
 *.swo
+
+# Ignore Node files
+package-lock.json
+package.json
+node_modules/
