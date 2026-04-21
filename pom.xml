@@ -70,6 +70,8 @@
                                     <include>net.kyori:adventure-text-minimessage</include>
                                     <include>net.kyori:adventure-text-serializer-legacy</include>
                                     <include>net.kyori:examination-api</include>
+                                    <include>com.github.EzFramework:Jaloquent</include>
+                                    <include>com.github.EzFramework:JavaQueryBuilder</include>
                                 </includes>
                             </artifactSet>
                             <relocations>
@@ -80,6 +82,14 @@
                                 <relocation>
                                     <pattern>net.kyori</pattern>
                                     <shadedPattern>com.skyblockexp.ezeconomy.shaded.net.kyori</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.github.ezframework.jaloquent</pattern>
+                                    <shadedPattern>com.skyblockexp.ezeconomy.shaded.jaloquent</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.github.ezframework.javaquerybuilder</pattern>
+                                    <shadedPattern>com.skyblockexp.ezeconomy.shaded.jqb</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
@@ -114,6 +124,16 @@
                         <goals>
                             <goal>prepare-agent</goal>
                         </goals>
+                        <configuration>
+                            <!-- Exclude test classes from JaCoCo instrumentation.
+                                 Coverage measures production code; instrumenting test
+                                 classes can corrupt StackMapTable frames on JDK 25+. -->
+                            <excludes>
+                                <exclude>**/*Test</exclude>
+                                <exclude>**/*IT</exclude>
+                                <exclude>**/*IntegrationTest</exclude>
+                            </excludes>
+                        </configuration>
                     </execution>
                     <execution>
                         <id>report</id>
@@ -238,6 +258,29 @@
             <groupId>org.mongodb</groupId>
             <artifactId>mongodb-driver-sync</artifactId>
             <version>5.6.5</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.EzFramework</groupId>
+            <artifactId>Jaloquent</artifactId>
+            <version>1.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.EzFramework</groupId>
+            <artifactId>JavaQueryBuilder</artifactId>
+            <version>1.0.7</version>
+        </dependency>
+        <!-- Jaker is optional in Jaloquent but required for Factory definitions in tests -->
+        <dependency>
+            <groupId>com.github.EzFramework.jaker</groupId>
+            <artifactId>jaker</artifactId>
+            <version>1.0.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.EzFramework.jaker</groupId>
+            <artifactId>jaker-data-en-US</artifactId>
+            <version>1.0.0</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>${mockbukkit.groupId}</groupId>
