@@ -45,7 +45,10 @@ jobs:
       - name: Build and install MockBukkit dev/26.1.1
         run: |
           git clone --depth=1 --branch dev/26.1.1 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
-          cd /tmp/MockBukkit && ./gradlew publishToMavenLocal -xtest -xjavadoc
+          cd /tmp/MockBukkit
+          COMMIT=$(git rev-parse --short HEAD)
+          ./gradlew publishToMavenLocal -xtest -xjavadoc
+          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
 
       - name: Cache Maven local repository
         uses: actions/cache@v5
@@ -56,7 +59,7 @@ jobs:
             ${{ runner.os }}-m2-${{ matrix.paper-version }}-
 
       - name: Run unit tests (exclude feature tests) and generate JaCoCo report
-        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=${{ matrix.mockbukkit-artifactId }} -Dmockbukkit.version=${{ matrix.mockbukkit-version }} -Dtest='!*FeatureTest' -Dsurefire.failIfNoSpecifiedTests=false test jacoco:report
+        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=${{ matrix.mockbukkit-artifactId }} -Dmockbukkit.version=$MOCKBUKKIT_VERSION -Dtest='!*FeatureTest' -Dsurefire.failIfNoSpecifiedTests=false test jacoco:report
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
