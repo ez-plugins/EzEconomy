@@ -23,14 +23,6 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Build and install MockBukkit dev/26.1.1
-        run: |
-          git clone --depth=1 --branch dev/26.1.1 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
-          cd /tmp/MockBukkit
-          COMMIT=$(git rev-parse --short HEAD)
-          ./gradlew publishToMavenLocal -xtest -xjavadoc
-          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
-
       - name: Cache Maven local repository
         uses: actions/cache@v5
         with:
@@ -38,6 +30,14 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-m2-
+
+      - name: Build and install MockBukkit dev/26.1.1
+        run: |
+          git clone --depth=1 --branch dev/26.1.1 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
+          cd /tmp/MockBukkit
+          COMMIT=$(git rev-parse --short HEAD)
+          ./gradlew publishToMavenLocal -xtest -xjavadoc
+          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
 
       - name: Build and test Redis module
         run: mvn -B -DskipTests=false -Dmockbukkit.version=$MOCKBUKKIT_VERSION -pl ezeconomy-redis -am clean test package

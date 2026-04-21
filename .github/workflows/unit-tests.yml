@@ -42,14 +42,6 @@ jobs:
           distribution: temurin
           java-version: '25'
 
-      - name: Build and install MockBukkit dev/26.1.1
-        run: |
-          git clone --depth=1 --branch dev/26.1.1 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
-          cd /tmp/MockBukkit
-          COMMIT=$(git rev-parse --short HEAD)
-          ./gradlew publishToMavenLocal -xtest -xjavadoc
-          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
-
       - name: Cache Maven local repository
         uses: actions/cache@v5
         with:
@@ -57,6 +49,14 @@ jobs:
           key: ${{ runner.os }}-m2-${{ matrix.paper-version }}-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-m2-${{ matrix.paper-version }}-
+
+      - name: Build and install MockBukkit dev/26.1.1
+        run: |
+          git clone --depth=1 --branch dev/26.1.1 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
+          cd /tmp/MockBukkit
+          COMMIT=$(git rev-parse --short HEAD)
+          ./gradlew publishToMavenLocal -xtest -xjavadoc
+          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
 
       - name: Run unit tests (exclude feature tests) and generate JaCoCo report
         run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=mockbukkit-v26.1 -Dmockbukkit.version=$MOCKBUKKIT_VERSION -Dtest='!*FeatureTest' -Dsurefire.failIfNoSpecifiedTests=false test jacoco:report
