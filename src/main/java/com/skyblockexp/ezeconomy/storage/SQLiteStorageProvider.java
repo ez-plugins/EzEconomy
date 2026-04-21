@@ -252,6 +252,12 @@ public class SQLiteStorageProvider implements StorageProvider {
     @Override
     public com.skyblockexp.ezeconomy.dto.EconomyPlayer getPlayer(UUID uuid) {
         com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
+        if (playerRepo == null) {
+            org.bukkit.OfflinePlayer of = plugin.getServer().getOfflinePlayer(uuid);
+            String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
+            String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
+            return new com.skyblockexp.ezeconomy.dto.EconomyPlayer(uuid, name, display);
+        }
         if (lm != null) {
             String token = null;
             try {

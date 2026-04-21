@@ -31,36 +31,7 @@
             </resource>
         </resources>
         <plugins>
-            <!-- MockBukkit-v1.21 is incompatible with Paper 26.x (Registry API changed).
-                 Exclude tests that call MockBukkit.mock() until mockbukkit-v26 is published. -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.5.5</version>
-                <configuration>
-                    <useModulePath>false</useModulePath>
-                    <excludes>
-                        <exclude>**/feature/PayAllAliasTest.java</exclude>
-                        <exclude>**/feature/PayCommandEdgeCasesTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorCurrencyPreferenceTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorDistributedLockInsufficientFundsTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorDistributedLockSuccessTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorDistributedLockTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorEventCancelTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorRecipientNotFoundTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorSelfPayTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorSimpleTransferFailureTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorSimpleTransferOtherCurrencyMessagesTest.java</exclude>
-                        <exclude>**/service/PaymentExecutorTest.java</exclude>
-                        <exclude>**/service/format/CurrencyFormatterFormatTest.java</exclude>
-                        <exclude>**/storage/GetPlayerTest.java</exclude>
-                        <exclude>**/util/CurrencyUtilRoundToCurrencyTest.java</exclude>
-                        <exclude>**/util/PlayerLookupTest.java</exclude>
-                        <exclude>**/*IT.java</exclude>
-                        <exclude>**/*IntegrationTest.java</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
+            <!-- No surefire excludes: run full unit test suite including MockBukkit-based tests. -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>
