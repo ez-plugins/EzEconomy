@@ -1,6 +1,7 @@
 ---
 title: Testing
-nav_order: 9
+nav_order: 3
+parent: Developer Reference
 ---
 
 # Testing Guidelines for EzEconomy

@@ -6,9 +6,9 @@ nav_order: 1
 
 # EzEconomy
 
-EzEconomy is a Vault-compatible economy provider built for reliability, clarity,
-and scalability. It supports multiple storage backends, optional multi-currency
-systems, and bank accounts while keeping operations safe under high concurrency.
+EzEconomy is a Vault-compatible economy plugin for Paper/Spigot 1.7.10 – 1.21.1.
+It supports multiple storage backends, optional multi-currency systems, bank accounts,
+and async caching — all designed to keep your economy safe and fast under load.
 
 ## Highlights
 
@@ -18,20 +18,30 @@ systems, and bank accounts while keeping operations safe under high concurrency.
 - **Async caching** — keeps balance lookups fast on busy servers.
 - **Banking system** — shared accounts with member management and permissions.
 
-## Quick Start
+---
 
-1. Install **Vault** and **EzEconomy**.
-2. Place `EzEconomy.jar` in your plugins folder.
-3. Configure `config.yml` and your selected storage config file.
-4. Restart the server to generate data files.
+## For Server Owners & Admins
 
-## Where to Go Next
-
-| Section | Description |
-|:--------|:------------|
-| [Configuration](configuration) | Storage backends, multi-currency, and plugin settings |
-| [Commands](commands) | Player and admin commands |
-| [Permissions](permissions) | Permission nodes for staff and players |
-| [Database](database) | Backend behaviour and data safety |
-| [Developer API](developer-api) | Events, Vault hook, and custom storage providers |
+| | |
+|:---|:---|
+| [Getting Started](overview) | Install EzEconomy, choose a storage backend, verify your setup |
+| [Configuration](configuration) | Storage backends, multi-currency, banking toggle, caching |
+| [Commands](commands) | Player and admin command reference |
+| [Permissions](permissions) | Permission nodes with recommended role assignments |
+| [Storage Backends](database) | Backend setup, table schemas, and backup guidance |
 | [Placeholders](placeholders) | PlaceholderAPI expansion reference |
+| [Moderation Guide](moderation) | Give/take balances, investigate players, cleanup & maintenance |
+
+## Optional Features
+
+| | |
+|:---|:---|
+| [Banking](feature/banking) | Shared bank accounts with member roles |
+| [Multi-Currency](feature/multi-currency) | Multiple currencies with conversion rates |
+| [Integrations](integration/) | Vault, PlaceholderAPI, Redis, BungeeCord |
+
+## For Developers
+
+| | |
+|:---|:---|
+| [Developer Reference](developer-api) | EzEconomyAPI, events, custom storage providers |

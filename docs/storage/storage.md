@@ -1,6 +1,7 @@
 ---
-title: Storage
-nav_order: 10
+title: Storage Architecture
+nav_order: 4
+parent: Developer Reference
 ---
 
 # Storage & Data Safety

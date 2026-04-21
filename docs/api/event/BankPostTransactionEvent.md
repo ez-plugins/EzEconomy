@@ -1,3 +1,10 @@
+---
+title: BankPostTransactionEvent
+nav_order: 6
+parent: API Guide
+grand_parent: Developer Reference
+---
+
 # BankPostTransactionEvent
 
 Description

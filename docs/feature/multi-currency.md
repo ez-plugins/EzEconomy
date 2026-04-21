@@ -1,6 +1,6 @@
 ---
 title: Multi-Currency
-nav_order: 5
+nav_order: 2
 parent: Features
 ---
 

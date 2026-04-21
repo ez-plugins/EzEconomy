@@ -1,3 +1,10 @@
+---
+title: TransactionType
+nav_order: 1
+parent: API Guide
+grand_parent: Developer Reference
+---
+
 # TransactionType
 
 Enum: `com.skyblockexp.ezeconomy.api.events.TransactionType`

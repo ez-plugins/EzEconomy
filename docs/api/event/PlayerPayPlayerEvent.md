@@ -1,3 +1,10 @@
+---
+title: PlayerPayPlayerEvent
+nav_order: 4
+parent: API Guide
+grand_parent: Developer Reference
+---
+
 # PlayerPayPlayerEvent
 
 Class: `com.skyblockexp.ezeconomy.api.events.PlayerPayPlayerEvent`

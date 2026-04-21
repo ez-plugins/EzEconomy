@@ -1,3 +1,10 @@
+---
+title: PreTransactionEvent
+nav_order: 2
+parent: API Guide
+grand_parent: Developer Reference
+---
+
 # PreTransactionEvent
 
 Class: `com.skyblockexp.ezeconomy.api.events.PreTransactionEvent`
