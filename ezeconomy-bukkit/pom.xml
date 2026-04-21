@@ -56,8 +56,29 @@
                         <exclude>**/storage/GetPlayerTest.java</exclude>
                         <exclude>**/util/CurrencyUtilRoundToCurrencyTest.java</exclude>
                         <exclude>**/util/PlayerLookupTest.java</exclude>
+                        <exclude>**/*IT.java</exclude>
+                        <exclude>**/*IntegrationTest.java</exclude>
                     </excludes>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <id>add-integration-test-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/integration/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -72,6 +93,14 @@
                             <goal>verify</goal>
                         </goals>
                         <configuration>
+                            <useModulePath>false</useModulePath>
+                            <!-- Failsafe runs after the `package` phase, so Maven puts the
+                                 shade-plugin output on the classpath instead of target/classes.
+                                 The shaded JAR relocates Jaloquent, so BalanceModel in the JAR
+                                 extends shaded.Model — incompatible with ModelRepository.save(BaseModel)
+                                 from the unshaded Jaloquent → VerifyError at class discovery.
+                                 Force failsafe to use target/classes (same as surefire). -->
+                            <classesDirectory>${project.build.outputDirectory}</classesDirectory>
                             <includes>
                                 <include>**/*IT.java</include>
                                 <include>**/*IntegrationTest.java</include>

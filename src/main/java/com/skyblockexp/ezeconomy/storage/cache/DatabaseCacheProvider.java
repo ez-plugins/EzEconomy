@@ -3,19 +3,27 @@ package com.skyblockexp.ezeconomy.storage.cache;
 import com.skyblockexp.ezeconomy.cache.CacheProvider;
 import com.skyblockexp.ezeconomy.cache.ExpiringCache;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
+import com.github.ezframework.jaloquent.exception.StorageException;
+import com.github.ezframework.jaloquent.model.ModelRepository;
+import com.github.ezframework.javaquerybuilder.query.builder.QueryBuilder;
+import com.github.ezframework.javaquerybuilder.query.sql.SqlDialect;
+import com.skyblockexp.ezeconomy.storage.jaloquent.EzJdbcStore;
+import com.skyblockexp.ezeconomy.storage.jaloquent.EzTableRegistry;
+import com.skyblockexp.ezeconomy.storage.jaloquent.model.CacheEntryModel;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.Statement;
+import java.util.Collections;
+import java.util.Optional;
 
 /**
  * Database-backed cache provider using MySQL (configured via plugin config).
- * Creates a simple `ezeconomy_cache` table if missing.
+ * Creates a simple {@code ezeconomy_cache} table if missing, then uses
+ * Jaloquent for all subsequent read/write operations.
  */
 public class DatabaseCacheProvider<K, V> implements CacheProvider<K, V> {
-    private Connection conn;
+    private EzJdbcStore jdbcStore;
+    private ModelRepository<CacheEntryModel> cacheRepo;
 
     public DatabaseCacheProvider() {
         try {
@@ -26,50 +34,52 @@ public class DatabaseCacheProvider<K, V> implements CacheProvider<K, V> {
             String database = plugin.getConfig().getString("mysql.database", "ezeconomy");
             String user = plugin.getConfig().getString("mysql.username", "root");
             String pass = plugin.getConfig().getString("mysql.password", "");
-            this.conn = DriverManager.getConnection("jdbc:mysql://" + host + ":" + port + "/" + database, user, pass);
-            try (Statement s = conn.createStatement()) {
-                s.executeUpdate("CREATE TABLE IF NOT EXISTS ezeconomy_cache (`k` VARCHAR(191) PRIMARY KEY, `v` TEXT, `expiresAt` BIGINT)");
-            }
+            Connection conn = DriverManager.getConnection("jdbc:mysql://" + host + ":" + port + "/" + database, user, pass);
+            this.jdbcStore = new EzJdbcStore(conn);
+            EzTableRegistry.registerCache("ezeconomy_cache");
+            jdbcStore.executeUpdate(
+                QueryBuilder.createTable("ezeconomy_cache").ifNotExists()
+                    .column("k", "VARCHAR(191)").primaryKey("k")
+                    .column("v", "TEXT").column("expiresAt", "BIGINT")
+                    .build(SqlDialect.MYSQL).getSql(),
+                Collections.emptyList());
+            this.cacheRepo = new ModelRepository<>(jdbcStore, "cache", CacheEntryModel::new, SqlDialect.MYSQL);
         } catch (Exception ex) {
-            // leave conn null to indicate unavailable
-            this.conn = null;
+            this.jdbcStore = null;
+            this.cacheRepo = null;
         }
     }
 
     @Override
     public ExpiringCache.Entry<V> getEntry(K key) {
-        if (conn == null) return null;
-        try (PreparedStatement ps = conn.prepareStatement("SELECT v, expiresAt FROM ezeconomy_cache WHERE k=?")) {
-            ps.setString(1, String.valueOf(key));
-            ResultSet rs = ps.executeQuery();
-            if (!rs.next()) return null;
-            String v = rs.getString(1);
-            long expiresAt = rs.getLong(2);
+        if (cacheRepo == null) return null;
+        try {
+            Optional<CacheEntryModel> opt = cacheRepo.find(String.valueOf(key));
+            if (!opt.isPresent()) return null;
+            CacheEntryModel entry = opt.get();
+            long expiresAt = entry.getExpiresAt();
             if (expiresAt > 0 && expiresAt <= System.currentTimeMillis()) return null;
-            return new ExpiringCache.Entry<>((V) v, expiresAt);
-        } catch (Exception ex) {
+            return new ExpiringCache.Entry<>((V) entry.getV(), expiresAt);
+        } catch (StorageException ex) {
             return null;
         }
     }
 
     @Override
     public void put(K key, V value, long ttlMs) {
-        if (conn == null) return;
+        if (cacheRepo == null) return;
         long expiresAt = ttlMs <= 0 ? 0L : System.currentTimeMillis() + ttlMs;
-        try (PreparedStatement ps = conn.prepareStatement("REPLACE INTO ezeconomy_cache (k, v, expiresAt) VALUES (?, ?, ?)")) {
-            ps.setString(1, String.valueOf(key));
-            ps.setString(2, String.valueOf(value));
-            ps.setLong(3, expiresAt);
-            ps.executeUpdate();
-        } catch (Exception ignored) {}
+        try {
+            cacheRepo.save(CacheEntryModel.create(String.valueOf(key), String.valueOf(value), expiresAt));
+        } catch (StorageException ignored) {}
     }
 
     @Override
     public void remove(K key) {
-        if (conn == null) return;
-        try (PreparedStatement ps = conn.prepareStatement("DELETE FROM ezeconomy_cache WHERE k=?")) {
-            ps.setString(1, String.valueOf(key));
-            ps.executeUpdate();
-        } catch (Exception ignored) {}
+        if (cacheRepo == null) return;
+        try {
+            cacheRepo.delete(String.valueOf(key));
+        } catch (StorageException ignored) {}
     }
 }
+

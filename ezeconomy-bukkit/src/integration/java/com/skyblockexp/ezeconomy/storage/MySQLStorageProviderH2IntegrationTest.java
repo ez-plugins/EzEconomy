@@ -24,8 +24,11 @@ public class MySQLStorageProviderH2IntegrationTest {
         try { MockBukkit.mock(); } catch (IllegalStateException e) { MockBukkit.unmock(); MockBukkit.mock(); }
         conn = DbTestHelper.createH2MemoryMysql();
         try (Statement s = conn.createStatement()) {
-            s.executeUpdate("CREATE TABLE IF NOT EXISTS balances (uuid VARCHAR(36), currency VARCHAR(32), balance DOUBLE, PRIMARY KEY (uuid, currency))");
-            s.executeUpdate("CREATE TABLE IF NOT EXISTS players (uuid VARCHAR(36) PRIMARY KEY, name VARCHAR(64), displayName VARCHAR(128))");
+            s.executeUpdate("CREATE TABLE IF NOT EXISTS balances (id VARCHAR(69) NOT NULL, uuid VARCHAR(36), currency VARCHAR(32), balance DOUBLE, PRIMARY KEY (id))");
+            s.executeUpdate("CREATE TABLE IF NOT EXISTS players (id VARCHAR(36) PRIMARY KEY, name VARCHAR(64), displayName VARCHAR(128))");
+            s.executeUpdate("CREATE TABLE IF NOT EXISTS banks (id VARCHAR(97) PRIMARY KEY, name VARCHAR(64), currency VARCHAR(32), balance DOUBLE)");
+            s.executeUpdate("CREATE TABLE IF NOT EXISTS bank_members (id VARCHAR(101) PRIMARY KEY, bank VARCHAR(64), uuid VARCHAR(36), owner BOOLEAN)");
+            s.executeUpdate("CREATE TABLE IF NOT EXISTS transactions (id VARCHAR(36) PRIMARY KEY, uuid VARCHAR(36), currency VARCHAR(32), amount DOUBLE, timestamp BIGINT)");
         }
     }
 
@@ -52,6 +55,9 @@ public class MySQLStorageProviderH2IntegrationTest {
         Field connField = MySQLStorageProvider.class.getDeclaredField("connection");
         connField.setAccessible(true);
         connField.set(provider, conn);
+
+        // Initialise Jaloquent repositories with the injected connection
+        provider.initRepositories();
 
         UUID u = UUID.randomUUID();
         // Initially zero
