@@ -125,9 +125,15 @@
                             <goal>prepare-agent</goal>
                         </goals>
                         <configuration>
-                            <!-- Exclude test classes from JaCoCo instrumentation.
-                                 Coverage measures production code; instrumenting test
-                                 classes can corrupt StackMapTable frames on JDK 25+. -->
+                            <!-- Scope JaCoCo instrumentation exclusively to our own production
+                                 classes. Instrumenting third-party classes (adventure-api, paper-api,
+                                 MockBukkit, etc.) on JDK 25+ can corrupt class-file attributes such
+                                 as StackMapTable frames and PermittedSubclasses, leading to
+                                 IncompatibleClassChangeError when the JVM verifies sealed interfaces.
+                                 Additionally, exclude our own test helper classes. -->
+                            <includes>
+                                <include>com/skyblockexp/ezeconomy/**</include>
+                            </includes>
                             <excludes>
                                 <exclude>**/*Test</exclude>
                                 <exclude>**/*IT</exclude>
@@ -166,6 +172,39 @@
                             <fail>true</fail>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>ban-adventure-5x</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <!--
+                                Fail fast if adventure-api 5.x somehow reaches the classpath.
+                                adventure-api 5.0.0+ seals the Book interface; Paper's BookMeta
+                                implements that interface, causing IncompatibleClassChangeError.
+                                The dependencyManagement block above should prevent this, but
+                                this rule provides an early, human-readable error if it ever
+                                slips through (e.g. via a corrupted or restored Maven cache).
+                            -->
+                            <rules>
+                                <bannedDependencies>
+                                    <searchTransitive>true</searchTransitive>
+                                    <excludes>
+                                        <exclude>net.kyori:adventure-api:[5,)</exclude>
+                                    </excludes>
+                                    <message>
+                                        adventure-api 5.x was detected on the classpath.
+                                        adventure-api 5.0.0+ seals net.kyori.adventure.inventory.Book
+                                        with PermittedSubclasses restricted to BookImpl only, which
+                                        breaks Paper's BookMeta (IncompatibleClassChangeError).
+                                        Check the dependency tree and ensure adventure-api resolves
+                                        to 4.26.1 as declared in dependencyManagement.
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
                 </executions>
             </plugin>
             <plugin>
@@ -182,6 +221,26 @@
             </plugin>
         </plugins>
     </build>
+    <!--
+        Pin adventure-api to the 4.26.1 release across the entire dependency graph.
+        adventure-api 5.0.0+ seals the Book interface with PermittedSubclasses restricted
+        to BookImpl only. Paper's BookMeta extends that interface, so loading it when 5.x
+        is on the classpath throws IncompatibleClassChangeError at test-time.
+        PaperMC's Maven repo already hosts adventure-bom 5.x, so any stale or restored
+        CI cache that contains a mismatched adventure-api-4.26.1.jar (or a corrupted
+        metadata file pointing at 5.x) can silently pull in the wrong bytes.
+        The dependencyManagement entry below acts as the definitive override: regardless
+        of what any transitive dependency requests, Maven will always select 4.26.1.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-api</artifactId>
+                <version>4.26.1</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>org.bstats</groupId>

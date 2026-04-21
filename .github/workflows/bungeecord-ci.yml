@@ -27,9 +27,9 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-m2-v2-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-m2-
+            ${{ runner.os }}-m2-v2-
 
       - name: Build and install MockBukkit dev/26.1.1
         run: |
@@ -38,6 +38,10 @@ jobs:
           COMMIT=$(git rev-parse --short HEAD)
           ./gradlew publishToMavenLocal -xtest -xjavadoc
           echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
+
+      - name: Print resolved adventure-api version
+        run: |
+          mvn -B -Dmockbukkit.version=$MOCKBUKKIT_VERSION -pl ezeconomy-bungeecord -am dependency:tree -Dincludes="net.kyori:adventure-api" --no-transfer-progress 2>&1 | grep -E "adventure-api|BUILD" || true
 
       - name: Build and test BungeeCord module
         run: mvn -B -DskipTests=false -Dmockbukkit.version=$MOCKBUKKIT_VERSION -pl ezeconomy-bungeecord -am clean test package
