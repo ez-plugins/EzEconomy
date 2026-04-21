@@ -14,7 +14,7 @@ Permissions shown in parentheses are required to run the command. Commands witho
 | `/balance <player>` | View another player's balance. | `ezeconomy.balance.others` |
 | `/balance <player> <currency>` | View another player's balance in the specified currency. | `ezeconomy.balance.others` |
 | `/baltop [amount]` | View the top balances. | — |
-| `/pay <player|*> <amount>` | Send money to another player or all players (`*`). | `ezeconomy.pay` (all: `ezeconomy.payall` if enabled) |
+| `/pay <player\|*> <amount>` | Send money to another player or all players (`*`). | `ezeconomy.pay` (all: `ezeconomy.payall` if enabled) |
 | `/currency [currency]` | View or set your preferred currency.  | `ezeconomy.currency` |
 | `/currency convert <from> <to> <amount>` | Use  to convert between currencies. | `ezeconomy.currency` |
 | `/eco give <player> <amount>` | Add funds to a player. | `ezeconomy.eco` |
@@ -34,7 +34,7 @@ Permissions shown in parentheses are required to run the command. Commands witho
 | `/bank removemember <name> <player>` | Remove a bank member. | `ezeconomy.bank.removemember` |
 | `/bank info <name>` | View bank details. | `ezeconomy.bank.info` |
 
-# /ezeconomy Admin Command
+## /ezeconomy Admin Command
 
 | Command | Description | Permission |
 | --- | --- | --- |
@@ -62,18 +62,18 @@ Using `/pay * <amount>` sends the specified amount to multiple recipients at onc
 
 - **Default behavior:** Targets online players only.
 - **Config keys:**
-	- `pay.pay_all.enabled` (boolean, default: `true`) — enable/disable the pay-all feature.
-	- `pay.pay_all.require_permission` (boolean, default: `true`) — require `ezeconomy.payall` to use `/pay *`.
-	- `pay.pay_all.include_offline` (boolean, default: `false`) — when `true`, include stored offline players (server storage) in the recipient list; when `false` only currently online players are paid.
+  - `pay.pay_all.enabled` (boolean, default: `true`) — enable/disable the pay-all feature.
+  - `pay.pay_all.require_permission` (boolean, default: `true`) — require `ezeconomy.payall` to use `/pay *`.
+  - `pay.pay_all.include_offline` (boolean, default: `false`) — when `true`, include stored offline players (server storage) in the recipient list; when `false` only currently online players are paid.
 - **Permissions:**
-	- `ezeconomy.pay` — standard pay permission for `/pay <player>`.
-	- `ezeconomy.payall` — (optional) grant access to `/pay *` when `pay.pay_all.require_permission` is `true`.
-	- `ezeconomy.payall.bypasswithdraw` — optional permission that lets the command credit recipients without withdrawing the total from the sender (useful for admin/gift operations).
+  - `ezeconomy.pay` — standard pay permission for `/pay <player>`.
+  - `ezeconomy.payall` — (optional) grant access to `/pay *` when `pay.pay_all.require_permission` is `true`.
+  - `ezeconomy.payall.bypasswithdraw` — optional permission that lets the command credit recipients without withdrawing the total from the sender (useful for admin/gift operations).
 - **Behavior notes:**
-	- Unless `bypasswithdraw` is granted, the sender is charged the total amount (amount × recipients) before recipients are credited; failure to withdraw aborts the operation.
-	- Recipients are credited in their preferred currency (conversion applied where needed).
-	- By default the command enumerates online players via the server; enabling `pay.pay_all.include_offline` uses the storage provider to enumerate stored balances and may include offline-only accounts.
-	- A summary message (`paid_all_summary`) is sent to the sender after successful execution. Recipients receive the standard payment notification if they are online.
-	- Large recipient sets or mixed-currency conversions may increase execution time; consider enabling the feature only for trusted admins and ensure backup/monitoring is in place.
+  - Unless `bypasswithdraw` is granted, the sender is charged the total amount (amount × recipients) before recipients are credited; failure to withdraw aborts the operation.
+  - Recipients are credited in their preferred currency (conversion applied where needed).
+  - By default the command enumerates online players via the server; enabling `pay.pay_all.include_offline` uses the storage provider to enumerate stored balances and may include offline-only accounts.
+  - A summary message (`paid_all_summary`) is sent to the sender after successful execution. Recipients receive the standard payment notification if they are online.
+  - Large recipient sets or mixed-currency conversions may increase execution time; consider enabling the feature only for trusted admins and ensure backup/monitoring is in place.
 
 If you'd like, I can also add a short example snippet and cross-link to the config defaults in `src/main/resources/config.yml`.

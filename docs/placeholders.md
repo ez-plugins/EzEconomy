@@ -28,7 +28,7 @@ Add the `price_message_format` key to your language file under `EzEconomy/langua
 
 Default (bundled):
 
-```
+```yaml
 price_message_format: "{amount} {symbol}"
 ```
 

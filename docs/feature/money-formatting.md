@@ -70,6 +70,7 @@ money-format:
 ```
 
 Notes:
+
 - If `locale` is set, server owners should ensure it matches their desired separators and symbol conventions.
 - `currencySymbol` can be empty to rely on locale defaults or filled for multi-currency servers.
 
