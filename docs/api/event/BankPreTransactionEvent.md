@@ -1,3 +1,10 @@
+---
+title: BankPreTransactionEvent
+nav_order: 5
+parent: API Guide
+grand_parent: Developer Reference
+---
+
 # BankPreTransactionEvent
 
 Description

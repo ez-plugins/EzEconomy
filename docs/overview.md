@@ -1,42 +1,75 @@
 ---
-title: Overview
+title: Getting Started
 nav_order: 2
 ---
 
-# EzEconomy
+# Getting Started
 
-EzEconomy is a Vault-compatible economy provider built for reliability, clarity, and scalability. It supports multiple storage backends, optional multi-currency systems, and bank accounts while keeping operations safe under high concurrency.
+This guide walks you through installing and configuring EzEconomy for the first time.
 
-## Highlights
+## Prerequisites
 
-- **Vault integration**: Works with any Vault-based plugin without extra setup.
-- **Flexible storage**: YML, MySQL, SQLite, MongoDB, or a custom provider.
-- **Multi-currency**: Optional per-player currency selection with conversion rates.
-- **Async caching**: Keeps balance lookups fast on busy servers.
-- **Banking system**: Shared accounts with member management and permissions.
-- **Banking system**: Shared accounts with member management and permissions. You can disable the built-in banking subsystem via `banking.enabled: false` in `config.yml` if you run an external bank plugin or don't need bank features.
+Before installing, make sure you have:
 
-## Supported Versions
+- **Java 8 or higher** — required by your server jar.
+- **Paper or Spigot 1.7.10 – 1.21.1** — EzEconomy supports the full version range.
+- **[Vault](https://www.spigotmc.org/resources/vault.34315/)** — required. EzEconomy registers itself as the Vault economy provider so that shop, job, and reward plugins work automatically.
+- *(Optional)* **[PlaceholderAPI](https://www.spigotmc.org/resources/placeholderapi.6245/)** — needed for balance placeholders in chat, scoreboards, and other plugins.
 
-EzEconomy targets modern Paper/Spigot servers that support Vault. For best results, use the latest versions of Paper, Vault, and EzEconomy.
+## Installation
 
-## Quick Start
+1. **Download** `EzEconomy.jar` from the [releases page](https://github.com/ez-plugins/EzEconomy/releases).
+2. **Place** `EzEconomy.jar` (and `Vault.jar` if not already present) in your server's `plugins/` folder.
+3. **Start the server** once to generate the default configuration files.
+4. **Stop the server** and edit `plugins/EzEconomy/config.yml` to choose your storage backend and any optional features.
+5. **Start the server** again — EzEconomy will connect to the configured backend and register with Vault.
 
-1. Install **Vault** and **EzEconomy**.
-2. Place `EzEconomy.jar` in your plugins folder.
-3. Configure `config.yml` and your selected storage config file.
-4. Restart the server to generate data files.
+## Choosing a Storage Backend
 
-## Typical Use Cases
+Pick the backend that fits your server's scale and infrastructure:
 
-- Replace legacy economies without changing other plugins.
-- Provide multiple currencies for different game modes.
-- Offer shared bank accounts for guilds or factions.
+| Backend | Best For | Requirements |
+| --- | --- | --- |
+| **YML** *(default)* | Small servers, testing | None — data is written to flat files |
+| **SQLite** | Single server, larger player counts | None — embedded database, no server needed |
+| **MySQL** | Networks, high traffic, shared hosting | Requires a MySQL or MariaDB server |
+| **MongoDB** | Existing MongoDB infrastructure | Requires a MongoDB server |
 
-## Where to Go Next
+Set the `storage` key in `config.yml`, then fill in the matching storage config file (e.g., `config-mysql.yml`):
 
-- **Configuration**: See storage-specific settings and multi-currency setup.
-- **Commands & Permissions**: Confirm staff and player access rules.
-- **Storage Details**: Understand backend behavior and data safety.
+```yaml
+storage: yml   # options: yml, sqlite, mysql, mongodb
+```
 
-- **Events**: EzEconomy now exposes pre/post transaction events for integrations and moderation. See `docs/api/event/PreTransactionEvent.md`, `docs/api/event/PostTransactionEvent.md`, `docs/api/event/PlayerPayPlayerEvent.md`, and `docs/api/event/TransactionType.md` for details and examples.
+See [Storage Backends](storage-backends) for full setup instructions and schema details.
+
+## First-Start Checklist
+
+After the first successful start, verify the following:
+
+1. The server console shows `[EzEconomy] Economy service registered with Vault.`
+2. The folder `plugins/EzEconomy/` contains `config.yml` and the matching storage config file.
+3. Other Vault-dependent plugins (shops, jobs, rewards) recognise EzEconomy as the active economy.
+
+## Quick Verification
+
+Run these commands in-game as a server operator:
+
+```text
+/balance              # Shows your balance (default: 0)
+/eco give <you> 100   # Credit yourself 100
+/balance              # Should now show 100
+```
+
+If `/balance` returns an error, check that Vault is installed and that the console shows the registration message above.
+
+## Next Steps
+
+| I want to… | Go here |
+|:-----------|:--------|
+| Configure storage, currencies, banking, and caching | [Configuration](configuration) |
+| See all player and admin commands | [Commands](commands) |
+| Set up permissions for staff and players | [Permissions](permissions) |
+| Monitor and adjust player economies | [Moderation Guide](moderation) |
+| Show balances in chat or scoreboards | [Placeholders](placeholders) |
+| Enable multi-currency or the bank system | [Features](feature/) |

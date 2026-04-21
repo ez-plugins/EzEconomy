@@ -1,3 +1,10 @@
+---
+title: PostTransactionEvent
+nav_order: 3
+parent: API Guide
+grand_parent: Developer Reference
+---
+
 # PostTransactionEvent
 
 Class: `com.skyblockexp.ezeconomy.api.events.PostTransactionEvent`

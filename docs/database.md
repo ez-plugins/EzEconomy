@@ -1,11 +1,11 @@
 ---
-title: Database
+title: Storage Backends
 nav_order: 6
 ---
 
-# Database Documentation
+# Storage Backends
 
-This document describes the database structures and setup procedures for the different storage providers supported by EzEconomy.
+This page covers the setup, table/collection schemas, and data-safety guidance for each storage provider supported by EzEconomy.
 
 ## Overview
 
@@ -302,3 +302,28 @@ Currently, there is no automatic migration tool. To switch providers:
 1. **Permission denied**: Ensure the plugin has write access to the data folder
 2. **Connection failed**: Check database credentials and network connectivity
 3. **Table creation failed**: Ensure the database user has CREATE privileges
+
+## Backups
+
+Economy data is critical — regular backups prevent irreversible loss.
+
+### File-based (YML / SQLite)
+
+- **YML**: Back up the entire `plugins/EzEconomy/data/` folder. Files are plain YAML, so any file-copy or rsync job works.
+- **SQLite**: Copy `plugins/EzEconomy/ezeconomy.db`. Stop the server (or flush writes) before copying to avoid a partial snapshot.
+
+Recommended schedule: daily off-peak backup retained for at least 7 days.
+
+### Database-based (MySQL / MongoDB)
+
+- **MySQL**: Use `mysqldump ezeconomy_db > backup.sql` or a managed backup from your hosting provider. Schedule via cron.
+- **MongoDB**: Use `mongodump --db ezeconomy --out /backups/$(date +%F)`. Ensure the dump path is on a separate volume.
+
+Retain enough history to undo accidental resets or corrupted data — at least 3 daily snapshots.
+
+### Restore procedure
+
+1. Stop the server.
+2. Restore the backup file(s) to the correct location.
+3. For MySQL/MongoDB, import the dump into the same database name.
+4. Start the server and verify with `/balance` and `/ezeconomy database test`.

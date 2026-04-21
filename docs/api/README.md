@@ -1,3 +1,10 @@
+---
+title: API Guide
+nav_order: 1
+parent: Developer Reference
+has_children: true
+---
+
 # Developer API (v2)
 
 > EzEconomy is a Vault-compatible, standalone economy API with multi-currency and bank support. It is designed for plugin developers who need robust, extensible economic features.

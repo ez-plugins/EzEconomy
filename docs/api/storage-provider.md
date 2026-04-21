@@ -1,3 +1,9 @@
+---
+title: Storage Provider API
+nav_order: 2
+parent: Developer Reference
+---
+
 # Custom Storage Providers for EzEconomy
 
 EzEconomy supports pluggable storage backends for all economy, bank, and currency operations. You can implement your own provider to use a custom database, cloud service, or any data source.
