@@ -36,3 +36,19 @@ jobs:
             echo "- $f"
               python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1],'rb')); print(sys.argv[1]+': OK')" "$f" || { echo "YAML parse error in $f"; exit 2; }
           done
+
+  lint-config-docs:
+    name: Validate configuration Markdown
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Lint configuration documentation
+        uses: DavidAnson/markdownlint-cli2-action@v16
+        with:
+          globs: |
+            docs/configuration.md
+            docs/database.md
+            docs/storage/**/*.md
+          config: ".markdownlint.yml"
