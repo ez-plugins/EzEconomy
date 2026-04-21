@@ -47,7 +47,7 @@ jobs:
           git clone --depth=1 --branch dev/26.1.1 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
           cd /tmp/MockBukkit
           COMMIT=$(git rev-parse --short HEAD)
-          ./gradlew -Ppaper.api.full-version=26.1.2.build.18-alpha -Ppaper.api.version=26.1.2 publishToMavenLocal -xtest -xjavadoc
+          ./gradlew publishToMavenLocal -xtest -xjavadoc
           echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
 
       - name: Cache Maven local repository
