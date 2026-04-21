@@ -1,3 +1,8 @@
+---
+title: Permissions
+nav_order: 5
+---
+
 # Permissions
 
 Assign permissions through your permissions plugin (LuckPerms, PermissionsEx, etc.).

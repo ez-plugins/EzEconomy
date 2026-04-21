@@ -1,3 +1,9 @@
+---
+title: Caching Strategy
+nav_order: 2
+parent: Features
+---
+
 # Caching Strategy
 
 ## Quick summary

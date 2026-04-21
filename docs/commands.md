@@ -1,3 +1,8 @@
+---
+title: Commands
+nav_order: 4
+---
+
 # Commands
 
 Permissions shown in parentheses are required to run the command. Commands without explicit permissions are available to all players by default.

@@ -1,3 +1,8 @@
+---
+title: Configuration
+nav_order: 3
+---
+
 # Configuration
 
 EzEconomy uses a main `config.yml` plus a storage-specific configuration file. Only enable the storage provider you plan to use.

@@ -1,3 +1,8 @@
+---
+title: Database
+nav_order: 6
+---
+
 # Database Documentation
 
 This document describes the database structures and setup procedures for the different storage providers supported by EzEconomy.

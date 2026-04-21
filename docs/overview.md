@@ -1,3 +1,8 @@
+---
+title: Overview
+nav_order: 2
+---
+
 # EzEconomy
 
 EzEconomy is a Vault-compatible economy provider built for reliability, clarity, and scalability. It supports multiple storage backends, optional multi-currency systems, and bank accounts while keeping operations safe under high concurrency.

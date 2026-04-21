@@ -1,3 +1,8 @@
+---
+title: Storage
+nav_order: 10
+---
+
 # Storage & Data Safety
 
 EzEconomy supports multiple backends. Choose the one that aligns with your infrastructure and scale.

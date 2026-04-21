@@ -1,3 +1,9 @@
+---
+title: Proxy Network
+nav_order: 6
+parent: Features
+---
+
 # Proxy Network (Bungeecord) Integration
 
 This page documents the proxy-backed features of EzEconomy: distributed locking and proxy-side caching via plugin messaging between servers and a proxy.

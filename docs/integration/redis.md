@@ -1,4 +1,10 @@
-- # redis.yml — Redis lock configuration (short guide)
+---
+title: Redis
+nav_order: 3
+parent: Integrations
+---
+
+# redis.yml — Redis lock configuration (short guide)
 
 ## Quick summary
 - Redis is optional. The plugin defaults to local (in-JVM) locking for single-server setups.

@@ -1,3 +1,8 @@
+---
+title: Placeholders
+nav_order: 8
+---
+
 # Placeholders
 
 EzEconomy integrates with PlaceholderAPI for use in chat, scoreboards, and other plugins.

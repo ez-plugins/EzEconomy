@@ -1,3 +1,9 @@
+---
+title: BungeeCord
+nav_order: 1
+parent: Integrations
+---
+
 # Bungeecord Locking (BUNGEECORD)
 
 This document describes the optional `BUNGEECORD` locking strategy which provides cross-server distributed locks mediated by a lightweight proxy running on your Bungee/Waterfall proxy.

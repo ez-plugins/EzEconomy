@@ -1,3 +1,8 @@
+---
+title: Testing
+nav_order: 9
+---
+
 # Testing Guidelines for EzEconomy
 
 Purpose

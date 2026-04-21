@@ -1,3 +1,9 @@
+---
+title: Locking Strategy
+nav_order: 3
+parent: Features
+---
+
 # Locking Strategy
 
 ## Quick summary

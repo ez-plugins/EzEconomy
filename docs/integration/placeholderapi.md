@@ -1,3 +1,9 @@
+---
+title: PlaceholderAPI
+nav_order: 2
+parent: Integrations
+---
+
 # PlaceholderAPI Integration
 
 Overview

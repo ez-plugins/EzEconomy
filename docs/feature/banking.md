@@ -1,3 +1,9 @@
+---
+title: Banking
+nav_order: 1
+parent: Features
+---
+
 # Banking Feature
 
 Overview

@@ -1,3 +1,9 @@
+---
+title: Multi-Currency
+nav_order: 5
+parent: Features
+---
+
 # Multi-Currency Support
 
 Overview

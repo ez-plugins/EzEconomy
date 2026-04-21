@@ -1,3 +1,9 @@
+---
+title: Money Formatting
+nav_order: 4
+parent: Features
+---
+
 # Money Formatting
 
 This page summarizes recommended options for formatting money amounts in EzEconomy: numeric precision, separators, currency symbols, localization, rounding, compact formats (K/M/B), and Minecraft-specific color codes.
