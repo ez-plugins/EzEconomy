@@ -5,11 +5,11 @@
     <parent>
         <groupId>com.github.ez-plugins</groupId>
         <artifactId>ezeconomy-parent</artifactId>
-        <version>3.0.1</version>
+        <version>3.0.2</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>ezeconomy-bungeecord-proxy</artifactId>
-    <version>0.1.0</version>
+    <version>3.0.2</version>
     <packaging>jar</packaging>
     <name>EzEconomy Bungeecord Proxy</name>
 
