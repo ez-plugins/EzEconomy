@@ -24,9 +24,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - paper-version: "1.21.11-R0.1-SNAPSHOT"
-            mockbukkit-artifactId: "mockbukkit-v1.21"
-            mockbukkit-version: "4.101.0"
+          - paper-version: "[26.1.2.build,)"
+            mockbukkit-artifactId: "mockbukkit-v26"
 
     steps:
       - name: Checkout
@@ -46,13 +45,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-m2-v2-feature-${{ matrix.paper-version }}-
 
-      - name: Build and install MockBukkit dev/26.1.1
+      - name: Build and install MockBukkit minecraft/v26
         run: |
-          git clone --depth=1 --branch dev/26.1.1 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
+          git clone --depth=1 --branch minecraft/v26 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
           cd /tmp/MockBukkit
           COMMIT=$(git rev-parse --short HEAD)
           ./gradlew publishToMavenLocal -xtest -xjavadoc
           echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
 
       - name: Run feature tests
-        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=mockbukkit-v26.1 -Dmockbukkit.version=$MOCKBUKKIT_VERSION -Pfeature-tests -Dtest=*FeatureTest test
+        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=${{ matrix.mockbukkit-artifactId }} -Dmockbukkit.version=$MOCKBUKKIT_VERSION -Pfeature-tests -Dtest=*FeatureTest test

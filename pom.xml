@@ -25,7 +25,7 @@
         <paper.version>[26.1.2.build,)</paper.version>
         <!-- MockBukkit coordinates are configurable so CI can select the right artifact per Paper matrix entry -->
         <mockbukkit.groupId>org.mockbukkit.mockbukkit</mockbukkit.groupId>
-        <mockbukkit.artifactId>mockbukkit-v26.1</mockbukkit.artifactId>
+        <mockbukkit.artifactId>mockbukkit-v26</mockbukkit.artifactId>
         <mockbukkit.version>dev-9f320b33</mockbukkit.version>
         
         <github.owner>ez-plugins</github.owner>
