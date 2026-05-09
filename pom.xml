@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.ez-plugins</groupId>
     <artifactId>ezeconomy-parent</artifactId>
-    <version>3.0.0</version>
+    <version>3.0.1</version>
     <packaging>pom</packaging>
     <name>EzEconomy</name>
     <description>Vault-compatible economy provider with YML and MySQL support</description>
@@ -72,6 +72,7 @@
                                     <include>net.kyori:examination-api</include>
                                     <include>com.github.EzFramework:Jaloquent</include>
                                     <include>com.github.EzFramework:JavaQueryBuilder</include>
+                                    <include>io.micrometer:micrometer-core</include>
                                 </includes>
                             </artifactSet>
                             <relocations>
@@ -90,6 +91,10 @@
                                 <relocation>
                                     <pattern>com.github.ezframework.javaquerybuilder</pattern>
                                     <shadedPattern>com.skyblockexp.ezeconomy.shaded.jqb</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.micrometer</pattern>
+                                    <shadedPattern>com.skyblockexp.ezeconomy.shaded.micrometer</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
@@ -322,6 +327,11 @@
             <groupId>com.github.EzFramework</groupId>
             <artifactId>Jaloquent</artifactId>
             <version>1.2.1</version>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <version>1.12.5</version>
         </dependency>
         <dependency>
             <groupId>com.github.EzFramework</groupId>
