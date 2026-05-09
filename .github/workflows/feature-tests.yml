@@ -50,7 +50,7 @@ jobs:
           git clone --depth=1 --branch minecraft/v26 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
           cd /tmp/MockBukkit
           COMMIT=$(git rev-parse --short HEAD)
-          ./gradlew publishToMavenLocal -xtest -xjavadoc
+          ./gradlew publishToMavenLocal -xtest -xjavadoc -Pversion=dev-${COMMIT}
           echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
 
       - name: Run feature tests
