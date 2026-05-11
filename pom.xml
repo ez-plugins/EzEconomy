@@ -336,7 +336,7 @@
         <dependency>
             <groupId>com.github.EzFramework</groupId>
             <artifactId>JavaQueryBuilder</artifactId>
-            <version>1.0.7</version>
+            <version>1.2.0</version>
         </dependency>
         <!-- Jaker is optional in Jaloquent but required for Factory definitions in tests -->
         <dependency>
