@@ -14,6 +14,7 @@
         <module>ezeconomy-papi</module>
         <module>ezeconomy-bungeecord</module>
         <module>ezeconomy-bungeecord-proxy</module>
+        <module>ezeconomy-teams</module>
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

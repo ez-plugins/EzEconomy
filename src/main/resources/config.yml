@@ -30,6 +30,9 @@ banking:
   # When true, a personal bank is automatically created for each player on first join.
   # The bank name matches the player's name. Players can still create additional banks manually.
   auto-create-on-join: true
+  # When true, only the team owner may withdraw money from the team bank.
+  # Members with the ezeconomy.teambank.admin permission always bypass this restriction.
+  team-bank-withdraw-owner-only: false
 
 bank-interest-interval-ticks: 72000 # How often (in ticks) to pay bank interest (default: 1 hour)
 

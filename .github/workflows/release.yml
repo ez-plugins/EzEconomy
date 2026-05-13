@@ -129,7 +129,8 @@ jobs:
             "ezeconomy-papi/target/ezeconomy-papi-${VERSION}.jar" \
             "ezeconomy-redis/target/ezeconomy-redis-${VERSION}.jar" \
             "ezeconomy-bungeecord/target/ezeconomy-bungeecord-${VERSION}.jar" \
-            "ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${VERSION}.jar"
+            "ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${VERSION}.jar" \
+            "ezeconomy-teams/target/ezeconomy-teams-${VERSION}.jar"
 
       # ──────────────────────────────────────────────────────────────────────
       #  7. GITHUB PACKAGES
@@ -158,6 +159,7 @@ jobs:
             ezeconomy-redis/target/ezeconomy-redis-${{ steps.meta.outputs.version }}.jar
             ezeconomy-bungeecord/target/ezeconomy-bungeecord-${{ steps.meta.outputs.version }}.jar
             ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${{ steps.meta.outputs.version }}.jar
+            ezeconomy-teams/target/ezeconomy-teams-${{ steps.meta.outputs.version }}.jar
           game-versions: ">=1.7.10"
           game-versions-filter: release
           loaders: |

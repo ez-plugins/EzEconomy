@@ -1,0 +1,32 @@
+name: EzEconomy-Teams
+main: com.skyblockexp.ezeconomy.teams.EzTeamsPlugin
+version: ${project.version}
+website: https://modrinth.com/plugin/ezeconomy
+author: Shadow48402
+api-version: '1.16'
+description: Team bank integration for EzEconomy (works with TeamsAPI providers such as pvpindex-factions)
+depend:
+  - EzEconomy
+softdepend:
+  - TeamsAPI
+
+commands:
+  teambank:
+    description: Manage your team's shared bank
+    usage: /teambank <balance|deposit|withdraw> [amount] [currency]
+    aliases:
+      - factionbank
+
+permissions:
+  ezeconomy.teambank.balance:
+    description: Check the team bank balance
+    default: true
+  ezeconomy.teambank.deposit:
+    description: Deposit money into the team bank
+    default: true
+  ezeconomy.teambank.withdraw:
+    description: Withdraw money from the team bank
+    default: true
+  ezeconomy.teambank.admin:
+    description: Bypass all team bank restrictions
+    default: op
