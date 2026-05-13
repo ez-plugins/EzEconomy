@@ -1,6 +1,19 @@
 # Changelog
 
 All notable changes to EzEconomy are documented here.
+Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Release tags use the `v` prefix (e.g. `v3.0.3`).
+
+## [Unreleased]
+
+### Added
+
+### Changed
+
+### Fixed
+
+### Removed
 
 ---
 
