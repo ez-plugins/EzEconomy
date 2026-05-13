@@ -181,7 +181,7 @@ jobs:
       #  8. DISCORD NOTIFICATION
       # ──────────────────────────────────────────────────────────────────────
       - name: Post Discord notification
-        if: ${{ secrets.EZECONOMY_RELEASE_DISCORD_WEBHOOK != '' }}
+        if: env.DISCORD_WEBHOOK != ''
         env:
           DISCORD_WEBHOOK: ${{ secrets.EZECONOMY_RELEASE_DISCORD_WEBHOOK }}
         run: |
