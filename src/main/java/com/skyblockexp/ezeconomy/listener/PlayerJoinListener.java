@@ -23,6 +23,10 @@ public class PlayerJoinListener implements Listener {
         // Keep existing daily reward behaviour
         manager.handleJoin(event.getPlayer());
 
+        // Auto-create a personal bank for the player on first join if configured.
+        // This runs independently of store-on-join.
+        autoCreateBank(event.getPlayer());
+
         // Optionally ensure player is stored in the configured storage backend
         if (!plugin.getConfig().getBoolean("store-on-join.enabled", false)) {
             return;
@@ -67,5 +71,26 @@ public class PlayerJoinListener implements Listener {
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to ensure player stored on join: " + e.getMessage());
         }
+    }
+
+    private void autoCreateBank(org.bukkit.entity.Player player) {
+        if (!plugin.getConfig().getBoolean("banking.enabled", true)) return;
+        if (!plugin.getConfig().getBoolean("banking.auto-create-on-join", true)) return;
+
+        StorageProvider storage = plugin.getStorageOrWarn();
+        if (storage == null) return;
+
+        final String bankName = player.getName();
+        if (storage.bankExists(bankName)) return;
+
+        final UUID ownerUuid = player.getUniqueId();
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                storage.createBank(bankName, ownerUuid);
+                plugin.getLogger().fine("[EzEconomy] Auto-created bank '" + bankName + "' for " + player.getName());
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] Failed to auto-create bank for " + bankName + ": " + e.getMessage());
+            }
+        });
     }
 }

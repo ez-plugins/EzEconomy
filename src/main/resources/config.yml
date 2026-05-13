@@ -27,6 +27,9 @@ store-on-join:
 # (commands, GUIs, Vault bank methods, and bank PAPI placeholders).
 banking:
   enabled: true
+  # When true, a personal bank is automatically created for each player on first join.
+  # The bank name matches the player's name. Players can still create additional banks manually.
+  auto-create-on-join: true
 
 bank-interest-interval-ticks: 72000 # How often (in ticks) to pay bank interest (default: 1 hour)
 

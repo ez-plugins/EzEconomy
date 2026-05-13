@@ -5,11 +5,11 @@
     <parent>
         <groupId>com.github.ez-plugins</groupId>
         <artifactId>ezeconomy-parent</artifactId>
-        <version>3.0.2</version>
+        <version>3.0.3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <artifactId>ezeconomy-bungeecord</artifactId>
-    <version>3.0.2</version>
+    <version>3.0.3</version>
     <packaging>jar</packaging>
     <name>EzEconomy Bungeecord Extension</name>
 
@@ -17,7 +17,7 @@
         <dependency>
             <groupId>com.github.ez-plugins</groupId>
             <artifactId>ezeconomy-bukkit</artifactId>
-            <version>3.0.2</version>
+            <version>3.0.3</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

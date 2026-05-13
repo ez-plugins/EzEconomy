@@ -2,12 +2,9 @@ package com.skyblockexp.ezeconomy.command.bank;
 
 import com.skyblockexp.ezeconomy.command.Subcommand;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
-import com.skyblockexp.ezeconomy.core.MessageProvider;
 import com.skyblockexp.ezeconomy.util.NumberUtil;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.command.CommandSender;
-
-import java.util.Map;
 
 /**
  * Subcommand for /bank deposit <name> <amount> [currency]
@@ -25,36 +22,59 @@ public class DepositSubcommand implements Subcommand {
             com.skyblockexp.ezeconomy.util.MessageUtils.send(sender, plugin, "no_permission");
             return true;
         }
-        if (args.length < 2) {
+        if (args.length < 1) {
             com.skyblockexp.ezeconomy.util.MessageUtils.send(sender, plugin, "usage_bank_deposit");
             return true;
         }
-        String currency = args.length >= 3 ? args[2] : "dollar";
-        Double amount = NumberUtil.parseDouble(args[1]);
+
+        // Resolve bank name and amount:
+        // /bank deposit <amount>          — deposits into the sender's own bank
+        // /bank deposit <name> <amount>   — deposits into the named bank
+        final String bankName;
+        final String amountStr;
+        final String currency;
+        if (args.length == 1) {
+            if (!(sender instanceof org.bukkit.entity.Player)) {
+                com.skyblockexp.ezeconomy.util.MessageUtils.send(sender, plugin, "only_players");
+                return true;
+            }
+            bankName = sender.getName();
+            amountStr = args[0];
+            currency = "dollar";
+        } else {
+            bankName = args[0];
+            amountStr = args[1];
+            currency = args.length >= 3 ? args[2] : "dollar";
+        }
+
+        Double amount = NumberUtil.parseDouble(amountStr);
         if (amount == null || amount <= 0) {
             com.skyblockexp.ezeconomy.util.MessageUtils.send(sender, plugin, "invalid_amount");
             return true;
         }
-        EconomyResponse depositResponse = plugin.getEconomy().bankDeposit(args[0], currency, amount);
-        if (handleEconomyFailure(sender, depositResponse)) {
+        EconomyResponse depositResponse = plugin.getEconomy().bankDeposit(bankName, currency, amount);
+        if (handleEconomyFailure(sender, depositResponse, bankName)) {
             return true;
         }
         String formattedAmount = plugin.getCurrencyFormatter().formatPriceForMessage(amount, currency);
         java.util.HashMap<String, String> placeholders = new java.util.HashMap<>();
-        placeholders.put("name", String.valueOf(args[0]));
-        placeholders.put("amount", String.valueOf(formattedAmount));
-        placeholders.put("currency", String.valueOf(currency));
+        placeholders.put("name", bankName);
+        placeholders.put("amount", formattedAmount);
+        placeholders.put("currency", currency);
         com.skyblockexp.ezeconomy.util.MessageUtils.send(sender, plugin, "deposited", placeholders);
         return true;
     }
-    private boolean handleEconomyFailure(CommandSender sender, EconomyResponse response) {
+    private boolean handleEconomyFailure(CommandSender sender, EconomyResponse response, String bankName) {
         if (response == null || response.type == EconomyResponse.ResponseType.FAILURE
             || response.type == EconomyResponse.ResponseType.NOT_IMPLEMENTED) {
-            String message = response == null ? "Bank operation failed." : response.errorMessage;
-            if (message == null || message.isBlank()) {
-                message = "Bank operation failed.";
+            String message = response == null ? null : response.errorMessage;
+            if (message != null && message.startsWith("Bank does not exist")) {
+                com.skyblockexp.ezeconomy.util.MessageUtils.send(sender, plugin, "bank_not_found",
+                        java.util.Map.of("name", bankName));
+            } else {
+                String fallback = (message == null || message.isBlank()) ? "Bank operation failed." : message;
+                sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, fallback));
             }
-            sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, message));
             return true;
         }
         return false;
