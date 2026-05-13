@@ -83,6 +83,14 @@ jobs:
           java-version: '25'
           cache: maven
 
+      - name: Build and install MockBukkit minecraft/v26
+        run: |
+          git clone --depth=1 --branch minecraft/v26 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
+          cd /tmp/MockBukkit
+          COMMIT=$(git rev-parse --short HEAD)
+          ./gradlew publishToMavenLocal -xtest -xjavadoc
+          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
+
       - name: Set nightly version in all POMs
         run: |
           mvn -B -ntp versions:set \
@@ -90,9 +98,8 @@ jobs:
             -DprocessAllModules \
             -DgenerateBackupPoms=false
 
-      # Tests are skipped to avoid requiring MockBukkit built from source.
       - name: Build
-        run: mvn -B -ntp -Dmaven.test.skip=true package
+        run: mvn -B -ntp -Dmaven.test.skip=true -Dmockbukkit.version=$MOCKBUKKIT_VERSION package
 
       # ──────────────────────────────────────────────────────────────────────
       #  5. EXTRACT UNRELEASED CHANGELOG SECTION

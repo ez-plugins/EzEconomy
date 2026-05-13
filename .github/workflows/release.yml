@@ -69,6 +69,14 @@ jobs:
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
 
+      - name: Build and install MockBukkit minecraft/v26
+        run: |
+          git clone --depth=1 --branch minecraft/v26 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
+          cd /tmp/MockBukkit
+          COMMIT=$(git rev-parse --short HEAD)
+          ./gradlew publishToMavenLocal -xtest -xjavadoc
+          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
+
       - name: Set release version in all POMs
         run: |
           mvn -B -ntp versions:set \
@@ -76,10 +84,8 @@ jobs:
             -DprocessAllModules \
             -DgenerateBackupPoms=false
 
-      # Tests are skipped (maven.test.skip=true) to avoid requiring MockBukkit
-      # to be built from source, which is only needed for test compilation.
       - name: Build
-        run: mvn -B -ntp -Dmaven.test.skip=true package
+        run: mvn -B -ntp -Dmaven.test.skip=true -Dmockbukkit.version=$MOCKBUKKIT_VERSION package
 
       # ──────────────────────────────────────────────────────────────────────
       #  5. EXTRACT CHANGELOG
