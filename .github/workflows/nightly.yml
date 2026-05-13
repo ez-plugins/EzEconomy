@@ -1,10 +1,7 @@
 name: Nightly Build
 
-# Runs on push to v3.x (default branch), daily at 04:00 UTC, or manually.
+# Runs every day at 04:00 UTC, or can be triggered manually.
 on:
-  push:
-    branches:
-      - v3.x
   schedule:
     - cron: '0 4 * * *'
   workflow_dispatch:
