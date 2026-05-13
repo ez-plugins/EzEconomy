@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import com.skyblockexp.ezeconomy.api.events.BankPreTransactionEvent;
 import com.skyblockexp.ezeconomy.api.events.BankPostTransactionEvent;
 import com.skyblockexp.ezeconomy.api.events.TransactionType;
+import com.skyblockexp.ezeconomy.util.EventDispatcher;
 
 /**
  * MySQL implementation of the StorageProvider interface for EzEconomy.
@@ -459,19 +460,7 @@ public class MySQLStorageProvider implements StorageProvider {
             double toBefore = getBalance(toUuid, currency);
 
             com.skyblockexp.ezeconomy.api.events.PreTransactionEvent pre = new com.skyblockexp.ezeconomy.api.events.PreTransactionEvent(fromUuid, toUuid, java.math.BigDecimal.valueOf(debitAmount), com.skyblockexp.ezeconomy.api.events.TransactionType.TRANSFER);
-            try {
-                if (plugin.getServer().isPrimaryThread()) {
-                    plugin.getServer().getPluginManager().callEvent(pre);
-                } else {
-                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                        plugin.getServer().getPluginManager().callEvent(pre);
-                        return null;
-                    }).get();
-                }
-            } catch (Exception e) {
-                plugin.getLogger().warning("[EzEconomy] Failed to fire PreTransactionEvent: " + e.getMessage());
-            }
-            if (pre.isCancelled()) {
+            if (!EventDispatcher.fireSyncAndAllow(plugin, pre)) {
                 return com.skyblockexp.ezeconomy.storage.TransferResult.failure(fromBefore, toBefore);
             }
 
@@ -482,18 +471,7 @@ public class MySQLStorageProvider implements StorageProvider {
                 result.isSuccess(), java.math.BigDecimal.valueOf(fromBefore), java.math.BigDecimal.valueOf(result.getFromBalance()),
                 java.math.BigDecimal.valueOf(toBefore), java.math.BigDecimal.valueOf(result.getToBalance())
             );
-            try {
-                if (plugin.getServer().isPrimaryThread()) {
-                    plugin.getServer().getPluginManager().callEvent(post);
-                } else {
-                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                        plugin.getServer().getPluginManager().callEvent(post);
-                        return null;
-                    }).get();
-                }
-            } catch (Exception e) {
-                plugin.getLogger().warning("[EzEconomy] Failed to fire PostTransactionEvent: " + e.getMessage());
-            }
+            EventDispatcher.fireSync(plugin, post);
 
             return result;
         }
@@ -569,18 +547,7 @@ public class MySQLStorageProvider implements StorageProvider {
                     tr.isSuccess(), java.math.BigDecimal.valueOf(fromBefore), java.math.BigDecimal.valueOf(tr.getFromBalance()),
                     java.math.BigDecimal.valueOf(toBefore), java.math.BigDecimal.valueOf(tr.getToBalance())
                 );
-                try {
-                    if (plugin.getServer().isPrimaryThread()) {
-                        plugin.getServer().getPluginManager().callEvent(post);
-                    } else {
-                        plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                            plugin.getServer().getPluginManager().callEvent(post);
-                            return null;
-                        }).get();
-                    }
-                } catch (Exception e) {
-                    plugin.getLogger().warning("[EzEconomy] Failed to fire PostTransactionEvent: " + e.getMessage());
-                }
+                EventDispatcher.fireSync(plugin, post);
 
                 return tr;
             } catch (StorageException e) {
@@ -785,31 +752,11 @@ public class MySQLStorageProvider implements StorageProvider {
                         double current = bankOpt.get().getBalance();
 
                         BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW);
-                        if (plugin.getServer().isPrimaryThread()) {
-                            plugin.getServer().getPluginManager().callEvent(pre);
-                        } else {
-                            try {
-                                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                                    plugin.getServer().getPluginManager().callEvent(pre);
-                                    return null;
-                                }).get();
-                            } catch (Exception e) {
-                                plugin.getLogger().warning("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
-                            }
-                        }
-                        if (pre.isCancelled()) return false;
+                        if (!EventDispatcher.fireSyncAndAllow(plugin, pre)) return false;
                         if (current < amount) return false;
 
                         bankRepo.save(BankModel.create(name, currency, current - amount));
-                        BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount));
-                        try {
-                            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                                plugin.getServer().getPluginManager().callEvent(post);
-                                return null;
-                            }).get();
-                        } catch (Exception e) {
-                            plugin.getLogger().warning("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
-                        }
+                        EventDispatcher.fireSync(plugin, new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount)));
                         return true;
                     } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL tryWithdrawBank failed: " + e.getMessage());
@@ -832,33 +779,13 @@ public class MySQLStorageProvider implements StorageProvider {
                 boolean bankingEnabled = plugin.getConfig().getBoolean("banking.enabled", true);
                 if (bankingEnabled) {
                     BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW);
-                    if (plugin.getServer().isPrimaryThread()) {
-                        plugin.getServer().getPluginManager().callEvent(pre);
-                    } else {
-                        try {
-                            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                                plugin.getServer().getPluginManager().callEvent(pre);
-                                return null;
-                            }).get();
-                        } catch (Exception e) {
-                            plugin.getLogger().warning("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
-                        }
-                    }
-                    if (pre.isCancelled()) return false;
+                    if (!EventDispatcher.fireSyncAndAllow(plugin, pre)) return false;
                 }
                 if (current < amount) return false;
 
                 bankRepo.save(BankModel.create(name, currency, current - amount));
                 if (bankingEnabled) {
-                    BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount));
-                    try {
-                        plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                            plugin.getServer().getPluginManager().callEvent(post);
-                            return null;
-                        }).get();
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
-                    }
+                    EventDispatcher.fireSync(plugin, new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount)));
                 }
                 return true;
             } catch (StorageException e) {
@@ -883,31 +810,11 @@ public class MySQLStorageProvider implements StorageProvider {
                         double before = bankOpt.map(BankModel::getBalance).orElse(0.0);
 
                         BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT);
-                        try {
-                            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                                plugin.getServer().getPluginManager().callEvent(pre);
-                                return null;
-                            }).get();
-                        } catch (Exception e) {
-                            plugin.getLogger().warning("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
-                        }
-                        if (pre.isCancelled()) return;
+                        if (!EventDispatcher.fireSyncAndAllow(plugin, pre)) return;
 
                         bankRepo.save(BankModel.create(name, currency, before + amount));
 
-                        BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(before), BigDecimal.valueOf(before + amount));
-                        if (plugin.getServer().isPrimaryThread()) {
-                            plugin.getServer().getPluginManager().callEvent(post);
-                        } else {
-                            try {
-                                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                                    plugin.getServer().getPluginManager().callEvent(post);
-                                    return null;
-                                }).get();
-                            } catch (Exception e) {
-                                plugin.getLogger().warning("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
-                            }
-                        }
+                        EventDispatcher.fireSync(plugin, new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(before), BigDecimal.valueOf(before + amount)));
                         return;
                     } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL depositBank failed: " + e.getMessage());
@@ -929,33 +836,13 @@ public class MySQLStorageProvider implements StorageProvider {
                 boolean bankingEnabled = plugin.getConfig().getBoolean("banking.enabled", true);
                 if (bankingEnabled) {
                     BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT);
-                    try {
-                        plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                            plugin.getServer().getPluginManager().callEvent(pre);
-                            return null;
-                        }).get();
-                    } catch (Exception e) {
-                        plugin.getLogger().warning("[EzEconomy] Failed to fire BankPreTransactionEvent: " + e.getMessage());
-                    }
-                    if (pre.isCancelled()) return;
+                    if (!EventDispatcher.fireSyncAndAllow(plugin, pre)) return;
                 }
 
                 bankRepo.save(BankModel.create(name, currency, before + amount));
 
                 if (bankingEnabled) {
-                    BankPostTransactionEvent post = new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(before), BigDecimal.valueOf(before + amount));
-                    if (plugin.getServer().isPrimaryThread()) {
-                        plugin.getServer().getPluginManager().callEvent(post);
-                    } else {
-                        try {
-                            plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                                plugin.getServer().getPluginManager().callEvent(post);
-                                return null;
-                            }).get();
-                        } catch (Exception e) {
-                            plugin.getLogger().warning("[EzEconomy] Failed to fire BankPostTransactionEvent: " + e.getMessage());
-                        }
-                    }
+                    EventDispatcher.fireSync(plugin, new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(before), BigDecimal.valueOf(before + amount)));
                 }
             } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL depositBank failed: " + e.getMessage());

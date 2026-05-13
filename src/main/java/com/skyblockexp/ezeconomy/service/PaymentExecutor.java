@@ -7,6 +7,7 @@ import com.skyblockexp.ezeconomy.storage.TransferLockManager;
 import com.skyblockexp.ezeconomy.storage.TransferResult;
 import com.skyblockexp.ezeconomy.api.events.PlayerPayPlayerEvent;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
+import com.skyblockexp.ezeconomy.util.EventDispatcher;
 
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -56,21 +57,7 @@ public class PaymentExecutor {
 
         // Fire event (must be synchronous)
         final PlayerPayPlayerEvent payEvent = new PlayerPayPlayerEvent(fromUuid, toOffline.getUniqueId(), amountDecimal);
-        if (Bukkit.isPrimaryThread()) {
-            Bukkit.getPluginManager().callEvent(payEvent);
-        } else {
-            try {
-                Bukkit.getScheduler().callSyncMethod(plugin, () -> {
-                    Bukkit.getPluginManager().callEvent(payEvent);
-                    return null;
-                }).get();
-            } catch (Exception e) {
-                plugin.getLogger().warning("PaymentExecutor: failed to call PlayerPayPlayerEvent on main thread: " + e.getMessage());
-                // If we cannot safely call the event, cancel the payment to be safe
-                MessageUtils.send(from, plugin, "payment_cancelled");
-                return true;
-            }
-        }
+        EventDispatcher.fireSync(plugin, payEvent);
         if (payEvent.isCancelled()) {
             String reason = payEvent.getCancelReason();
             if (reason != null && !reason.isEmpty()) {
