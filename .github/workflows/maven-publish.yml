@@ -1,11 +1,11 @@
-# Publishes Maven packages to GitHub Packages and releases the plugin to Modrinth
-# when a GitHub release is created.
+# DEPRECATED: Superseded by release.yml (tag-triggered) and nightly.yml.
+# Kept as a manual fallback only. Do NOT re-enable the release: [created] trigger
+# as it would conflict with release.yml which creates the GitHub Release itself.
 
-name: Maven Package
+name: Maven Package (Legacy)
 
 on:
-  release:
-    types: [created]
+  workflow_dispatch:
 
 jobs:
   build:

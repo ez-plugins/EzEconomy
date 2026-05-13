@@ -1,0 +1,208 @@
+name: Stable Release
+
+# Fires when a vX.Y.Z tag is pushed, or can be triggered manually with a tag.
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v3.0.3)'
+        required: true
+
+jobs:
+  release:
+    name: Stable Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create GitHub release & push tag
+      packages: write   # publish to GitHub Packages
+
+    steps:
+      # ──────────────────────────────────────────────────────────────────────
+      #  1. CHECKOUT
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ──────────────────────────────────────────────────────────────────────
+      #  2. RESOLVE VERSION
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Resolve version from tag
+        id: meta
+        run: |
+          REF="${{ github.event.inputs.tag || github.ref_name }}"
+          VERSION="${REF#v}"
+          echo "ref=${REF}"         >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Releasing version: ${VERSION}"
+
+      # ──────────────────────────────────────────────────────────────────────
+      #  3. CREATE TAG (if it doesn't exist yet)
+      #
+      #  When triggered via workflow_dispatch the tag may not exist yet.
+      #  This step creates and pushes it so the GitHub Release can reference it.
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Create and push tag if missing
+        run: |
+          REF="${{ steps.meta.outputs.ref }}"
+          if git rev-parse --verify --quiet "refs/tags/${REF}" > /dev/null; then
+            echo "Tag ${REF} already exists; skipping creation."
+          else
+            git config user.name  "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag "${REF}"
+            git push origin "${REF}"
+            echo "Created and pushed tag ${REF}."
+          fi
+
+      # ──────────────────────────────────────────────────────────────────────
+      #  4. BUILD
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          server-id: github
+          server-username: GITHUB_ACTOR
+          server-password: GITHUB_TOKEN
+
+      - name: Set release version in all POMs
+        run: |
+          mvn -B -ntp versions:set \
+            -DnewVersion="${{ steps.meta.outputs.version }}" \
+            -DprocessAllModules \
+            -DgenerateBackupPoms=false
+
+      # Tests are skipped (maven.test.skip=true) to avoid requiring MockBukkit
+      # to be built from source, which is only needed for test compilation.
+      - name: Build
+        run: mvn -B -ntp -Dmaven.test.skip=true package
+
+      # ──────────────────────────────────────────────────────────────────────
+      #  5. EXTRACT CHANGELOG
+      #
+      #  Reads the section for this version from CHANGELOG.md.
+      #  Falls back gracefully when the section is missing.
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          HEADER="## [${VERSION}]"
+
+          # Fixed-string match via index() avoids regex issues with dots in versions.
+          NOTES=$(awk \
+            -v hdr="$HEADER" \
+            '/^## \[/ && p { exit }
+             index($0, hdr) == 1 { p=1; next }
+             p { print }' \
+            CHANGELOG.md)
+
+          if [[ -z "$NOTES" ]]; then
+            NOTES="No changelog entry found for ${VERSION}. See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for full history."
+          fi
+
+          printf '%s\n' "$NOTES" > release-notes.md
+          echo "=== Release notes preview ===" && cat release-notes.md
+
+      # ──────────────────────────────────────────────────────────────────────
+      #  6. GITHUB RELEASE
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.meta.outputs.version }}"
+          gh release create "${{ steps.meta.outputs.ref }}" \
+            --title "EzEconomy ${VERSION}" \
+            --notes-file release-notes.md \
+            "ezeconomy-bukkit/target/ezeconomy-bukkit-${VERSION}.jar" \
+            "ezeconomy-papi/target/ezeconomy-papi-${VERSION}.jar" \
+            "ezeconomy-redis/target/ezeconomy-redis-${VERSION}.jar" \
+            "ezeconomy-bungeecord/target/ezeconomy-bungeecord-${VERSION}.jar" \
+            "ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${VERSION}.jar"
+
+      # ──────────────────────────────────────────────────────────────────────
+      #  7. GITHUB PACKAGES
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Publish to GitHub Packages
+        continue-on-error: true   # don't fail if the version already exists
+        run: mvn -B -ntp -Dmaven.test.skip=true deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ──────────────────────────────────────────────────────────────────────
+      #  8. MODRINTH RELEASE
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Release to Modrinth (stable)
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ezeconomy
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          modrinth-featured: true
+          name: "EzEconomy ${{ steps.meta.outputs.version }}"
+          version: "${{ steps.meta.outputs.version }}"
+          version-type: release
+          files: |
+            ezeconomy-bukkit/target/ezeconomy-bukkit-${{ steps.meta.outputs.version }}.jar
+            ezeconomy-papi/target/ezeconomy-papi-${{ steps.meta.outputs.version }}.jar
+            ezeconomy-redis/target/ezeconomy-redis-${{ steps.meta.outputs.version }}.jar
+            ezeconomy-bungeecord/target/ezeconomy-bungeecord-${{ steps.meta.outputs.version }}.jar
+            ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${{ steps.meta.outputs.version }}.jar
+          game-versions: ">=1.7.10"
+          game-versions-filter: release
+          loaders: |
+            bukkit
+            spigot
+            paper
+            purpur
+            folia
+          changelog-file: release-notes.md
+          dependencies: |
+            placeholderapi(optional)
+
+      # ──────────────────────────────────────────────────────────────────────
+      #  9. DISCORD NOTIFICATION
+      # ──────────────────────────────────────────────────────────────────────
+      - name: Post Discord notification
+        if: ${{ secrets.EZECONOMY_RELEASE_DISCORD_WEBHOOK != '' }}
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.EZECONOMY_RELEASE_DISCORD_WEBHOOK }}
+        run: |
+          REPO="${{ github.repository }}"
+          VERSION="${{ steps.meta.outputs.version }}"
+          REF="${{ steps.meta.outputs.ref }}"
+          GH_URL="https://github.com/${REPO}/releases/tag/${REF}"
+          MODRINTH_URL="https://modrinth.com/plugin/ezeconomy/version/${VERSION}"
+
+          # Truncate changelog to fit Discord embed description limit (4096 chars).
+          CHANGELOG=$(head -c 3800 release-notes.md || true)
+
+          PAYLOAD=$(jq -n \
+            --arg version "$VERSION" \
+            --arg gh_url  "$GH_URL" \
+            --arg mr_url  "$MODRINTH_URL" \
+            --arg log     "$CHANGELOG" \
+            '{
+              embeds: [{
+                title:       ("🚀 EzEconomy " + $version + " — Stable Release"),
+                url:         $gh_url,
+                color:       3447003,
+                description: $log,
+                fields: [
+                  { name: "GitHub Release", value: ("[View on GitHub]("      + $gh_url + ")"), inline: true },
+                  { name: "Modrinth",       value: ("[Download on Modrinth](" + $mr_url  + ")"), inline: true }
+                ],
+                footer: { text: "EzEconomy · Stable Release" }
+              }]
+            }')
+
+          curl --fail -s -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
