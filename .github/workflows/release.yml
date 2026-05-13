@@ -2,9 +2,6 @@ name: Stable Release
 
 # Fires when a vX.Y.Z tag is pushed, or can be triggered manually with a tag.
 on:
-  push:
-    tags:
-      - 'v[0-9]*.[0-9]*.[0-9]*'
   workflow_dispatch:
     inputs:
       tag:
