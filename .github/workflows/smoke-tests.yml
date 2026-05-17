@@ -54,11 +54,58 @@ jobs:
       - name: Package plugin (skip tests)
         run: mvn -B -ntp -Dmaven.test.skip=true -Dmockbukkit.version=$MOCKBUKKIT_VERSION package
 
+      - name: Build Vault stub JAR (for smoke tests)
+        run: |
+          # ── Build a minimal Folia-compatible Vault stub ──────────────────────────
+          # Real Vault 1.7.3 lacks 'folia-supported: true', so Folia refuses to load
+          # it.  VaultAPI is 'provided' scope (not shaded into EzEconomy.jar), so the
+          # stub must bundle the API interfaces for EzEconomy's classloader to resolve
+          # net.milkbowl.vault.* at runtime.
+          mkdir -p /tmp/vs/src/stub /tmp/vs/classes
+
+          VAULT_API=$(find ~/.m2/repository -path "*/MilkBowl/VaultAPI*" \
+            -name "VaultAPI-*.jar" ! -name "*-sources*" | head -1)
+          PAPER_API=$(find ~/.m2/repository -path "*/paper-api*" \
+            -name "paper-api-*.jar" ! -name "*-sources*" ! -name "*-javadoc*" \
+            | sort -V | tail -1)
+          echo "VaultAPI: ${VAULT_API}"
+          echo "PaperAPI: ${PAPER_API}"
+          [ -n "$VAULT_API" ] || { echo "ERROR: VaultAPI not found in local Maven repo"; exit 1; }
+          [ -n "$PAPER_API" ] || { echo "ERROR: PaperAPI not found in local Maven repo"; exit 1; }
+
+          printf 'package stub;\nimport org.bukkit.plugin.java.JavaPlugin;\npublic final class VaultStub extends JavaPlugin {}\n' \
+            > /tmp/vs/src/stub/VaultStub.java
+
+          printf '%s\n' \
+            'name: Vault' \
+            'version: ci-stub' \
+            'main: stub.VaultStub' \
+            'api-version: "1.21"' \
+            'folia-supported: true' \
+            > /tmp/vs/plugin.yml
+
+          javac --release 8 \
+            -cp "${PAPER_API}:${VAULT_API}" \
+            -d /tmp/vs/classes \
+            /tmp/vs/src/stub/VaultStub.java
+
+          # Bundle VaultAPI interfaces into the stub JAR so EzEconomy's classloader
+          # can find net.milkbowl.vault.economy.Economy etc. at runtime.
+          cd /tmp/vs/classes
+          jar xf "${VAULT_API}"
+          rm -rf META-INF
+          jar cf /tmp/VaultStub.jar .
+          zip -j /tmp/VaultStub.jar /tmp/vs/plugin.yml
+          cp /tmp/VaultStub.jar "${GITHUB_WORKSPACE}/VaultStub.jar"
+          echo "VaultStub.jar ready: $(du -sh "${GITHUB_WORKSPACE}/VaultStub.jar" | cut -f1)"
+
       - name: Upload plugin JAR
         uses: actions/upload-artifact@v7
         with:
           name: plugin-jar
-          path: ezeconomy-bukkit/target/ezeconomy-bukkit-*.jar
+          path: |
+            ezeconomy-bukkit/target/ezeconomy-bukkit-*.jar
+            VaultStub.jar
           retention-days: 1
 
   # ──────────────────────────────────────────────────────────────────────────
@@ -152,42 +199,14 @@ jobs:
           cp /tmp/buildtools/spigot-*.jar \
             "$GITHUB_WORKSPACE/server-jar/spigot-$MC_VERSION.jar"
 
-      # ── Download Vault (hard dependency of EzEconomy) ─────────────────────
-      - name: Download Vault plugin
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # ── Place Vault stub (built by build-plugin; no external download needed) ──
+      # The stub bundles VaultAPI interfaces (provided scope → not shaded into
+      # EzEconomy.jar) and declares folia-supported: true so Folia won't reject it.
+      - name: Place Vault stub
         run: |
           mkdir -p server/plugins
-
-          # ── Source 1: GitHub releases API (authenticated to avoid 60 req/hr limit) ──
-          # IMPORTANT: bash command substitution swallows non-zero exit codes, so a
-          # failing curl inside $(...) will NOT trigger set -e. Always validate the URL
-          # explicitly afterwards.
-          VAULT_URL=$(curl -sSf \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            https://api.github.com/repos/MilkBowl/Vault/releases/latest 2>/dev/null \
-            | jq -r '(.assets // [])[] | select(.name | test("(?i)\\.jar$")) | .browser_download_url' \
-            2>/dev/null | head -1)
-
-          # ── Source 2: Pinned release fallback (GitHub never deletes release assets) ─
-          # Triggered when the API returns no .jar (e.g. archived repo, no binary release).
-          if [ -z "$VAULT_URL" ] || [ "$VAULT_URL" = "null" ]; then
-            VAULT_URL="https://github.com/MilkBowl/Vault/releases/download/1.7.3/Vault.jar"
-            echo "INFO: GitHub API returned no .jar asset; falling back to pinned Vault 1.7.3"
-          fi
-
-          echo "Downloading Vault from: ${VAULT_URL}"
-          curl -sSfL -o server/plugins/Vault.jar "${VAULT_URL}"
-
-          # ── Validate: the file must be a valid ZIP/JAR, not an HTML error page ──────
-          if ! unzip -tq server/plugins/Vault.jar 2>/dev/null; then
-            echo "ERROR: server/plugins/Vault.jar is not a valid ZIP/JAR archive."
-            echo "Downloaded from: ${VAULT_URL}"
-            echo "File type:"; file server/plugins/Vault.jar || true
-            echo "First 256 bytes:"; head -c 256 server/plugins/Vault.jar | cat -v || true
-            exit 1
-          fi
-          echo "Vault.jar OK ($(du -sh server/plugins/Vault.jar | cut -f1))"
+          cp plugin-jar/VaultStub.jar server/plugins/Vault.jar
+          echo "Vault stub: $(du -sh server/plugins/Vault.jar | cut -f1)"
 
       # ── Assemble the server directory ─────────────────────────────────────
       - name: Assemble server directory
