@@ -17,6 +17,15 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
+## [3.0.4] - 2026-05-17
+
+### Fixed
+- **Folia compatibility** — `plugin.yml` now declares `folia-supported: true` so EzEconomy loads on Folia servers without being rejected as an unsupported plugin.
+- **API version format** — `api-version` changed from `26.1.2` to `1.21` in both the main and PAPI module `plugin.yml` files. Paper build 69 introduced strict Minecraft-version format validation that rejected the old dotted build-number form.
+- **Java 21 runtime compatibility** — The `jdk25` Maven profile was setting `maven.compiler.release=25`, producing class file version 69 that Java 21 JVMs cannot load (`UnsupportedClassVersionError`). Lowered the release target to `21` (class file version 65) in both the default properties and the profile; the build JDK requirement (`[25,)`) is unchanged.
+
+---
+
 ## [3.0.3] - 2026-05-13
 
 ### Added
