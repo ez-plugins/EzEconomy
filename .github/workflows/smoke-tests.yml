@@ -158,23 +158,36 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p server/plugins
-          # Auth header avoids the 60 req/hr unauthenticated GitHub API rate limit.
-          # NOTE: bash command substitution does NOT propagate a non-zero exit code
-          # when used in an assignment (VAR=$(cmd)), so we validate the URL explicitly.
+
+          # ── Source 1: GitHub releases API (authenticated to avoid 60 req/hr limit) ──
+          # IMPORTANT: bash command substitution swallows non-zero exit codes, so a
+          # failing curl inside $(...) will NOT trigger set -e. Always validate the URL
+          # explicitly afterwards.
           VAULT_URL=$(curl -sSf \
             -H "Authorization: Bearer ${GH_TOKEN}" \
-            https://api.github.com/repos/MilkBowl/Vault/releases/latest \
-            | jq -r '.assets[] | select(.name | endswith(".jar")) | .browser_download_url' \
-            | head -1)
+            https://api.github.com/repos/MilkBowl/Vault/releases/latest 2>/dev/null \
+            | jq -r '(.assets // [])[] | select(.name | test("(?i)\\.jar$")) | .browser_download_url' \
+            2>/dev/null | head -1)
+
+          # ── Source 2: Pinned release fallback (GitHub never deletes release assets) ─
+          # Triggered when the API returns no .jar (e.g. archived repo, no binary release).
           if [ -z "$VAULT_URL" ] || [ "$VAULT_URL" = "null" ]; then
-            echo "ERROR: Could not resolve a .jar asset from MilkBowl/Vault latest release."
-            echo "Full release metadata:"
-            curl -sSf -H "Authorization: Bearer ${GH_TOKEN}" \
-              https://api.github.com/repos/MilkBowl/Vault/releases/latest | jq '{tag_name, assets: [.assets[].name]}'
-            exit 1
+            VAULT_URL="https://github.com/MilkBowl/Vault/releases/download/1.7.3/Vault.jar"
+            echo "INFO: GitHub API returned no .jar asset; falling back to pinned Vault 1.7.3"
           fi
+
           echo "Downloading Vault from: ${VAULT_URL}"
           curl -sSfL -o server/plugins/Vault.jar "${VAULT_URL}"
+
+          # ── Validate: the file must be a valid ZIP/JAR, not an HTML error page ──────
+          if ! unzip -tq server/plugins/Vault.jar 2>/dev/null; then
+            echo "ERROR: server/plugins/Vault.jar is not a valid ZIP/JAR archive."
+            echo "Downloaded from: ${VAULT_URL}"
+            echo "File type:"; file server/plugins/Vault.jar || true
+            echo "First 256 bytes:"; head -c 256 server/plugins/Vault.jar | cat -v || true
+            exit 1
+          fi
+          echo "Vault.jar OK ($(du -sh server/plugins/Vault.jar | cut -f1))"
 
       # ── Assemble the server directory ─────────────────────────────────────
       - name: Assemble server directory
