@@ -506,14 +506,7 @@ public class MySQLStorageProvider implements StorageProvider {
 
             com.skyblockexp.ezeconomy.api.events.PreTransactionEvent pre = new com.skyblockexp.ezeconomy.api.events.PreTransactionEvent(fromUuid, toUuid, java.math.BigDecimal.valueOf(debitAmount), com.skyblockexp.ezeconomy.api.events.TransactionType.TRANSFER);
             try {
-                if (plugin.getServer().isPrimaryThread()) {
-                    plugin.getServer().getPluginManager().callEvent(pre);
-                } else {
-                    plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
-                        plugin.getServer().getPluginManager().callEvent(pre);
-                        return null;
-                    }).get();
-                }
+                EventDispatcher.fireSync(plugin, pre);
             } catch (Exception e) {
                 plugin.getLogger().warning("[EzEconomy] Failed to fire PreTransactionEvent: " + e.getMessage());
             }

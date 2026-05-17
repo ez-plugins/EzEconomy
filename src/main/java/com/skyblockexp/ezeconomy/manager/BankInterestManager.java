@@ -1,16 +1,17 @@
 package com.skyblockexp.ezeconomy.manager;
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
+import com.skyblockexp.ezeconomy.util.scheduler.PlatformScheduler;
+import com.skyblockexp.ezeconomy.util.scheduler.ScheduledTask;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.scheduler.BukkitRunnable;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
 public class BankInterestManager {
     private final EzEconomyPlugin plugin;
-    private int taskId = -1;
+    private ScheduledTask task = null;
 
     // THREAD SAFETY NOTE:
     // payInterestToAll() is called from a BukkitRunnable (main server thread),
@@ -28,21 +29,16 @@ public class BankInterestManager {
     }
 
     public void start(long intervalTicks) {
-        if (taskId != -1) {
-            Bukkit.getScheduler().cancelTask(taskId);
+        if (task != null) {
+            task.cancel();
         }
-        taskId = new BukkitRunnable() {
-            @Override
-            public void run() {
-                payInterestToAll();
-            }
-        }.runTaskTimer(plugin, intervalTicks, intervalTicks).getTaskId();
+        task = PlatformScheduler.runTaskTimer(plugin, this::payInterestToAll, intervalTicks, intervalTicks);
     }
 
     public void stop() {
-        if (taskId != -1) {
-            Bukkit.getScheduler().cancelTask(taskId);
-            taskId = -1;
+        if (task != null) {
+            task.cancel();
+            task = null;
         }
     }
 

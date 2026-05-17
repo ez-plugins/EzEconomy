@@ -1,0 +1,283 @@
+name: Server Smoke Tests
+
+# Verify that EzEconomy loads cleanly on real Paper and Folia servers
+# under both Java 21 and Java 25, with no UnsupportedOperationException
+# from the scheduler layer.
+
+on:
+  push:
+    branches: [ main, master, 'feat/**' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+# Update MC_VERSION here when a new Paper/Folia LTS version ships.
+env:
+  MC_VERSION: "1.21.11"
+
+jobs:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Build the plugin JAR once and share it with all smoke matrix entries.
+  # ──────────────────────────────────────────────────────────────────────────
+  build-plugin:
+    name: Build plugin JARs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v5
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-smoke-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-smoke-
+
+      - name: Build and install MockBukkit minecraft/v26
+        run: |
+          git clone --depth=1 --branch minecraft/v26 \
+            https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
+          cd /tmp/MockBukkit
+          COMMIT=$(git rev-parse --short HEAD)
+          ./gradlew publishToMavenLocal -xtest -xjavadoc
+          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
+
+      - name: Package plugin (skip tests)
+        run: mvn -B -ntp -Dmaven.test.skip=true -Dmockbukkit.version=$MOCKBUKKIT_VERSION package
+
+      - name: Upload plugin JAR
+        uses: actions/upload-artifact@v7
+        with:
+          name: plugin-jar
+          path: ezeconomy-bukkit/target/ezeconomy-bukkit-*.jar
+          retention-days: 1
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Smoke test matrix: paper/folia × java-21/java-25
+  # ──────────────────────────────────────────────────────────────────────────
+  smoke:
+    name: Smoke — ${{ matrix.server }} / Java ${{ matrix.java }}
+    needs: build-plugin
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        server: [ paper, folia ]
+        java:   [ 21, 25 ]
+        include:
+          # Spigot has no public download API; BuildTools is the official build path.
+          # Test on Java 21 only (minimum required for 1.21.x).
+          - server: spigot
+            java: 21
+
+    steps:
+      - name: Download plugin JAR
+        uses: actions/download-artifact@v7
+        with:
+          name: plugin-jar
+          path: plugin-jar
+
+      # Single JDK setup for both BuildTools (Spigot) and server runtime.
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      # ── Resolve latest stable build from PaperMC API ──────────────────────
+      - name: Resolve ${{ matrix.server }} ${{ env.MC_VERSION }} build
+        if: matrix.server != 'spigot'
+        id: server-meta
+        run: |
+          PROJECT="${{ matrix.server }}"
+          MC="${{ env.MC_VERSION }}"
+          DATA=$(curl -sSf "https://api.papermc.io/v2/projects/${PROJECT}/versions/${MC}/builds")
+          # Prefer "default" channel; fall back to the very last build
+          BUILD=$(echo "$DATA" | jq \
+            '([.builds[] | select(.channel == "default")] | last | .build) // (.builds | last | .build)')
+          JAR="${PROJECT}-${MC}-${BUILD}.jar"
+          URL="https://api.papermc.io/v2/projects/${PROJECT}/versions/${MC}/builds/${BUILD}/downloads/${JAR}"
+          echo "build=${BUILD}" >> $GITHUB_OUTPUT
+          echo "jar=${JAR}"     >> $GITHUB_OUTPUT
+          echo "url=${URL}"     >> $GITHUB_OUTPUT
+          echo "Resolved: ${PROJECT} ${MC} build ${BUILD}"
+
+      # ── Cache server JAR between workflow runs ─────────────────────────────
+      - name: Cache server JAR
+        if: matrix.server != 'spigot'
+        id: cache-server
+        uses: actions/cache@v5
+        with:
+          path: server-jar/${{ steps.server-meta.outputs.jar }}
+          key: serverjar-${{ matrix.server }}-${{ env.MC_VERSION }}-${{ steps.server-meta.outputs.build }}
+
+      - name: Download server JAR
+        if: matrix.server != 'spigot' && steps.cache-server.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p server-jar
+          curl -sSfL \
+            -o "server-jar/${{ steps.server-meta.outputs.jar }}" \
+            "${{ steps.server-meta.outputs.url }}"
+
+      # ── Spigot: build via BuildTools (official path — no public binary download) ──
+      - name: Cache Spigot JAR (BuildTools output)
+        if: matrix.server == 'spigot'
+        id: cache-spigot
+        uses: actions/cache@v5
+        with:
+          path: server-jar/spigot-${{ env.MC_VERSION }}.jar
+          key: spigot-jar-${{ env.MC_VERSION }}
+
+      - name: Build Spigot with BuildTools
+        if: matrix.server == 'spigot' && steps.cache-spigot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p server-jar /tmp/buildtools
+          curl -sSfL -o /tmp/buildtools/BuildTools.jar \
+            https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+          cd /tmp/buildtools
+          # Allow BuildTools to clone into directories it didn't create
+          git config --global --add safe.directory '*'
+          java -jar BuildTools.jar --rev "$MC_VERSION" --nogui
+          cp /tmp/buildtools/spigot-*.jar \
+            "$GITHUB_WORKSPACE/server-jar/spigot-$MC_VERSION.jar"
+
+      # ── Download VaultUnlocked (Folia-native Vault fork) ─────────────────
+      # VaultUnlocked declares name: Vault + folia-supported: true, satisfying
+      # EzEconomy's depend: [Vault] on Paper, Folia, and Spigot alike.
+      # Modrinth CDN URLs are permanent (version ID embedded in path).
+      - name: Download VaultUnlocked
+        run: |
+          mkdir -p server/plugins
+          curl -sSfL \
+            -o server/plugins/Vault.jar \
+            "https://cdn.modrinth.com/data/ayRaM8J7/versions/ypDodbNn/VaultUnlocked-2.19.1.jar"
+          echo "VaultUnlocked: $(du -sh server/plugins/Vault.jar | cut -f1)"
+
+      # ── Assemble the server directory ─────────────────────────────────────
+      - name: Assemble server directory
+        run: |
+          mkdir -p server/plugins server/logs
+
+          if [ "${{ matrix.server }}" = "spigot" ]; then
+            cp "server-jar/spigot-$MC_VERSION.jar" server/server.jar
+          else
+            cp "server-jar/${{ steps.server-meta.outputs.jar }}" server/server.jar
+          fi
+          cp plugin-jar/ezeconomy-bukkit-*.jar server/plugins/EzEconomy.jar
+
+          # Accept EULA non-interactively
+          echo "eula=true" > server/eula.txt
+
+          # Minimal server.properties — no world gen, no auth, no mobs
+          cat > server/server.properties << 'PROPS'
+          online-mode=false
+          spawn-npcs=false
+          spawn-animals=false
+          spawn-monsters=false
+          generate-structures=false
+          level-type=flat
+          view-distance=2
+          simulation-distance=2
+          max-players=0
+          PROPS
+
+          # Suppress Paper's interactive setup wizard (>= 1.20 versions)
+          mkdir -p server/config
+          cat > server/config/paper-global.yml << 'YAML'
+          _version: 28
+          proxies:
+            bungee-cord:
+              online-mode: false
+          YAML
+
+      # ── Launch server and wait for the "Done" line ────────────────────────
+      - name: Start server and wait for ready
+        working-directory: server
+        run: |
+          java -Xmx512m -Xms256m -jar server.jar --nogui < /dev/null &
+          SERVER_PID=$!
+          echo "SERVER_PID=${SERVER_PID}" >> $GITHUB_ENV
+          echo "Started server PID=${SERVER_PID}, waiting for 'Done'…"
+
+          TIMEOUT=180
+          ELAPSED=0
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            sleep 3
+            ELAPSED=$((ELAPSED + 3))
+
+            # Happy path: server fully started
+            if grep -q 'Done (' logs/latest.log 2>/dev/null; then
+              echo "Server ready after ${ELAPSED}s."
+              exit 0
+            fi
+
+            # Fail-fast: EzEconomy blocked from loading (missing depend, class error, etc.)
+            if grep -qE \
+              'Could not load .plugins/EzEconomy|UnsupportedOperationException' \
+              logs/latest.log 2>/dev/null; then
+              echo "ABORT: critical EzEconomy failure detected:"
+              grep -E 'EzEconomy|UnsupportedOperation' logs/latest.log
+              kill "$SERVER_PID" 2>/dev/null
+              exit 1
+            fi
+          done
+
+          echo "TIMEOUT: server did not reach 'Done' within ${TIMEOUT}s"
+          tail -50 logs/latest.log
+          kill "$SERVER_PID" 2>/dev/null
+          exit 1
+
+      # ── Assert EzEconomy loaded without errors ────────────────────────────
+      - name: Assert EzEconomy started cleanly
+        run: |
+          LOG=server/logs/latest.log
+
+          echo "══ EzEconomy log lines ════════════════════════════════════"
+          grep -iE 'ezeconomy' "$LOG" || echo "(no EzEconomy lines found)"
+          echo "══════════════════════════════════════════════════════════"
+
+          # 1. Plugin must have been enabled
+          if ! grep -q 'Enabling EzEconomy' "$LOG"; then
+            echo "FAIL: 'Enabling EzEconomy' not found — plugin did not load"
+            exit 1
+          fi
+
+          # 2. No Folia scheduler misuse (UnsupportedOperationException from getScheduler())
+          if grep -qE 'UnsupportedOperationException' "$LOG"; then
+            echo "FAIL: UnsupportedOperationException in server log"
+            grep 'UnsupportedOperationException' "$LOG"
+            exit 1
+          fi
+
+          # 3. No ERROR-level lines attributed to EzEconomy
+          if grep -qE '\[EzEconomy\].*ERROR|ERROR.*\[EzEconomy\]' "$LOG"; then
+            echo "FAIL: ERROR lines found in EzEconomy output"
+            grep -E '\[EzEconomy\].*ERROR|ERROR.*\[EzEconomy\]' "$LOG"
+            exit 1
+          fi
+
+          echo "PASS: EzEconomy loaded cleanly on ${{ matrix.server }} / Java ${{ matrix.java }}"
+
+      # ── Cleanup ────────────────────────────────────────────────────────────
+      - name: Stop server
+        if: always()
+        run: kill "$SERVER_PID" 2>/dev/null || true
+
+      - name: Upload server logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: smoke-logs-${{ matrix.server }}-java${{ matrix.java }}
+          path: server/logs/
+          retention-days: 7

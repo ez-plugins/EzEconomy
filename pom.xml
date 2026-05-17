@@ -17,10 +17,11 @@
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
-        <maven.compiler.release>25</maven.compiler.release>
-        <!-- Target Java 25 to match Paper API (class file version 69) -->
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
+        <!-- Target Java 21: minimum server JRE for MC 1.21.x (class file version 65). -->
+        <!-- Build JDK is still 25 (enforced below); source/target pins the OUTPUT. -->
         <!-- Allow CI to override the Paper API version with -Dpaper.version -->
         <paper.version>[26.1.2.build,)</paper.version>
         <!-- MockBukkit coordinates are configurable so CI can select the right artifact per Paper matrix entry -->
@@ -496,16 +497,17 @@
             </properties>
         </profile>
         
-        <!-- If the build runs on JDK 25 or newer, enable Java 25 compilation. -->
+        <!-- Build with JDK 25 but still produce Java 21 bytecode so the JAR
+             runs on both java-21 and java-25 smoke-test matrix entries. -->
         <profile>
             <id>jdk25</id>
             <activation>
                 <jdk>[25,)</jdk>
             </activation>
             <properties>
-                <maven.compiler.source>25</maven.compiler.source>
-                <maven.compiler.target>25</maven.compiler.target>
-                <maven.compiler.release>25</maven.compiler.release>
+                <maven.compiler.source>21</maven.compiler.source>
+                <maven.compiler.target>21</maven.compiler.target>
+                <maven.compiler.release>21</maven.compiler.release>
             </properties>
         </profile>
         <profile>

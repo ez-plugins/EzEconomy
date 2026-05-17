@@ -1,5 +1,6 @@
 package com.skyblockexp.ezeconomy.util;
 
+import com.skyblockexp.ezeconomy.util.scheduler.PlatformScheduler;
 import org.bukkit.event.Event;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -45,10 +46,10 @@ public final class EventDispatcher {
             plugin.getServer().getPluginManager().callEvent(event);
         } else {
             try {
-                plugin.getServer().getScheduler().callSyncMethod(plugin, () -> {
+                PlatformScheduler.callSync(plugin, () -> {
                     plugin.getServer().getPluginManager().callEvent(event);
                     return null;
-                }).get();
+                });
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 logDispatchFailure(plugin.getLogger(), event, e);

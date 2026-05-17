@@ -1,5 +1,6 @@
 package com.skyblockexp.ezeconomy.gui;
 
+import com.skyblockexp.ezeconomy.util.scheduler.PlatformScheduler;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -131,7 +132,7 @@ public class GuiListener implements Listener {
                         plugin.getPayFlowManager().createPendingTransfer(player.getUniqueId(), targetUuid, target, money, currency, expiresAt);
                         player.closeInventory();
                         PayConfirmGui.open(plugin, player, target, bd.toPlainString());
-                        Bukkit.getScheduler().runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(player.getUniqueId()), timeoutSeconds * 20L);
+                        PlatformScheduler.runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(player.getUniqueId()), timeoutSeconds * 20L);
                         return;
                     } catch (NumberFormatException ex) {
                         player.sendMessage(org.bukkit.ChatColor.RED + "Invalid preset amount.");
@@ -196,7 +197,7 @@ public class GuiListener implements Listener {
                     long expiresAt = System.currentTimeMillis() + (timeoutSeconds * 1000L);
                     plugin.getPayFlowManager().createPendingTransfer(player.getUniqueId(), targetUuid, target, money, currency, expiresAt);
                     PayConfirmGui.open(plugin, player, target, amt);
-                    Bukkit.getScheduler().runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(player.getUniqueId()), timeoutSeconds * 20L);
+                    PlatformScheduler.runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(player.getUniqueId()), timeoutSeconds * 20L);
                 } catch (NumberFormatException ex) {
                     player.sendMessage(ChatColor.RED + "Invalid preset amount.");
                 }
@@ -243,8 +244,8 @@ public class GuiListener implements Listener {
         int timeoutSeconds = plugin.getConfig().getInt("pay.confirmation.timeout_seconds", 30);
         long expiresAt = System.currentTimeMillis() + (timeoutSeconds * 1000L);
         plugin.getPayFlowManager().createPendingTransfer(uuid, target, targetName, parsedMoney, plugin.getDefaultCurrency(), expiresAt);
-        Bukkit.getScheduler().runTask(plugin, () -> PayConfirmGui.open(plugin, e.getPlayer(), targetName, parsedMoney.getAmount().toPlainString()));
-        Bukkit.getScheduler().runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(uuid), timeoutSeconds * 20L);
+        PlatformScheduler.runTask(plugin, () -> PayConfirmGui.open(plugin, e.getPlayer(), targetName, parsedMoney.getAmount().toPlainString()));
+        PlatformScheduler.runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(uuid), timeoutSeconds * 20L);
     }
 
     private java.util.UUID getPlayerUuidByName(String name) {

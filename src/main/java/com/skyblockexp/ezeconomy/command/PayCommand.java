@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.math.BigDecimal;
+import com.skyblockexp.ezeconomy.util.scheduler.PlatformScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
@@ -124,7 +125,7 @@ public class PayCommand implements CommandExecutor {
             plugin.getPayFlowManager().createPendingTransfer(from.getUniqueId(), to == null ? null : to.getUniqueId(), operands[0], money, currency, expiresAt);
             MessageUtils.send(sender, plugin, "payment_confirm_required", java.util.Map.of("amount", plugin.getCurrencyFormatter().formatPriceForMessage(amountDecimal.doubleValue(), currency), "timeout", String.valueOf(timeoutSeconds)));
             // Schedule cleanup
-            Bukkit.getScheduler().runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(from.getUniqueId()), timeoutSeconds * 20L);
+            PlatformScheduler.runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(from.getUniqueId()), timeoutSeconds * 20L);
             return true;
         }
 
@@ -258,7 +259,7 @@ public class PayCommand implements CommandExecutor {
             com.skyblockexp.ezeconomy.service.PaymentExecutor.execute(plugin, from, operands[0], amountDecimal, currency, knownOffline);
         } else {
             boolean ko = knownOffline;
-            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            PlatformScheduler.runTaskAsync(plugin, () -> {
                 com.skyblockexp.ezeconomy.service.PaymentExecutor.execute(plugin, from, operands[0], amountDecimal, currency, ko);
             });
         }

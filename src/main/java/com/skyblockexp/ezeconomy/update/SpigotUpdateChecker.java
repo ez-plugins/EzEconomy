@@ -1,5 +1,6 @@
 package com.skyblockexp.ezeconomy.update;
 
+import com.skyblockexp.ezeconomy.util.scheduler.PlatformScheduler;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
@@ -18,7 +19,7 @@ public final class SpigotUpdateChecker {
     }
 
     public void checkForUpdates() {
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        PlatformScheduler.runTaskAsync(plugin, () -> {
             try {
                 String latestVersion = fetchLatestVersion();
                 if (latestVersion == null || latestVersion.isBlank()) {
