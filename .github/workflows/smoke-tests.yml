@@ -68,30 +68,36 @@ jobs:
     name: Smoke — ${{ matrix.server }} / Java ${{ matrix.java }}
     needs: build-plugin
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     strategy:
       fail-fast: false
       matrix:
         server: [ paper, folia ]
         java:   [ 21, 25 ]
+        include:
+          # Spigot has no public download API; BuildTools is the official build path.
+          # Test on Java 21 only (minimum required for 1.21.x).
+          - server: spigot
+            java: 21
 
     steps:
-      # We always build with JDK 25; the server itself runs under matrix.java
-      - name: Set up JDK 25 (tools)
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '25'
-
       - name: Download plugin JAR
         uses: actions/download-artifact@v7
         with:
           name: plugin-jar
           path: plugin-jar
 
+      # Single JDK setup for both BuildTools (Spigot) and server runtime.
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
       # ── Resolve latest stable build from PaperMC API ──────────────────────
       - name: Resolve ${{ matrix.server }} ${{ env.MC_VERSION }} build
+        if: matrix.server != 'spigot'
         id: server-meta
         run: |
           PROJECT="${{ matrix.server }}"
@@ -109,6 +115,7 @@ jobs:
 
       # ── Cache server JAR between workflow runs ─────────────────────────────
       - name: Cache server JAR
+        if: matrix.server != 'spigot'
         id: cache-server
         uses: actions/cache@v5
         with:
@@ -116,21 +123,56 @@ jobs:
           key: serverjar-${{ matrix.server }}-${{ env.MC_VERSION }}-${{ steps.server-meta.outputs.build }}
 
       - name: Download server JAR
-        if: steps.cache-server.outputs.cache-hit != 'true'
+        if: matrix.server != 'spigot' && steps.cache-server.outputs.cache-hit != 'true'
         run: |
           mkdir -p server-jar
           curl -sSfL \
             -o "server-jar/${{ steps.server-meta.outputs.jar }}" \
             "${{ steps.server-meta.outputs.url }}"
 
+      # ── Spigot: build via BuildTools (official path — no public binary download) ──
+      - name: Cache Spigot JAR (BuildTools output)
+        if: matrix.server == 'spigot'
+        id: cache-spigot
+        uses: actions/cache@v5
+        with:
+          path: server-jar/spigot-${{ env.MC_VERSION }}.jar
+          key: spigot-jar-${{ env.MC_VERSION }}
+
+      - name: Build Spigot with BuildTools
+        if: matrix.server == 'spigot' && steps.cache-spigot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p server-jar /tmp/buildtools
+          curl -sSfL -o /tmp/buildtools/BuildTools.jar \
+            https://hub.spigotmc.org/jenkins/job/BuildTools/lastSuccessfulBuild/artifact/target/BuildTools.jar
+          cd /tmp/buildtools
+          # Allow BuildTools to clone into directories it didn't create
+          git config --global --add safe.directory '*'
+          java -jar BuildTools.jar --rev "$MC_VERSION" --nogui
+          cp /tmp/buildtools/spigot-*.jar \
+            "$GITHUB_WORKSPACE/server-jar/spigot-$MC_VERSION.jar"
+
       # ── Download Vault (hard dependency of EzEconomy) ─────────────────────
       - name: Download Vault plugin
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p server/plugins
+          # Auth header avoids the 60 req/hr unauthenticated GitHub API rate limit.
+          # NOTE: bash command substitution does NOT propagate a non-zero exit code
+          # when used in an assignment (VAR=$(cmd)), so we validate the URL explicitly.
           VAULT_URL=$(curl -sSf \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
             https://api.github.com/repos/MilkBowl/Vault/releases/latest \
             | jq -r '.assets[] | select(.name | endswith(".jar")) | .browser_download_url' \
             | head -1)
+          if [ -z "$VAULT_URL" ] || [ "$VAULT_URL" = "null" ]; then
+            echo "ERROR: Could not resolve a .jar asset from MilkBowl/Vault latest release."
+            echo "Full release metadata:"
+            curl -sSf -H "Authorization: Bearer ${GH_TOKEN}" \
+              https://api.github.com/repos/MilkBowl/Vault/releases/latest | jq '{tag_name, assets: [.assets[].name]}'
+            exit 1
+          fi
           echo "Downloading Vault from: ${VAULT_URL}"
           curl -sSfL -o server/plugins/Vault.jar "${VAULT_URL}"
 
@@ -139,7 +181,11 @@ jobs:
         run: |
           mkdir -p server/plugins server/logs
 
-          cp "server-jar/${{ steps.server-meta.outputs.jar }}" server/server.jar
+          if [ "${{ matrix.server }}" = "spigot" ]; then
+            cp "server-jar/spigot-$MC_VERSION.jar" server/server.jar
+          else
+            cp "server-jar/${{ steps.server-meta.outputs.jar }}" server/server.jar
+          fi
           cp plugin-jar/ezeconomy-bukkit-*.jar server/plugins/EzEconomy.jar
 
           # Accept EULA non-interactively
@@ -166,13 +212,6 @@ jobs:
             bungee-cord:
               online-mode: false
           YAML
-
-      # ── Switch to the matrix Java version for the server runtime ──────────
-      - name: Set up JDK ${{ matrix.java }} (server runtime)
-        uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: ${{ matrix.java }}
 
       # ── Launch server and wait for the "Done" line ────────────────────────
       - name: Start server and wait for ready
