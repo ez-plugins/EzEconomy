@@ -3,6 +3,7 @@ package com.skyblockexp.ezeconomy.papi;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import com.skyblockexp.ezeconomy.util.scheduler.PlatformScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import com.skyblockexp.ezeconomy.dto.EconomyPlayer;
@@ -235,7 +236,7 @@ public class EzEconomyPAPIExpansion extends PlaceholderExpansion {
                     }
                 } else {
                     EzEconomyPlugin finalEz = ezPlugin;
-                    Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                    PlatformScheduler.runTaskAsync(plugin, () -> {
                         try {
                             StorageProvider storage = finalEz.getStorageOrWarn();
                             if (storage == null) {

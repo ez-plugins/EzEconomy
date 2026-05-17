@@ -4,6 +4,7 @@ version: ${project.version}
 website: https://modrinth.com/plugin/ezeconomy
 author: Shadow48402
 api-version: 26.1.2
+folia-supported: true
 description: Vault-compatible economy provider with YML and MySQL support
 depend: [Vault]
 softdepend: [PlaceholderAPI]
