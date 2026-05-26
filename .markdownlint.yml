@@ -46,4 +46,4 @@ MD047: true
 
 # MD048 — Enforce fenced code block style consistency
 MD048:
-  style: fenced
+  style: backtick
