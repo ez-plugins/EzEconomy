@@ -1,4 +1,4 @@
-﻿# DEPRECATED: Superseded by release.yml (tag-triggered) and nightly.yml.
+# DEPRECATED: Superseded by release.yml (tag-triggered) and nightly.yml.
 # Kept as a manual fallback only. Do NOT re-enable the release: [created] trigger
 # as it would conflict with release.yml which creates the GitHub Release itself.
 
@@ -76,9 +76,9 @@ jobs:
       run: |
         echo "Package version already exists on GitHub Packages (HTTP 200). Skipping deploy to avoid 422 Unprocessable Entity error."
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # 
     #  UPLOAD ARTIFACTS TO GITHUB RELEASE
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # 
     - name: Upload module jars to GitHub Release
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -90,9 +90,9 @@ jobs:
           ezeconomy-bungeecord/target/ezeconomy-bungeecord-*.jar \
           ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-*.jar
 
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # 
     #  MODRINTH RELEASE
-    # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # 
     - name: Release to Modrinth (stable)
       uses: Kir-Antipov/mc-publish@v3.3
       with:

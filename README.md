@@ -1,4 +1,4 @@
-﻿# EzEconomy
+# EzEconomy
 
 ![EzEconomy Icon](https://www.spigotmc.org/data/resource_icons/130/130975.jpg)
 
@@ -17,7 +17,7 @@
 
 ---
 
-## ðŸ“š Documentation
+##  Documentation
 
 - [Overview](docs/overview.md): General introduction and architecture
 - [Commands](docs/commands.md): Command usage and permissions
@@ -37,7 +37,7 @@
 
 ---
 
-## â˜… Key Features
+##  Key Features
 
 EzEconomy is designed for performance, reliability, and operational clarity. Highlights include:
 
@@ -51,7 +51,7 @@ EzEconomy is designed for performance, reliability, and operational clarity. Hig
 
 ---
 
-## âš¡ Commands
+##  Commands
 
 - **/balance**: View your balance
 - **/balance <player>**: View another player's balance (`ezeconomy.balance.others`)
@@ -64,7 +64,7 @@ EzEconomy is designed for performance, reliability, and operational clarity. Hig
 
 ---
 
-## ðŸ›¡ï¸ Permissions
+##  Permissions
 
 - `ezeconomy.balance.others`: View other players' balances
 - `ezeconomy.eco`: Use /eco admin command
@@ -83,7 +83,7 @@ EzEconomy is designed for performance, reliability, and operational clarity. Hig
 
 ---
 
-## ðŸ”’ Security Notes for Server Owners
+##  Security Notes for Server Owners
 
 - **Limit admin permissions**: Only grant `ezeconomy.eco` and `ezeconomy.bank.admin` to trusted staff.
 - **Use a permissions plugin**: Manage access with groups/roles so players cannot self-assign economy powers.
@@ -93,7 +93,7 @@ EzEconomy is designed for performance, reliability, and operational clarity. Hig
 
 ---
 
-## ðŸ›¡ï¸ Dupe Prevention Safeguards
+##  Dupe Prevention Safeguards
 
 - **Thread-safe balance updates**: Economy operations are designed to avoid race conditions during concurrent deposits, withdrawals, and transfers.
 - **Server-side validation**: Commands and transactions validate amounts to prevent invalid or malformed requests.
@@ -101,7 +101,7 @@ EzEconomy is designed for performance, reliability, and operational clarity. Hig
 
 ---
 
-## âš™ï¸ Configuration Example
+##  Configuration Example
 
 ### `config.yml` (Only global settings):
 ```yaml
@@ -116,11 +116,11 @@ multi-currency:
       decimals: 2
     euro:
       display: "Euro"
-      symbol: "â‚¬"
+      symbol: ""
       decimals: 2
     gem:
       display: "Gem"
-      symbol: "â™¦"
+      symbol: ""
       decimals: 0
   conversion:
     dollar:
@@ -172,7 +172,7 @@ mongodb:
 
 ---
 
-## â¬‡ï¸ Installation
+##  Installation
 
 1. Place `EzEconomy.jar` in your plugins folder
 2. Configure `config.yml` and the appropriate `config-*.yml` file for your storage type
@@ -180,22 +180,22 @@ mongodb:
 
 ---
 
-## ðŸ”- Integration
+## - Integration
 
 - EzEconomy automatically registers as a Vault provider
 - No extra setup required for Vault-compatible plugins
 - **PlaceholderAPI support**:
   - Use placeholders in chat, scoreboard, and other plugins:
-    - `%ezeconomy_balance%` â€“ Your balance
-    - `%ezeconomy_balance_<currency>%` â€“ Your balance in a specific currency (e.g., `%ezeconomy_balance_euro%`)
-    - `%ezeconomy_bank_<bank>%` â€“ Balance of a specific bank
-    - `%ezeconomy_top_1%` â€“ Top 1 player balance (replace 1 with rank)
-    - `%ezeconomy_currency%` â€“ Your preferred currency
+    - `%ezeconomy_balance%`  Your balance
+    - `%ezeconomy_balance_<currency>%`  Your balance in a specific currency (e.g., `%ezeconomy_balance_euro%`)
+    - `%ezeconomy_bank_<bank>%`  Balance of a specific bank
+    - `%ezeconomy_top_1%`  Top 1 player balance (replace 1 with rank)
+    - `%ezeconomy_currency%`  Your preferred currency
   - Works with all PlaceholderAPI-compatible plugins
 
 ---
 
-## ðŸ› ï¸ Developer: Custom Storage Providers
+##  Developer: Custom Storage Providers
 
 EzEconomy supports custom storage backends (YML, MySQL, SQLite, MongoDB, or your own). You can implement your own provider for any database or storage system.
 

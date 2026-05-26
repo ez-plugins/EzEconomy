@@ -1,12 +1,12 @@
-﻿
-[center][size=6][b]EzEconomy â€” BungeeCord Proxy[/b][/size]
+
+[center][size=6][b]EzEconomy  BungeeCord Proxy[/b][/size]
 
 [img]https://i.imgur.com/placeholder.png[/img]
 
 [size=4][b]Shared, lightweight economy across your Bungee network[/b][/size]
 
 [b]Download:[/b] [url=https://modrinth.com/plugin/ezeconomy]Modrinth plugin page[/url]
-	â€¢ [url=https://github.com/ez-plugins/EzEconomy]Source & Releases on GitHub[/url]
+	 [url=https://github.com/ez-plugins/EzEconomy]Source & Releases on GitHub[/url]
 
 [b]Description:[/b]
 EzEconomy - BungeeCord Proxy is the proxy connector for EzEconomy that synchronizes balances and account actions across a BungeeCord network. It provides a fast, reliable bridge between your proxy and backend storage (MySQL, SQLite, MongoDB, Redis) and integrates with Vault and PlaceholderAPI so servers and plugins can access a single unified economy.
@@ -51,20 +51,20 @@ proxy:
 
 [b]Commands[/b]
 [list]
-[*][b]/ezeconomy help[/b] â€” Show proxy-related help (if provided by your build)
-[*][b]/balance <player>[/b] â€” Query a player's balance (requires permission)
+[*][b]/ezeconomy help[/b]  Show proxy-related help (if provided by your build)
+[*][b]/balance <player>[/b]  Query a player's balance (requires permission)
 [/list]
 
 [b]Permissions[/b]
 [list]
-[*][b]ezeconomy.proxy.balance[/b] â€” Query other players' balance
-[*][b]ezeconomy.proxy.admin[/b] â€” Admin proxy commands and troubleshooting
+[*][b]ezeconomy.proxy.balance[/b]  Query other players' balance
+[*][b]ezeconomy.proxy.admin[/b]  Admin proxy commands and troubleshooting
 [/list]
 
 [b]Placeholders[/b]
 [list]
-[*][b]%ezeconomy_balance%[/b] â€” Player's balance (via PlaceholderAPI)
-[*][b]%ezeconomy_balance_formatted%[/b] â€” Formatted balance
+[*][b]%ezeconomy_balance%[/b]  Player's balance (via PlaceholderAPI)
+[*][b]%ezeconomy_balance_formatted%[/b]  Formatted balance
 [/list]
 
 [spoiler=Configuration Example]
