@@ -9,6 +9,12 @@
 
 **EzEconomy** is a professional-grade Vault economy provider for Minecraft servers. Choose from YML, MySQL, SQLite, MongoDB, or custom storage with multi-currency support, async caching, and thorough permission controls.
 
+## Runtime Compatibility Matrix
+
+- Java 17 runtime: Minecraft `1.17.x` through `1.20.x`
+- Java 21+ runtime: Minecraft `1.21.x`
+- Build artifact: single EzEconomy JAR compiled to Java 17 bytecode
+
 ---
 
 ## 📚 Documentation

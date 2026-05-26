@@ -52,6 +52,23 @@ CI recommendations
 - Run `mvn test jacoco:report jacoco:check` in CI for modules changed by a PR.
 - Fail builds when coverage drops below the configured threshold.
 
+Smoke test policy
+
+- PR smoke matrix (fast lane):
+  - Paper `1.20.6` on Java 17
+  - Folia `1.20.6` on Java 17
+  - Paper `1.21.11` on Java 21
+- Nightly/workflow-dispatch smoke matrix (expanded lane):
+  - Paper `1.17.1`, `1.18.2`, `1.19.4`, `1.20.6` on Java 17
+  - Folia `1.20.6` on Java 17
+  - Paper `1.21.11` on Java 21
+  - Spigot `1.20.6` on Java 17 (BuildTools)
+- Startup assertions must include:
+  - plugin enable line present
+  - no `UnsupportedClassVersionError`, `NoSuchMethodError`, `NoClassDefFoundError`
+  - no `UnsupportedOperationException` from scheduler misuse
+  - no `ERROR` lines attributed to EzEconomy
+
 Templates & examples
 
 - See `docs/test-templates/UnitTestTemplate.md` for a minimal, readable unit test template.
