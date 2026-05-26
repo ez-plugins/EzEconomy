@@ -1,4 +1,4 @@
----
+﻿---
 title: Home
 layout: home
 nav_order: 1
@@ -6,17 +6,18 @@ nav_order: 1
 
 # EzEconomy
 
-EzEconomy is a Vault-compatible economy plugin for Paper/Spigot 1.7.10 – 1.21.1.
+EzEconomy is a Vault-compatible economy plugin for modern Java server lines.
+Current compatibility lanes: Java 17 on MC 1.17-1.20.x, and Java 21+ on MC 1.21.x.
 It supports multiple storage backends, optional multi-currency systems, bank accounts,
-and async caching — all designed to keep your economy safe and fast under load.
+and async caching â€” all designed to keep your economy safe and fast under load.
 
 ## Highlights
 
-- **Vault integration** — works with any Vault-based plugin without extra setup.
-- **Flexible storage** — YML, MySQL, SQLite, MongoDB, or a custom provider.
-- **Multi-currency** — optional per-player currency selection with conversion rates.
-- **Async caching** — keeps balance lookups fast on busy servers.
-- **Banking system** — shared accounts with member management and permissions.
+- **Vault integration** â€” works with any Vault-based plugin without extra setup.
+- **Flexible storage** â€” YML, MySQL, SQLite, MongoDB, or a custom provider.
+- **Multi-currency** â€” optional per-player currency selection with conversion rates.
+- **Async caching** â€” keeps balance lookups fast on busy servers.
+- **Banking system** â€” shared accounts with member management and permissions.
 
 ---
 
@@ -45,3 +46,5 @@ and async caching — all designed to keep your economy safe and fast under load
 | Page | Description |
 | --- | --- |
 | [Developer Reference](developer-api) | EzEconomyAPI, events, custom storage providers |
+
+
