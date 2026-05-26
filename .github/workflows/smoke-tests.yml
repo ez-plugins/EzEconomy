@@ -39,7 +39,11 @@ jobs:
         run: |
           # Keep packaging isolated from test-only local Maven artifacts.
           # MockBukkit publication can override coordinates in ~/.m2 and break compile classpath.
-          mvn -B -ntp -U -Dmaven.test.skip=true -pl ezeconomy-bukkit -am package
+          mvn -B -ntp -U -Dmaven.test.skip=true \
+            -Dmockbukkit.groupId=com.github.seeseemelk \
+            -Dmockbukkit.artifactId=MockBukkit-v1.21 \
+            -Dmockbukkit.version=3.133.2 \
+            -pl ezeconomy-bukkit -am package
 
       - name: Upload plugin JAR
         uses: actions/upload-artifact@v7
