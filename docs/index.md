@@ -46,5 +46,3 @@ and async caching  all designed to keep your economy safe and fast under load.
 | Page | Description |
 | --- | --- |
 | [Developer Reference](developer-api) | EzEconomyAPI, events, custom storage providers |
-
-

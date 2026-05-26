@@ -33,3 +33,17 @@ MD024:
 # MD007 — Unordered list indentation: use 2-space indent under list items
 MD007:
   indent: 2
+
+# MD010 — Hard tabs: require spaces in Markdown content for consistent rendering
+MD010: true
+
+# MD012 — Multiple consecutive blank lines: allow at most one blank line
+MD012:
+  maximum: 1
+
+# MD047 — Files should end with a single newline
+MD047: true
+
+# MD048 — Enforce fenced code block style consistency
+MD048:
+  style: fenced
