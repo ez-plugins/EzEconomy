@@ -35,16 +35,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-m2-smoke-
 
-      - name: Build and install MockBukkit minecraft/v26
-        run: |
-          git clone --depth=1 --branch minecraft/v26 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
-          cd /tmp/MockBukkit
-          COMMIT=$(git rev-parse --short HEAD)
-          ./gradlew publishToMavenLocal -xtest -xjavadoc
-          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
-
       - name: Package plugin (skip tests)
-        run: mvn -B -ntp -Dmaven.test.skip=true -Dmockbukkit.version=$MOCKBUKKIT_VERSION package
+        run: |
+          # Keep packaging isolated from test-only local Maven artifacts.
+          # MockBukkit publication can override coordinates in ~/.m2 and break compile classpath.
+          mvn -B -ntp -U -Dmaven.test.skip=true -pl ezeconomy-bukkit -am package
 
       - name: Upload plugin JAR
         uses: actions/upload-artifact@v7
