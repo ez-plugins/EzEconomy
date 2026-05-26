@@ -15,7 +15,7 @@ Permissions shown in parentheses are required to run the command. Commands witho
 | `/balance <player> <currency>` | View another player's balance in the specified currency. | `ezeconomy.balance.others` |
 | `/baltop [amount]` | View the top balances. | — |
 | `/pay <player\|*> <amount>` | Send money to another player or all players (`*`). | `ezeconomy.pay` (all: `ezeconomy.payall` if enabled) |
-| `/currency [currency]` | View or set your preferred currency.  | `ezeconomy.currency` |
+| `/currency [currency]` | View or set your preferred currency. | `ezeconomy.currency` |
 | `/currency convert <from> <to> <amount>` | Use  to convert between currencies. | `ezeconomy.currency` |
 | `/eco give <player> <amount>` | Add funds to a player. | `ezeconomy.eco` |
 | `/eco take <player> <amount>` | Remove funds from a player. | `ezeconomy.eco` |

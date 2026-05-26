@@ -68,7 +68,7 @@ If `/balance` returns an error, check that Vault is installed and that the conso
 ## Next Steps
 
 | I want to... | Go here |
-|:-----------|:--------|
+| --- | --- |
 | Configure storage, currencies, banking, and caching | [Configuration](configuration) |
 | See all player and admin commands | [Commands](commands) |
 | Set up permissions for staff and players | [Permissions](permissions) |

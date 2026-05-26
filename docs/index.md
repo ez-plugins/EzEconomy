@@ -22,8 +22,8 @@ and async caching — all designed to keep your economy safe and fast under load
 
 ## For Server Owners & Admins
 
-| | |
-|:---|:---|
+| Page | Description |
+| --- | --- |
 | [Getting Started](overview) | Install EzEconomy, choose a storage backend, verify your setup |
 | [Configuration](configuration) | Storage backends, multi-currency, banking toggle, caching |
 | [Commands](commands) | Player and admin command reference |
@@ -34,14 +34,14 @@ and async caching — all designed to keep your economy safe and fast under load
 
 ## Optional Features
 
-| | |
-|:---|:---|
+| Feature | Description |
+| --- | --- |
 | [Banking](feature/banking) | Shared bank accounts with member roles |
 | [Multi-Currency](feature/multi-currency) | Multiple currencies with conversion rates |
 | [Integrations](integration/) | Vault, PlaceholderAPI, Redis, BungeeCord |
 
 ## For Developers
 
-| | |
-|:---|:---|
+| Page | Description |
+| --- | --- |
 | [Developer Reference](developer-api) | EzEconomyAPI, events, custom storage providers |
