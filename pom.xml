@@ -22,7 +22,8 @@
         <maven.compiler.release>17</maven.compiler.release>
         <!-- Build a single Java 17 bytecode artifact for MC 1.17+ compatibility. -->
         <!-- Allow CI to override the Paper API version with -Dpaper.version -->
-        <paper.version>[26.1.2.build,)</paper.version>
+        <!-- Pin to Java 21-era Paper API to keep compile compatibility with Java 17/21 build lanes. -->
+        <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
         <!-- MockBukkit coordinates are configurable so CI can select the right artifact per Paper matrix entry -->
         <mockbukkit.groupId>org.mockbukkit.mockbukkit</mockbukkit.groupId>
         <mockbukkit.artifactId>mockbukkit-v26.1.2</mockbukkit.artifactId>
