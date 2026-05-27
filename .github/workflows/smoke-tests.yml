@@ -63,11 +63,14 @@ jobs:
       matrix:
         include:
           - server: paper
-            mc: '1.20.6'
+            mc: '1.19.4'
             java: '17'
+          - server: paper
+            mc: '1.20.6'
+            java: '21'
           - server: folia
             mc: '1.20.6'
-            java: '17'
+            java: '21'
           - server: paper
             mc: '1.21.11'
             java: '21'
@@ -234,10 +237,10 @@ jobs:
             java: '17'
           - server: paper
             mc: '1.20.6'
-            java: '17'
+            java: '21'
           - server: folia
             mc: '1.20.6'
-            java: '17'
+            java: '21'
           - server: paper
             mc: '1.21.11'
             java: '21'
@@ -246,7 +249,7 @@ jobs:
             java: '25'
           - server: spigot
             mc: '1.20.6'
-            java: '17'
+            java: '21'
 
     steps:
       - name: Download plugin JAR
