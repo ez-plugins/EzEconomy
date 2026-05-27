@@ -52,6 +52,8 @@ public class BankCommandFeatureTest {
         // use shared MockStorage to back bank operations
         MockStorage storage = new MockStorage();
         TestSupport.injectField(plugin, "storage", storage);
+        storage.setBalance(owner.getUniqueId(), plugin.getDefaultCurrency(), 200.0);
+        storage.setBalance(member.getUniqueId(), plugin.getDefaultCurrency(), 0.0);
 
         // owner creates bank
         boolean create = owner.performCommand("bank create mybank");
@@ -64,6 +66,7 @@ public class BankCommandFeatureTest {
         // check bank balance via storage
         double bal = storage.getBankBalance("mybank", plugin.getDefaultCurrency());
         assertEquals(100.0, bal, 0.001);
+        assertEquals(100.0, storage.getBalance(owner.getUniqueId(), plugin.getDefaultCurrency()), 0.001);
 
         // add member and withdraw
         boolean added = owner.performCommand("bank addmember mybank member");
@@ -75,6 +78,7 @@ public class BankCommandFeatureTest {
 
         double bal2 = storage.getBankBalance("mybank", plugin.getDefaultCurrency());
         assertEquals(75.0, bal2, 0.001);
+        assertEquals(25.0, storage.getBalance(member.getUniqueId(), plugin.getDefaultCurrency()), 0.001);
     }
 
     @Test
@@ -89,6 +93,7 @@ public class BankCommandFeatureTest {
 
         com.skyblockexp.ezeconomy.storage.YMLStorageProvider yml = new com.skyblockexp.ezeconomy.storage.YMLStorageProvider(plugin, cfg);
         TestSupport.injectField(plugin, "storage", yml);
+        yml.setBalance(owner.getUniqueId(), plugin.getDefaultCurrency(), 400.0);
 
         boolean create = owner.performCommand("bank create ybank");
         assertTrue(create);
@@ -98,6 +103,7 @@ public class BankCommandFeatureTest {
 
         double bal = yml.getBankBalance("ybank", plugin.getDefaultCurrency());
         org.junit.jupiter.api.Assertions.assertEquals(200.0, bal, 0.001);
+        org.junit.jupiter.api.Assertions.assertEquals(200.0, yml.getBalance(owner.getUniqueId(), plugin.getDefaultCurrency()), 0.001);
 
         TestSupport.cleanupTestDataFolder(plugin, "test-bank-yml");
     }

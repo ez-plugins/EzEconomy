@@ -3,6 +3,7 @@ package com.skyblockexp.ezeconomy.command.bank;
 import com.skyblockexp.ezeconomy.command.Subcommand;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.util.NumberUtil;
+import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.command.CommandSender;
 
@@ -40,11 +41,11 @@ public class WithdrawSubcommand implements Subcommand {
             }
             bankName = sender.getName();
             amountStr = args[0];
-            currency = "dollar";
+            currency = plugin.getDefaultCurrency();
         } else {
             bankName = args[0];
             amountStr = args[1];
-            currency = args.length >= 3 ? args[2] : "dollar";
+            currency = args.length >= 3 ? args[2] : plugin.getDefaultCurrency();
         }
 
         Double amount = NumberUtil.parseDouble(amountStr);
@@ -56,6 +57,21 @@ public class WithdrawSubcommand implements Subcommand {
         if (handleEconomyFailure(sender, withdrawResponse, bankName)) {
             return true;
         }
+
+        StorageProvider storage = plugin.getStorageOrWarn();
+        if (storage == null) return true;
+        org.bukkit.entity.Player playerSender = sender instanceof org.bukkit.entity.Player ? (org.bukkit.entity.Player) sender : null;
+        if (playerSender != null) {
+            try {
+                storage.deposit(playerSender.getUniqueId(), currency, amount);
+            } catch (Exception ex) {
+                // Roll back the bank withdrawal if wallet credit fails unexpectedly.
+                storage.depositBank(bankName, currency, amount);
+                sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, "Bank operation failed."));
+                return true;
+            }
+        }
+
         String formattedAmount = plugin.getCurrencyFormatter().formatPriceForMessage(amount, currency);
         java.util.HashMap<String, String> placeholders = new java.util.HashMap<>();
         placeholders.put("name", bankName);
