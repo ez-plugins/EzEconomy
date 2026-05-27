@@ -214,7 +214,10 @@ public class PaymentExecutor {
         // Simple transfer
         plugin.getLogger().info("PaymentExecutor: performing simple transfer via storage.transfer");
         TransferResult transfer = storage.transfer(fromUuid, toOffline.getUniqueId(), currency, netAmount);
-        plugin.getLogger().info("PaymentExecutor: transfer result success=" + transfer.isSuccess() + " fromBalance=" + transfer.getFromBalance() + " toBalance=" + transfer.getToBalance());
+        plugin.getLogger().info("PaymentExecutor: transfer result success=" + transfer.isSuccess()
+                + " debit=" + netAmount + " " + currency
+                + " fromBalancePost=" + transfer.getFromBalance()
+                + " toBalancePost=" + transfer.getToBalance());
         if (!transfer.isSuccess()) {
             plugin.getLogger().info("PaymentExecutor: transfer failed, sending not_enough_money");
             MessageUtils.send(from, plugin, "not_enough_money");

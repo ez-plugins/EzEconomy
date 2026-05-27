@@ -147,25 +147,7 @@ public interface StorageProvider {
         com.skyblockexp.ezeconomy.core.EzEconomyPlugin inst = com.skyblockexp.ezeconomy.core.EzEconomyPlugin.getInstance();
         com.skyblockexp.ezeconomy.lock.LockManager lm = inst == null ? null : inst.getLockManager();
         if (lm == null) {
-            // Fallback to local in-JVM TransferLockManager
-            UUID first = fromUuid.compareTo(toUuid) <= 0 ? fromUuid : toUuid;
-            UUID second = fromUuid.compareTo(toUuid) <= 0 ? toUuid : fromUuid;
-            ReentrantLock firstLock = TransferLockManager.getLock(first);
-            ReentrantLock secondLock = (first.equals(second)) ? firstLock : TransferLockManager.getLock(second);
-            firstLock.lock();
-            if (!first.equals(second)) secondLock.lock();
-            try {
-                double fromBalance = getBalance(fromUuid, currency);
-                if (fromBalance < debitAmount) return TransferResult.failure(fromBalance, getBalance(toUuid, currency));
-                if (!tryWithdraw(fromUuid, currency, debitAmount)) {
-                    return TransferResult.failure(getBalance(fromUuid, currency), getBalance(toUuid, currency));
-                }
-                if (creditAmount > 0) deposit(toUuid, currency, creditAmount);
-                return TransferResult.success(getBalance(fromUuid, currency), getBalance(toUuid, currency));
-            } finally {
-                if (!first.equals(second)) secondLock.unlock();
-                firstLock.unlock();
-            }
+            return transferWithLocalLocks(fromUuid, toUuid, currency, debitAmount, creditAmount);
         }
 
         // Acquire distributed locks in canonical order
@@ -178,8 +160,8 @@ public interface StorageProvider {
             Thread.currentThread().interrupt();
         }
         if (tokens == null) {
-            // Couldn't acquire distributed locks; fall back to local
-            return transfer(fromUuid, toUuid, currency, debitAmount, creditAmount);
+            // Couldn't acquire distributed locks; fall back to local without recursion.
+            return transferWithLocalLocks(fromUuid, toUuid, currency, debitAmount, creditAmount);
         }
 
         try {
@@ -193,6 +175,27 @@ public interface StorageProvider {
             return TransferResult.success(getBalance(fromUuid, currency), getBalance(toUuid, currency));
         } finally {
             lm.releaseOrdered(ordered, tokens);
+        }
+    }
+
+    private TransferResult transferWithLocalLocks(UUID fromUuid, UUID toUuid, String currency, double debitAmount, double creditAmount) {
+        UUID first = fromUuid.compareTo(toUuid) <= 0 ? fromUuid : toUuid;
+        UUID second = fromUuid.compareTo(toUuid) <= 0 ? toUuid : fromUuid;
+        ReentrantLock firstLock = TransferLockManager.getLock(first);
+        ReentrantLock secondLock = (first.equals(second)) ? firstLock : TransferLockManager.getLock(second);
+        firstLock.lock();
+        if (!first.equals(second)) secondLock.lock();
+        try {
+            double fromBalance = getBalance(fromUuid, currency);
+            if (fromBalance < debitAmount) return TransferResult.failure(fromBalance, getBalance(toUuid, currency));
+            if (!tryWithdraw(fromUuid, currency, debitAmount)) {
+                return TransferResult.failure(getBalance(fromUuid, currency), getBalance(toUuid, currency));
+            }
+            if (creditAmount > 0) deposit(toUuid, currency, creditAmount);
+            return TransferResult.success(getBalance(fromUuid, currency), getBalance(toUuid, currency));
+        } finally {
+            if (!first.equals(second)) secondLock.unlock();
+            firstLock.unlock();
         }
     }
 

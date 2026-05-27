@@ -69,7 +69,9 @@ public class BalanceCommand implements CommandExecutor {
                 MessageUtils.send(sender, plugin, "no_permission_others_balance");
                 return true;
             }
-            String currency = preferenceManager.getPreferredCurrency(target.getUniqueId());
+            // For cross-player queries keep accounting consistent with transfer logs:
+            // default to plugin base currency unless caller explicitly requests one.
+            String currency = plugin.getDefaultCurrency();
             double balance = storage != null ? storage.getBalance(target.getUniqueId(), currency) : plugin.getEconomy().getBalance(target);
             MessageUtils.send(sender, plugin, "others_balance", java.util.Map.of("player", target.getName(), "balance", plugin.getCurrencyFormatter().formatPriceForMessage(balance, currency), "currency", currency));
             return true;

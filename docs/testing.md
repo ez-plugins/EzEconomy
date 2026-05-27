@@ -40,6 +40,13 @@ Unit vs Integration
 
 - Unit tests: fast, isolated, mock external dependencies.
 - Integration tests: test interactions with DB, Redis, or actual plugin hooks; run them separately (profile or naming suffix `IT`).
+- Real runtime (Paper/Folia command-path) tests:
+  - Profile: `paper-folia-runtime-it`
+  - Includes only `*RuntimeIT` classes (excluded from default integration lane)
+  - Example (Paper):
+    - `mvn -pl ezeconomy-bukkit -Ppaper-folia-runtime-it -Dit.test=PayCommandAsyncRuntimeIT -Dezeconomy.runtime.it.enabled=true -Dezeconomy.runtime.server=paper verify`
+  - Example (Folia):
+    - `mvn -pl ezeconomy-bukkit -Ppaper-folia-runtime-it -Dit.test=PayCommandAsyncRuntimeIT -Dezeconomy.runtime.it.enabled=true -Dezeconomy.runtime.server=folia verify`
 
 Readability best practices
 
