@@ -17,12 +17,25 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
+## [3.0.5] - 2026-05-27
+
+### Changed
+- **Java 17 release line** - project now compiles to Java 17 bytecode by default and enforces Java 17+ build/runtime tooling compatibility in Maven.
+- **Modern compatibility docs** - README/docs/listings now document the dual lane support policy: Java 17 for MC 1.17-1.20.x and Java 21+ for MC 1.21.x.
+- **Smoke test matrix** - CI smoke workflow now uses tiered PR/nightly startup validation lanes for Java 17-era and current MC targets.
+
+### Fixed
+- **Smoke test build reliability** - packaging no longer depends on locally-published `dev-*` MockBukkit artifacts, preventing transient dependency-resolution failures in CI.
+- **Paper API compatibility for Java 21 build lane** - default `paper.version` is pinned to `1.21.11-R0.1-SNAPSHOT` to avoid accidental resolution of Java 25-only Paper 26.x APIs during compile.
+
+---
+
 ## [3.0.4] - 2026-05-17
 
 ### Fixed
-- **Folia compatibility** — `plugin.yml` now declares `folia-supported: true` so EzEconomy loads on Folia servers without being rejected as an unsupported plugin.
-- **API version format** — `api-version` changed from `26.1.2` to `1.21` in both the main and PAPI module `plugin.yml` files. Paper build 69 introduced strict Minecraft-version format validation that rejected the old dotted build-number form.
-- **Java 21 runtime compatibility** — The `jdk25` Maven profile was setting `maven.compiler.release=25`, producing class file version 69 that Java 21 JVMs cannot load (`UnsupportedClassVersionError`). Lowered the release target to `21` (class file version 65) in both the default properties and the profile; the build JDK requirement (`[25,)`) is unchanged.
+- **Folia compatibility**  `plugin.yml` now declares `folia-supported: true` so EzEconomy loads on Folia servers without being rejected as an unsupported plugin.
+- **API version format**  `api-version` changed from `26.1.2` to `1.21` in both the main and PAPI module `plugin.yml` files. Paper build 69 introduced strict Minecraft-version format validation that rejected the old dotted build-number form.
+- **Java 21 runtime compatibility**  The `jdk25` Maven profile was setting `maven.compiler.release=25`, producing class file version 69 that Java 21 JVMs cannot load (`UnsupportedClassVersionError`). Lowered the release target to `21` (class file version 65) in both the default properties and the profile; the build JDK requirement (`[25,)`) is unchanged.
 
 ---
 
@@ -45,3 +58,4 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 - Added `PlayerJoinListenerAutoCreateBankTest` (4 tests) covering: bank created on join, creation skipped when `auto-create-on-join: false`, creation skipped when `banking.enabled: false`, and no duplicate creation for a pre-existing bank.
 
 ---
+

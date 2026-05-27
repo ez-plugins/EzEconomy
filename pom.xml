@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.ez-plugins</groupId>
     <artifactId>ezeconomy-parent</artifactId>
-    <version>3.0.4</version>
+    <version>3.0.5</version>
     <packaging>pom</packaging>
     <name>EzEconomy</name>
     <description>Vault-compatible economy provider with YML and MySQL support</description>
@@ -17,17 +17,17 @@
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-        <maven.compiler.release>21</maven.compiler.release>
-        <!-- Target Java 21: minimum server JRE for MC 1.21.x (class file version 65). -->
-        <!-- Build JDK is still 25 (enforced below); source/target pins the OUTPUT. -->
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
+        <!-- Build a single Java 17 bytecode artifact for MC 1.17+ compatibility. -->
         <!-- Allow CI to override the Paper API version with -Dpaper.version -->
-        <paper.version>[26.1.2.build,)</paper.version>
+        <!-- Pin to Java 21-era Paper API to keep compile compatibility with Java 17/21 build lanes. -->
+        <paper.version>26.1.2.build.57-stable</paper.version>
         <!-- MockBukkit coordinates are configurable so CI can select the right artifact per Paper matrix entry -->
         <mockbukkit.groupId>org.mockbukkit.mockbukkit</mockbukkit.groupId>
         <mockbukkit.artifactId>mockbukkit-v26.1.2</mockbukkit.artifactId>
-        <mockbukkit.version>dev-af6937c</mockbukkit.version>
+        <mockbukkit.version>4.113.1</mockbukkit.version>
         
         <github.owner>ez-plugins</github.owner>
         <github.repository>ezeconomy</github.repository>
@@ -172,7 +172,7 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[25,)</version>
+                                    <version>[17,)</version>
                                 </requireJavaVersion>
                             </rules>
                             <fail>true</fail>
@@ -220,7 +220,7 @@
                 <configuration>
                     <toolchains>
                         <jdk>
-                            <version>25</version>
+                            <version>17</version>
                         </jdk>
                     </toolchains>
                 </configuration>
@@ -484,32 +484,6 @@
         </snapshotRepository>
     </distributionManagement>
     <profiles>
-        <!-- If the build runs on JDK 17, enable Java 17 compilation. -->
-        <profile>
-            <id>jdk17</id>
-            <activation>
-                <jdk>[17,20]</jdk>
-            </activation>
-            <properties>
-                <maven.compiler.source>17</maven.compiler.source>
-                <maven.compiler.target>17</maven.compiler.target>
-                <maven.compiler.release>17</maven.compiler.release>
-            </properties>
-        </profile>
-        
-        <!-- Build with JDK 25 but still produce Java 21 bytecode so the JAR
-             runs on both java-21 and java-25 smoke-test matrix entries. -->
-        <profile>
-            <id>jdk25</id>
-            <activation>
-                <jdk>[25,)</jdk>
-            </activation>
-            <properties>
-                <maven.compiler.source>21</maven.compiler.source>
-                <maven.compiler.target>21</maven.compiler.target>
-                <maven.compiler.release>21</maven.compiler.release>
-            </properties>
-        </profile>
         <profile>
             <id>integration</id>
             <repositories>
@@ -566,3 +540,4 @@
         </profile>
     </profiles>
 </project>
+

@@ -17,17 +17,17 @@ jobs:
       packages: write   # publish to GitHub Packages
 
     steps:
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       #  1. CHECKOUT
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       #  2. RESOLVE VERSION
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       - name: Resolve version from tag
         id: meta
         run: |
@@ -37,12 +37,12 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Releasing version: ${VERSION}"
 
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       #  3. CREATE TAG (if it doesn't exist yet)
       #
       #  When triggered via workflow_dispatch the tag may not exist yet.
       #  This step creates and pushes it so the GitHub Release can reference it.
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       - name: Create and push tag if missing
         run: |
           REF="${{ steps.meta.outputs.ref }}"
@@ -56,26 +56,18 @@ jobs:
             echo "Created and pushed tag ${REF}."
           fi
 
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       #  4. BUILD
-      # ──────────────────────────────────────────────────────────────────────
-      - name: Set up JDK 25
-        uses: actions/setup-java@v5
+      # 
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '21'
           cache: maven
           server-id: github
           server-username: GITHUB_ACTOR
           server-password: GITHUB_TOKEN
-
-      - name: Build and install MockBukkit minecraft/v26
-        run: |
-          git clone --depth=1 --branch minecraft/v26 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
-          cd /tmp/MockBukkit
-          COMMIT=$(git rev-parse --short HEAD)
-          ./gradlew publishToMavenLocal -xtest -xjavadoc
-          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
 
       - name: Set release version in all POMs
         run: |
@@ -85,14 +77,19 @@ jobs:
             -DgenerateBackupPoms=false
 
       - name: Build
-        run: mvn -B -ntp -Dmaven.test.skip=true -Dmockbukkit.version=$MOCKBUKKIT_VERSION package
+        run: |
+          mvn -B -ntp -U -Dmaven.test.skip=true \
+            -Dmockbukkit.groupId=org.mockbukkit.mockbukkit \
+            -Dmockbukkit.artifactId=mockbukkit-v26.1.2 \
+            -Dmockbukkit.version=4.113.1 \
+            package
 
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       #  5. EXTRACT CHANGELOG
       #
       #  Reads the section for this version from CHANGELOG.md.
       #  Falls back gracefully when the section is missing.
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       - name: Extract changelog for this version
         id: changelog
         run: |
@@ -114,9 +111,9 @@ jobs:
           printf '%s\n' "$NOTES" > release-notes.md
           echo "=== Release notes preview ===" && cat release-notes.md
 
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       #  6. GITHUB RELEASE
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -131,18 +128,18 @@ jobs:
             "ezeconomy-bungeecord/target/ezeconomy-bungeecord-${VERSION}.jar" \
             "ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${VERSION}.jar"
 
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       #  7. GITHUB PACKAGES
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       - name: Publish to GitHub Packages
         continue-on-error: true   # don't fail if the version already exists
         run: mvn -B -ntp -Dmaven.test.skip=true deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       #  8. MODRINTH RELEASE
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       - name: Release to Modrinth (stable)
         uses: Kir-Antipov/mc-publish@v3.3
         with:
@@ -158,7 +155,12 @@ jobs:
             ezeconomy-redis/target/ezeconomy-redis-${{ steps.meta.outputs.version }}.jar
             ezeconomy-bungeecord/target/ezeconomy-bungeecord-${{ steps.meta.outputs.version }}.jar
             ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${{ steps.meta.outputs.version }}.jar
-          game-versions: ">=1.7.10"
+          game-versions: |
+            1.17.1
+            1.18.2
+            1.19.4
+            1.20.6
+            1.21.11
           game-versions-filter: release
           loaders: |
             bukkit
@@ -170,9 +172,9 @@ jobs:
           dependencies: |
             placeholderapi(optional)
 
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       #  9. DISCORD NOTIFICATION
-      # ──────────────────────────────────────────────────────────────────────
+      # 
       - name: Post Discord notification
         if: env.DISCORD_WEBHOOK != ''
         env:
@@ -194,7 +196,7 @@ jobs:
             --arg log     "$CHANGELOG" \
             '{
               embeds: [{
-                title:       ("🚀 EzEconomy " + $version + " — Stable Release"),
+                title:       (" EzEconomy " + $version + "  Stable Release"),
                 url:         $gh_url,
                 color:       3447003,
                 description: $log,
@@ -202,10 +204,11 @@ jobs:
                   { name: "GitHub Release", value: ("[View on GitHub]("      + $gh_url + ")"), inline: true },
                   { name: "Modrinth",       value: ("[Download on Modrinth](" + $mr_url  + ")"), inline: true }
                 ],
-                footer: { text: "EzEconomy · Stable Release" }
+                footer: { text: "EzEconomy  Stable Release" }
               }]
             }')
 
           curl --fail -s -X POST "$DISCORD_WEBHOOK" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
+

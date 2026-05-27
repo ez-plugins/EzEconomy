@@ -1,12 +1,12 @@
 
-[center][size=6][b]EzEconomy — BungeeCord Proxy[/b][/size]
+[center][size=6][b]EzEconomy  BungeeCord Proxy[/b][/size]
 
 [img]https://i.imgur.com/placeholder.png[/img]
 
 [size=4][b]Shared, lightweight economy across your Bungee network[/b][/size]
 
 [b]Download:[/b] [url=https://modrinth.com/plugin/ezeconomy]Modrinth plugin page[/url]
-	• [url=https://github.com/ez-plugins/EzEconomy]Source & Releases on GitHub[/url]
+	 [url=https://github.com/ez-plugins/EzEconomy]Source & Releases on GitHub[/url]
 
 [b]Description:[/b]
 EzEconomy - BungeeCord Proxy is the proxy connector for EzEconomy that synchronizes balances and account actions across a BungeeCord network. It provides a fast, reliable bridge between your proxy and backend storage (MySQL, SQLite, MongoDB, Redis) and integrates with Vault and PlaceholderAPI so servers and plugins can access a single unified economy.
@@ -19,14 +19,16 @@ EzEconomy - BungeeCord Proxy is the proxy connector for EzEconomy that synchroni
 [*]PlaceholderAPI expansion for easy placeholders
 [*]Asynchronous storage operations and caching for performance
 [*]Simple configuration and minimal permissions surface
-[*]Works with Minecraft versions 1.7.10 — 1.21.x (server compatibility depends on backend modules)
+[*]Works with modern compatibility lanes
+[*]Java 17 lane: Minecraft 1.17.x - 1.20.x
+[*]Java 21+ lane: Minecraft 1.21.x
 [/list]
 
 [b]Requirements[/b]
 [list]
 [*]BungeeCord or a fork-compatible proxy
 [*]A backend storage provider (MySQL/Redis/etc.) configured in EzEconomy core
-[*]Java 8+ on proxy host
+[*]Java 17+ on proxy host
 [/list]
 
 [b]Installation[/b]
@@ -49,20 +51,20 @@ proxy:
 
 [b]Commands[/b]
 [list]
-[*][b]/ezeconomy help[/b] — Show proxy-related help (if provided by your build)
-[*][b]/balance <player>[/b] — Query a player's balance (requires permission)
+[*][b]/ezeconomy help[/b]  Show proxy-related help (if provided by your build)
+[*][b]/balance <player>[/b]  Query a player's balance (requires permission)
 [/list]
 
 [b]Permissions[/b]
 [list]
-[*][b]ezeconomy.proxy.balance[/b] — Query other players' balance
-[*][b]ezeconomy.proxy.admin[/b] — Admin proxy commands and troubleshooting
+[*][b]ezeconomy.proxy.balance[/b]  Query other players' balance
+[*][b]ezeconomy.proxy.admin[/b]  Admin proxy commands and troubleshooting
 [/list]
 
 [b]Placeholders[/b]
 [list]
-[*][b]%ezeconomy_balance%[/b] — Player's balance (via PlaceholderAPI)
-[*][b]%ezeconomy_balance_formatted%[/b] — Formatted balance
+[*][b]%ezeconomy_balance%[/b]  Player's balance (via PlaceholderAPI)
+[*][b]%ezeconomy_balance_formatted%[/b]  Formatted balance
 [/list]
 
 [spoiler=Configuration Example]
@@ -112,3 +114,6 @@ cache:
 EzEconomy is released under the license provided in this repository. If you enjoy the plugin, consider supporting development via donations or sponsoring the project on GitHub.
 
 [center][size=2]If you'd like, I can adapt this text to include real download links, images, or a shortened feature list for the SpigotMC resource header.[/size][/center]
+
+
+

@@ -5,17 +5,15 @@
     <parent>
         <groupId>com.github.ez-plugins</groupId>
         <artifactId>ezeconomy-parent</artifactId>
-        <version>3.0.4</version>
+        <version>3.0.5</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     
     <artifactId>ezeconomy-papi</artifactId>
-    <version>3.0.4</version>
+    <version>3.0.5</version>
     <packaging>jar</packaging>
     <name>EzEconomy PlaceholderAPI Expansion</name>
     <properties>
-        <maven.compiler.source>25</maven.compiler.source>
-        <maven.compiler.target>25</maven.compiler.target>
         <placeholderapi.version>2.12.2</placeholderapi.version>
     </properties>
     <dependencies>
@@ -40,7 +38,7 @@
         <dependency>
             <groupId>com.github.ez-plugins</groupId>
             <artifactId>ezeconomy-bukkit</artifactId>
-            <version>3.0.4</version>
+            <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

@@ -11,10 +11,12 @@ This guide walks you through installing and configuring EzEconomy for the first 
 
 Before installing, make sure you have:
 
-- **Java 8 or higher** — required by your server jar.
-- **Paper or Spigot 1.7.10 – 1.21.1** — EzEconomy supports the full version range.
-- **[Vault](https://www.spigotmc.org/resources/vault.34315/)** — required. EzEconomy registers itself as the Vault economy provider so that shop, job, and reward plugins work automatically.
-- *(Optional)* **[PlaceholderAPI](https://www.spigotmc.org/resources/placeholderapi.6245/)** — needed for balance placeholders in chat, scoreboards, and other plugins.
+- **Java 17 or higher** - required by supported server jars.
+- **Paper/Spigot/Folia compatibility lanes**:
+  - Java 17 lane: Minecraft `1.17.x` through `1.20.x`
+  - Java 21+ lane: Minecraft `1.21.x`
+- **[Vault](https://www.spigotmc.org/resources/vault.34315/)** - required. EzEconomy registers itself as the Vault economy provider so that shop, job, and reward plugins work automatically.
+- *(Optional)* **[PlaceholderAPI](https://www.spigotmc.org/resources/placeholderapi.6245/)** - needed for balance placeholders in chat, scoreboards, and other plugins.
 
 ## Installation
 
@@ -22,7 +24,7 @@ Before installing, make sure you have:
 2. **Place** `EzEconomy.jar` (and `Vault.jar` if not already present) in your server's `plugins/` folder.
 3. **Start the server** once to generate the default configuration files.
 4. **Stop the server** and edit `plugins/EzEconomy/config.yml` to choose your storage backend and any optional features.
-5. **Start the server** again — EzEconomy will connect to the configured backend and register with Vault.
+5. **Start the server** again - EzEconomy will connect to the configured backend and register with Vault.
 
 ## Choosing a Storage Backend
 
@@ -30,8 +32,8 @@ Pick the backend that fits your server's scale and infrastructure:
 
 | Backend | Best For | Requirements |
 | --- | --- | --- |
-| **YML** *(default)* | Small servers, testing | None — data is written to flat files |
-| **SQLite** | Single server, larger player counts | None — embedded database, no server needed |
+| **YML** *(default)* | Small servers, testing | None - data is written to flat files |
+| **SQLite** | Single server, larger player counts | None - embedded database, no server needed |
 | **MySQL** | Networks, high traffic, shared hosting | Requires a MySQL or MariaDB server |
 | **MongoDB** | Existing MongoDB infrastructure | Requires a MongoDB server |
 
@@ -65,8 +67,8 @@ If `/balance` returns an error, check that Vault is installed and that the conso
 
 ## Next Steps
 
-| I want to… | Go here |
-|:-----------|:--------|
+| I want to... | Go here |
+| --- | --- |
 | Configure storage, currencies, banking, and caching | [Configuration](configuration) |
 | See all player and admin commands | [Commands](commands) |
 | Set up permissions for staff and players | [Permissions](permissions) |
