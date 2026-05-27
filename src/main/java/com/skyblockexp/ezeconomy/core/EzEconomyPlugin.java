@@ -1,6 +1,7 @@
 package com.skyblockexp.ezeconomy.core;
 
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
+import com.skyblockexp.ezeconomy.compat.registry.RegistryCompat;
 import com.skyblockexp.ezeconomy.manager.BankInterestManager;
 import com.skyblockexp.ezeconomy.manager.CurrencyManager;
 import com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager;
@@ -61,6 +62,12 @@ public class EzEconomyPlugin extends JavaPlugin {
         INSTANCE = this;
         this.bootstrap = new com.skyblockexp.ezeconomy.bootstrap.Bootstrap(this);
         try {
+            if (!RegistryCompat.hasBukkitRegistry()) {
+                getLogger().warning("Compatibility mode: Bukkit Registry API is unavailable; optional registry-based features are disabled.");
+            }
+            if (!RegistryCompat.hasPaperRegistryKeyField("COW_SOUND_VARIANT")) {
+                getLogger().warning("Compatibility mode: modern Paper registry keys are unavailable; using fallback metadata paths.");
+            }
             this.bootstrap.start();
             // Initialize extracted services after bootstrap so components/config/storage exist
             this.storageConfigLoader = new com.skyblockexp.ezeconomy.service.storage.StorageConfigLoader(this);

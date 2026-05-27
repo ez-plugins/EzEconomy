@@ -1,7 +1,7 @@
 name: EzEconomy-PAPI
 main: com.skyblockexp.ezeconomy.papi.EzEconomyPapiPlugin
 version: 1.0.0
-api-version: 1.21
+api-version: 1.17
 depend:
   - PlaceholderAPI
 softdepend:
@@ -9,3 +9,4 @@ softdepend:
 authors:
   - Shadow48402
 description: "PlaceholderAPI expansion for EzEconomy (exposes multi-currency placeholders)."
+

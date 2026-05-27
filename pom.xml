@@ -23,11 +23,11 @@
         <!-- Build a single Java 17 bytecode artifact for MC 1.17+ compatibility. -->
         <!-- Allow CI to override the Paper API version with -Dpaper.version -->
         <!-- Pin to Java 21-era Paper API to keep compile compatibility with Java 17/21 build lanes. -->
-        <paper.version>1.21.11-R0.1-SNAPSHOT</paper.version>
+        <paper.version>26.1.2.build.57-stable</paper.version>
         <!-- MockBukkit coordinates are configurable so CI can select the right artifact per Paper matrix entry -->
         <mockbukkit.groupId>org.mockbukkit.mockbukkit</mockbukkit.groupId>
         <mockbukkit.artifactId>mockbukkit-v26.1.2</mockbukkit.artifactId>
-        <mockbukkit.version>dev-af6937c</mockbukkit.version>
+        <mockbukkit.version>4.113.1</mockbukkit.version>
         
         <github.owner>ez-plugins</github.owner>
         <github.repository>ezeconomy</github.repository>
@@ -540,3 +540,4 @@
         </profile>
     </profiles>
 </project>
+

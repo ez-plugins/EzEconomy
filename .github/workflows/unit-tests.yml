@@ -28,8 +28,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - paper-version: "[26.1.2.build,)"
+          - paper-version: "26.1.2.build.57-stable"
+            mockbukkit-groupId: "org.mockbukkit.mockbukkit"
             mockbukkit-artifactId: "mockbukkit-v26.1.2"
+            mockbukkit-version: "4.113.1"
 
     steps:
       - name: Checkout
@@ -49,16 +51,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-m2-v2-${{ matrix.paper-version }}-
 
-      - name: Build and install MockBukkit minecraft/v26
-        run: |
-          git clone --depth=1 --branch minecraft/v26 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
-          cd /tmp/MockBukkit
-          COMMIT=$(git rev-parse --short HEAD)
-          ./gradlew publishToMavenLocal -xtest -xjavadoc
-          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
-
       - name: Run unit tests (exclude feature tests) and generate JaCoCo report
-        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.artifactId=${{ matrix.mockbukkit-artifactId }} -Dmockbukkit.version=$MOCKBUKKIT_VERSION -Dtest='!*FeatureTest' -Dsurefire.failIfNoSpecifiedTests=false test jacoco:report
+        run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.groupId=${{ matrix.mockbukkit-groupId }} -Dmockbukkit.artifactId=${{ matrix.mockbukkit-artifactId }} -Dmockbukkit.version=${{ matrix.mockbukkit-version }} -Dtest='!*FeatureTest' -Dsurefire.failIfNoSpecifiedTests=false test jacoco:report
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6
@@ -91,3 +85,4 @@ jobs:
           body-file: coverage-summary.md
           edit-mode: replace
           identifier: coverage-summary
+

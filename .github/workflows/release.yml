@@ -79,9 +79,9 @@ jobs:
       - name: Build
         run: |
           mvn -B -ntp -U -Dmaven.test.skip=true \
-            -Dmockbukkit.groupId=com.github.seeseemelk \
-            -Dmockbukkit.artifactId=MockBukkit-v1.21 \
-            -Dmockbukkit.version=3.133.2 \
+            -Dmockbukkit.groupId=org.mockbukkit.mockbukkit \
+            -Dmockbukkit.artifactId=mockbukkit-v26.1.2 \
+            -Dmockbukkit.version=4.113.1 \
             package
 
       # 

@@ -37,9 +37,9 @@ jobs:
     - name: Build with Maven
       run: |
         mvn -B -ntp -U -DskipTests \
-          -Dmockbukkit.groupId=com.github.seeseemelk \
-          -Dmockbukkit.artifactId=MockBukkit-v1.21 \
-          -Dmockbukkit.version=3.133.2 \
+          -Dmockbukkit.groupId=org.mockbukkit.mockbukkit \
+          -Dmockbukkit.artifactId=mockbukkit-v26.1.2 \
+          -Dmockbukkit.version=4.113.1 \
           package
 
     - name: Check if package version already published
@@ -64,9 +64,9 @@ jobs:
       if: steps.check_package.outputs.status != '200'
       run: |
         mvn -B -ntp -U -DskipTests \
-          -Dmockbukkit.groupId=com.github.seeseemelk \
-          -Dmockbukkit.artifactId=MockBukkit-v1.21 \
-          -Dmockbukkit.version=3.133.2 \
+          -Dmockbukkit.groupId=org.mockbukkit.mockbukkit \
+          -Dmockbukkit.artifactId=mockbukkit-v26.1.2 \
+          -Dmockbukkit.version=4.113.1 \
           deploy -s $GITHUB_WORKSPACE/settings.xml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

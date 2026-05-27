@@ -31,20 +31,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-m2-v2-
 
-      - name: Build and install MockBukkit minecraft/v26
-        run: |
-          git clone --depth=1 --branch minecraft/v26 https://github.com/MockBukkit/MockBukkit.git /tmp/MockBukkit
-          cd /tmp/MockBukkit
-          COMMIT=$(git rev-parse --short HEAD)
-          ./gradlew publishToMavenLocal -xtest -xjavadoc
-          echo "MOCKBUKKIT_VERSION=dev-${COMMIT}" >> $GITHUB_ENV
-
       - name: Print resolved adventure-api version
         run: |
-          mvn -B -Dmockbukkit.version=$MOCKBUKKIT_VERSION -pl ezeconomy-bungeecord -am dependency:tree -Dincludes="net.kyori:adventure-api" --no-transfer-progress 2>&1 | grep -E "adventure-api|BUILD" || true
+          mvn -B -Dpaper.version=26.1.2.build.57-stable -Dmockbukkit.groupId=org.mockbukkit.mockbukkit -Dmockbukkit.artifactId=mockbukkit-v26.1.2 -Dmockbukkit.version=4.113.1 -pl ezeconomy-bungeecord -am dependency:tree -Dincludes="net.kyori:adventure-api" --no-transfer-progress 2>&1 | grep -E "adventure-api|BUILD" || true
 
       - name: Build and test BungeeCord module
-        run: mvn -B -DskipTests=false -Dmockbukkit.version=$MOCKBUKKIT_VERSION -pl ezeconomy-bungeecord -am clean test package
+        run: mvn -B -DskipTests=false -Dpaper.version=26.1.2.build.57-stable -Dmockbukkit.groupId=org.mockbukkit.mockbukkit -Dmockbukkit.artifactId=mockbukkit-v26.1.2 -Dmockbukkit.version=4.113.1 -pl ezeconomy-bungeecord -am clean test package
 
       - name: Upload surefire reports on failure
         if: failure()
@@ -53,3 +45,4 @@ jobs:
           name: surefire-reports-bungeecord
           path: '**/target/surefire-reports/**'
           if-no-files-found: warn
+

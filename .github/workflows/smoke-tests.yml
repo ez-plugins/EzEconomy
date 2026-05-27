@@ -20,11 +20,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Set up JDK 21
+      - name: Set up JDK 25
         uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
           cache: maven
 
       - name: Cache Maven local repository
@@ -40,9 +40,9 @@ jobs:
           # Keep packaging isolated from test-only local Maven artifacts.
           # MockBukkit publication can override coordinates in ~/.m2 and break compile classpath.
           mvn -B -ntp -U -Dmaven.test.skip=true \
-            -Dmockbukkit.groupId=com.github.seeseemelk \
-            -Dmockbukkit.artifactId=MockBukkit-v1.21 \
-            -Dmockbukkit.version=3.133.2 \
+            -Dmockbukkit.groupId=org.mockbukkit.mockbukkit \
+            -Dmockbukkit.artifactId=mockbukkit-v26.1.2 \
+            -Dmockbukkit.version=4.113.1 \
             -pl ezeconomy-bukkit -am package
 
       - name: Upload plugin JAR
@@ -71,6 +71,9 @@ jobs:
           - server: paper
             mc: '1.21.11'
             java: '21'
+          - server: paper
+            mc: '1.21.11'
+            java: '25'
 
     steps:
       - name: Download plugin JAR
@@ -238,6 +241,9 @@ jobs:
           - server: paper
             mc: '1.21.11'
             java: '21'
+          - server: paper
+            mc: '1.21.11'
+            java: '25'
           - server: spigot
             mc: '1.20.6'
             java: '17'
@@ -401,3 +407,4 @@ jobs:
           name: smoke-nightly-logs-${{ matrix.server }}-mc${{ matrix.mc }}-java${{ matrix.java }}
           path: server/logs/
           retention-days: 7
+

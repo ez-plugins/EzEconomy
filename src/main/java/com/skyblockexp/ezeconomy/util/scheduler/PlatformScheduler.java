@@ -1,11 +1,11 @@
 package com.skyblockexp.ezeconomy.util.scheduler;
 
+import com.skyblockexp.ezeconomy.compat.scheduler.BukkitFoliaSchedulerCompat;
+import com.skyblockexp.ezeconomy.compat.scheduler.SchedulerCompat;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
 
 /**
  * Static factory and convenience façade for the server-appropriate scheduler.
@@ -24,16 +24,13 @@ import java.util.concurrent.Future;
  */
 public final class PlatformScheduler {
 
-    private static final boolean FOLIA = detectFolia();
-    private static final SchedulerAdapter ADAPTER = FOLIA
-            ? new FoliaSchedulerAdapter()
-            : new BukkitSchedulerAdapter();
+    private static final SchedulerCompat COMPAT = new BukkitFoliaSchedulerCompat();
 
     private PlatformScheduler() {}
 
     /** Returns {@code true} when the server is running Folia. */
     public static boolean isFolia() {
-        return FOLIA;
+        return COMPAT.isFolia();
     }
 
     // -------------------------------------------------------------------------
@@ -41,19 +38,19 @@ public final class PlatformScheduler {
     // -------------------------------------------------------------------------
 
     public static ScheduledTask runTask(JavaPlugin plugin, Runnable task) {
-        return ADAPTER.runTask(plugin, task);
+        return COMPAT.runTask(plugin, task);
     }
 
     public static ScheduledTask runTaskLater(JavaPlugin plugin, Runnable task, long delayTicks) {
-        return ADAPTER.runTaskLater(plugin, task, delayTicks);
+        return COMPAT.runTaskLater(plugin, task, delayTicks);
     }
 
     public static ScheduledTask runTaskTimer(JavaPlugin plugin, Runnable task, long delayTicks, long periodTicks) {
-        return ADAPTER.runTaskTimer(plugin, task, delayTicks, periodTicks);
+        return COMPAT.runTaskTimer(plugin, task, delayTicks, periodTicks);
     }
 
     public static ScheduledTask runTaskAsync(JavaPlugin plugin, Runnable task) {
-        return ADAPTER.runTaskAsync(plugin, task);
+        return COMPAT.runTaskAsync(plugin, task);
     }
 
     /**
@@ -68,39 +65,6 @@ public final class PlatformScheduler {
      */
     public static <T> T callSync(JavaPlugin plugin, Callable<T> callable)
             throws ExecutionException, InterruptedException {
-        if (plugin.getServer().isPrimaryThread()) {
-            try {
-                return callable.call();
-            } catch (Exception e) {
-                throw new ExecutionException(e);
-            }
-        }
-        if (FOLIA) {
-            CompletableFuture<T> future = new CompletableFuture<>();
-            ADAPTER.runTask(plugin, () -> {
-                try {
-                    future.complete(callable.call());
-                } catch (Exception e) {
-                    future.completeExceptionally(e);
-                }
-            });
-            return future.get();
-        } else {
-            Future<T> future = plugin.getServer().getScheduler().callSyncMethod(plugin, callable);
-            return future.get();
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // Internal
-    // -------------------------------------------------------------------------
-
-    private static boolean detectFolia() {
-        try {
-            Class.forName("io.papermc.paper.threadedregions.RegionizedServer");
-            return true;
-        } catch (ClassNotFoundException ignored) {
-            return false;
-        }
+        return COMPAT.callSync(plugin, callable);
     }
 }
