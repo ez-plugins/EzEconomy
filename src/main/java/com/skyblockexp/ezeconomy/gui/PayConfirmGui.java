@@ -10,14 +10,15 @@ import org.bukkit.inventory.meta.ItemMeta;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 
 public class PayConfirmGui {
-    public static void open(EzEconomyPlugin plugin, Player player, String targetName, String amount) {
+    public static void open(EzEconomyPlugin plugin, Player player, String targetName, String amount, String currency) {
         var cfg = plugin.getUserGuiConfig();
         String title = cfg.getString("title.confirm_pay", "EzEconomy - Confirm Pay");
         Inventory inv = Bukkit.createInventory(new GuiInventoryHolder("confirm_pay"), 9, GuiUtils.formatMiniMessage(title));
         ItemStack info = new ItemStack(Material.PAPER);
         ItemMeta im = info.getItemMeta();
         im.setDisplayName(GuiUtils.formatMiniMessage(cfg.getString("pay.confirm.info.display-name", "Confirm Payment")));
-        im.setLore(java.util.List.of(GuiUtils.formatMiniMessage(cfg.getString("pay.confirm.info.lore", "Pay {amount} to {target}")).replace("{amount}", amount).replace("{target}", targetName)));
+        String displayAmount = formatAmountForLore(plugin, amount, currency);
+        im.setLore(java.util.List.of(GuiUtils.formatMiniMessage(cfg.getString("pay.confirm.info.lore", "Pay {amount} to {target}")).replace("{amount}", displayAmount).replace("{target}", targetName)));
         info.setItemMeta(im);
         inv.setItem(3, info);
 
@@ -37,5 +38,16 @@ public class PayConfirmGui {
 
         player.openInventory(inv);
         // store the selected payment info in PayFlowManager via plugin if needed
+    }
+
+    private static String formatAmountForLore(EzEconomyPlugin plugin, String amount, String currency) {
+        if (amount == null || amount.isBlank()) return "0";
+        String resolvedCurrency = (currency == null || currency.isBlank()) ? plugin.getDefaultCurrency() : currency;
+        try {
+            java.math.BigDecimal bd = new java.math.BigDecimal(amount.trim());
+            return plugin.getCurrencyFormatter().formatAmountOnly(bd.doubleValue(), resolvedCurrency);
+        } catch (Exception ignored) {
+            return amount;
+        }
     }
 }
