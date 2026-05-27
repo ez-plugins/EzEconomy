@@ -5,9 +5,9 @@ name: Server Smoke Tests
 
 on:
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, v3.x ]
   push:
-    branches: [ main, master, 'feat/**' ]
+    branches: [ main, master, v3.x, 'feat/**' ]
   schedule:
     - cron: '15 2 * * *'
   workflow_dispatch:
