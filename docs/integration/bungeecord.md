@@ -4,20 +4,21 @@ nav_order: 4
 parent: Integrations
 ---
 
-# Bungeecord Locking (BUNGEECORD)
+# BungeeCord Integration
 
-This document describes the optional `BUNGEECORD` locking strategy which provides cross-server distributed locks mediated by a lightweight proxy running on your Bungee/Waterfall proxy.
+This document describes the BungeeCord proxy integration for EzEconomy, providing distributed locking, proxy-side caching, and cross-server payment notifications.
 
-Overview
+## Overview
 
-- `BUNGEECORD` uses a small proxy plugin on the Bungee instance to act as the authoritative lock manager.
-- Servers run the `ezeconomy-bungeecord` extension (placed in `plugins/EzEconomy/libs/`) which communicates with the proxy via the plugin messaging channel.
-- This is an alternative to `REDIS` when you prefer not to run Redis but still want cross-server synchronization.
+- `BUNGEECORD` uses a proxy plugin on BungeeCord/Waterfall to mediate locks, cache state, and forward payment notifications.
+- Servers run the `ezeconomy-bungeecord` extension which communicates with the proxy via plugin messaging channels.
+- This is an alternative to `REDIS` when you prefer not to run Redis but still want cross-server synchronisation.
+- For Velocity proxies, use the [Velocity integration](velocity.md) instead.
 
-Components
+## Components
 
-- `ezeconomy-bungeecord` (server-side extension): implements `com.skyblockexp.ezeconomy.lock.LockManager` and communicates with the proxy.
-- `ezeconomy-bungeecord-proxy` (proxy plugin): runs on the Bungee/Waterfall proxy and mediates lock acquire/release requests.
+- `ezeconomy-bungeecord` (server-side extension): implements `com.skyblockexp.ezeconomy.lock.LockManager`, handles payment notification sending/receiving via plugin messaging.
+- `ezeconomy-bungeecord-proxy` (proxy plugin): runs on BungeeCord/Waterfall, mediates lock acquire/release, forwards payment notifications, and broadcasts the global player list.
 
 Quick setup
 
@@ -65,7 +66,17 @@ Notes
 - The current implementation in this repository provides a testable transport and an in-memory mock proxy; the production-ready transport uses plugin messaging and must be enabled/packaged in `ezeconomy-bungeecord`.
 - If the proxy is unavailable and `fallback-to-local` is enabled, EzEconomy will fall back to local locking.
 
-See also
+## Cross-Server Payment Notifications
 
-- [docs/locking-strategy.md](docs/locking-strategy.md)
-- [docs/redis.md](docs/redis.md)
+As of v3.1.0, the BungeeCord proxy plugin also handles payment notification forwarding:
+
+- When a player pays someone on a different server, the proxy forwards the notification to the recipient's server.
+- If the recipient is offline, the proxy sends a `RECIPIENT_OFFLINE` response, and the sending server stores the notification for delivery on next join.
+- The proxy broadcasts the global player list every 3 seconds to all backend servers.
+
+## See Also
+
+- [Cross-server messaging](../feature/cross-server.md) for a comparison of all messaging transports
+- [Velocity integration](velocity.md) for modern proxy networks
+- [Locking strategy](../feature/locking-strategy.md)
+- [Redis integration](redis.md)

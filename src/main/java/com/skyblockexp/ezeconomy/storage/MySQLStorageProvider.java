@@ -100,6 +100,13 @@ public class MySQLStorageProvider implements StorageProvider {
                         .column("uuid", "VARCHAR(36)").column("currency", "VARCHAR(32)")
                         .column("amount", "DOUBLE").column("timestamp", "BIGINT")
                         .build(SqlDialect.MYSQL).getSql(), noParams);
+                tempJdbc.executeUpdate("CREATE TABLE IF NOT EXISTS ezeconomy_pending_notifications ("
+                        + "id BIGINT AUTO_INCREMENT PRIMARY KEY, "
+                        + "uuid VARCHAR(36) NOT NULL, "
+                        + "message TEXT NOT NULL, "
+                        + "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+                        + "INDEX idx_pending_uuid (uuid)"
+                        + ")", noParams);
             } catch (Exception e) {
                 plugin.getLogger().warning("MySQL schema init failed: " + e.getMessage());
                 throw new StorageInitException("Failed to initialize MySQL schema", e);
@@ -1058,6 +1065,73 @@ public class MySQLStorageProvider implements StorageProvider {
     /**
      * Returns the set of orphaned UUIDs that would be deleted by cleanup.
      */
+    @Override
+    public void insertPendingNotification(UUID targetUuid, String message) {
+        synchronized (lock) {
+            try {
+                ensureConnected();
+                try (PreparedStatement stmt = connection.prepareStatement(
+                        "INSERT INTO ezeconomy_pending_notifications (uuid, message, created_at) VALUES (?, ?, NOW())")) {
+                    stmt.setString(1, targetUuid.toString());
+                    stmt.setString(2, message);
+                    stmt.executeUpdate();
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] MySQL insertPendingNotification failed: " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public java.util.List<String> pollPendingNotifications(UUID targetUuid) {
+        java.util.List<String> messages = new java.util.ArrayList<>();
+        synchronized (lock) {
+            try {
+                ensureConnected();
+                try (PreparedStatement stmt = connection.prepareStatement(
+                        "SELECT id, message FROM ezeconomy_pending_notifications WHERE uuid = ? ORDER BY created_at ASC")) {
+                    stmt.setString(1, targetUuid.toString());
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        java.util.List<Long> ids = new java.util.ArrayList<>();
+                        while (rs.next()) {
+                            ids.add(rs.getLong("id"));
+                            messages.add(rs.getString("message"));
+                        }
+                        if (!ids.isEmpty()) {
+                            String placeholders = ids.stream().map(i -> "?").collect(Collectors.joining(","));
+                            try (PreparedStatement del = connection.prepareStatement(
+                                    "DELETE FROM ezeconomy_pending_notifications WHERE id IN (" + placeholders + ")")) {
+                                for (int i = 0; i < ids.size(); i++) {
+                                    del.setLong(i + 1, ids.get(i));
+                                }
+                                del.executeUpdate();
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] MySQL pollPendingNotifications failed: " + e.getMessage());
+            }
+        }
+        return messages;
+    }
+
+    @Override
+    public void cleanupOldNotifications(long olderThanMs) {
+        synchronized (lock) {
+            try {
+                ensureConnected();
+                try (PreparedStatement stmt = connection.prepareStatement(
+                        "DELETE FROM ezeconomy_pending_notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL ? SECOND)")) {
+                    stmt.setLong(1, olderThanMs / 1000);
+                    stmt.executeUpdate();
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] MySQL cleanupOldNotifications failed: " + e.getMessage());
+            }
+        }
+    }
+
     public java.util.Set<String> previewOrphanedPlayers() {
         java.util.Set<String> orphaned = new java.util.HashSet<>();
         synchronized (lock) {

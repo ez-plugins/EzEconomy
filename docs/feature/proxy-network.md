@@ -4,15 +4,16 @@ nav_order: 4
 parent: Features
 ---
 
-# Proxy Network (Bungeecord) Integration
+# Proxy Network Integration
 
-This page documents the proxy-backed features of EzEconomy: distributed locking and proxy-side caching via plugin messaging between servers and a proxy.
+This page documents the proxy-backed features of EzEconomy: distributed locking, proxy-side caching, and cross-server payment notifications via plugin messaging between servers and a proxy.
 
 ## Summary
 
-- EzEconomy supports proxy-backed locking and caching using plugin messaging between servers and a proxy-side component.
-- Use `locking-strategy: BUNGEECORD` and/or `caching-strategy: BUNGEECORD` in the server `config.yml` to enable proxy-backed behavior.
-- The proxy must run the optional `ezeconomy-bungeecord-proxy` component (or a compatible adapter) and have a matching `bungeecord.yml` configuration.
+- EzEconomy supports both **Velocity** and **BungeeCord/Waterfall** proxies for cross-server communication.
+- **Velocity**: deploy `ezeconomy-velocity.jar` on the proxy for payment notifications and player list broadcasting. See [Velocity integration](../integration/velocity.md).
+- **BungeeCord**: deploy `ezeconomy-bungeecord-proxy.jar` on the proxy for locking, caching, and payment notifications. Use `locking-strategy: BUNGEECORD` and/or `caching-strategy: BUNGEECORD` in `config.yml`.
+- **Redis**: use `RedisMessagingTransport` from `ezeconomy-redis` for proxy-independent cross-server messaging. See [Cross-server messaging](cross-server.md).
 
 ## Why use the proxy-backed model
 

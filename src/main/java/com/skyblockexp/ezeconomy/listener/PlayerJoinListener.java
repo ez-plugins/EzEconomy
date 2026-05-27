@@ -20,12 +20,12 @@ public class PlayerJoinListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        // Keep existing daily reward behaviour
         manager.handleJoin(event.getPlayer());
 
-        // Auto-create a personal bank for the player on first join if configured.
-        // This runs independently of store-on-join.
         autoCreateBank(event.getPlayer());
+
+        persistPlayerInfo(event.getPlayer());
+        deliverPendingNotifications(event.getPlayer());
 
         // Optionally ensure player is stored in the configured storage backend
         if (!plugin.getConfig().getBoolean("store-on-join.enabled", false)) {
@@ -92,5 +92,24 @@ public class PlayerJoinListener implements Listener {
                 plugin.getLogger().warning("[EzEconomy] Failed to auto-create bank for " + bankName + ": " + e.getMessage());
             }
         });
+    }
+
+    private void persistPlayerInfo(org.bukkit.entity.Player player) {
+        StorageProvider storage = plugin.getStorageOrWarn();
+        if (storage == null) return;
+        try {
+            storage.persistPlayerInfo(player.getUniqueId(), player.getName(), player.getDisplayName());
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to persist player info for " + player.getName() + ": " + e.getMessage());
+        }
+    }
+
+    private void deliverPendingNotifications(org.bukkit.entity.Player player) {
+        com.skyblockexp.ezeconomy.messaging.MessagingService ms = plugin.getMessagingService();
+        if (ms == null) return;
+        if (!plugin.getConfig().getBoolean("cross-server.enabled", false)) return;
+        com.skyblockexp.ezeconomy.util.scheduler.PlatformScheduler.runTaskLater(plugin, () -> {
+            ms.deliverPendingNotifications(player);
+        }, 40L);
     }
 }

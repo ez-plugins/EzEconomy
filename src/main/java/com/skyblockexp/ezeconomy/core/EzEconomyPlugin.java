@@ -45,6 +45,7 @@ public class EzEconomyPlugin extends JavaPlugin {
     private com.skyblockexp.ezeconomy.gui.PayFlowManager payFlowManager;
     private com.skyblockexp.ezeconomy.bootstrap.Bootstrap bootstrap;
     private com.skyblockexp.ezeconomy.lock.LockManager lockManager;
+    private com.skyblockexp.ezeconomy.messaging.MessagingService messagingService;
     private static EzEconomyPlugin INSTANCE;
     // Extracted services
     private com.skyblockexp.ezeconomy.service.metrics.TransactionMetricsService transactionMetricsService;
@@ -234,6 +235,26 @@ public class EzEconomyPlugin extends JavaPlugin {
 
     public void setLockManager(com.skyblockexp.ezeconomy.lock.LockManager m) {
         this.lockManager = m;
+    }
+
+    public com.skyblockexp.ezeconomy.messaging.MessagingService getMessagingService() {
+        return this.messagingService;
+    }
+
+    public void setMessagingService(com.skyblockexp.ezeconomy.messaging.MessagingService m) {
+        this.messagingService = m;
+    }
+
+    public long getLockTtlMs() {
+        return getConfig().getLong("locking.ttl-ms", 5000L);
+    }
+
+    public long getLockRetryMs() {
+        return getConfig().getLong("locking.retry-ms", 50L);
+    }
+
+    public int getLockMaxAttempts() {
+        return getConfig().getInt("locking.max-attempts", 100);
     }
 
     /**

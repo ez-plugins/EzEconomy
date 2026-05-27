@@ -1,0 +1,24 @@
+name: Velocity CI
+
+on:
+  push:
+    paths:
+      - 'ezeconomy-velocity/**'
+      - 'pom.xml'
+  pull_request:
+    paths:
+      - 'ezeconomy-velocity/**'
+      - 'pom.xml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Build Velocity module
+        run: mvn -pl ezeconomy-velocity -am compile -q

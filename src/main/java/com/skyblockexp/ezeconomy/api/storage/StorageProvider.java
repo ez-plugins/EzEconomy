@@ -111,6 +111,50 @@ public interface StorageProvider {
     }
 
     /**
+     * Resolves a player UUID by their name from the storage backend.
+     * @param name player name (case-insensitive)
+     * @return UUID if found, null otherwise
+     */
+    default java.util.UUID resolvePlayerByName(String name) {
+        return null;
+    }
+
+    /**
+     * Persists player info (UUID, name, display name) to the storage backend.
+     * Called on player join to keep the player lookup table up to date.
+     * @param uuid player UUID
+     * @param name player name
+     * @param displayName player display name
+     */
+    default void persistPlayerInfo(java.util.UUID uuid, String name, String displayName) {
+    }
+
+    /**
+     * Inserts a pending notification message for a player who is currently offline.
+     * @param targetUuid target player UUID
+     * @param message formatted notification message
+     */
+    default void insertPendingNotification(java.util.UUID targetUuid, String message) {
+    }
+
+    /**
+     * Retrieves and removes all pending notification messages for a player.
+     * Called when the player joins to deliver queued messages.
+     * @param targetUuid target player UUID
+     * @return list of pending messages, empty if none
+     */
+    default java.util.List<String> pollPendingNotifications(java.util.UUID targetUuid) {
+        return java.util.Collections.emptyList();
+    }
+
+    /**
+     * Removes pending notifications older than the specified timestamp.
+     * @param olderThanMillis epoch milliseconds; notifications older than this are removed
+     */
+    default void cleanupOldNotifications(long olderThanMillis) {
+    }
+
+    /**
      * Returns true if the storage provider is currently connected to its backend (database, file, etc).
      * Default: always true (for file-based providers). Override for real DB status.
      */
@@ -155,7 +199,7 @@ public interface StorageProvider {
         if (fromUuid.compareTo(toUuid) > 0) ordered = new UUID[]{toUuid, fromUuid};
         String[] tokens = null;
         try {
-            tokens = lm.acquireOrdered(ordered, inst.getConfig().getLong("redis.ttl-ms", 5000), inst.getConfig().getLong("redis.retry-ms", 50), inst.getConfig().getInt("redis.max-attempts", 100));
+            tokens = lm.acquireOrdered(ordered, inst.getLockTtlMs(), inst.getLockRetryMs(), inst.getLockMaxAttempts());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }

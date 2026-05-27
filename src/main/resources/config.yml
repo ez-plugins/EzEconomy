@@ -23,6 +23,17 @@ daily-reward:
 store-on-join:
   enabled: false
 
+# Cross-server messaging (requires a proxy plugin: Velocity or BungeeCord)
+cross-server:
+  enabled: false
+  verbose-logging: false
+
+# Locking timing configuration (applies to all strategies)
+locking:
+  ttl-ms: 5000
+  retry-ms: 50
+  max-attempts: 100
+
 # Banking feature toggle: set to `false` to disable built-in bank subsystem
 # (commands, GUIs, Vault bank methods, and bank PAPI placeholders).
 banking:

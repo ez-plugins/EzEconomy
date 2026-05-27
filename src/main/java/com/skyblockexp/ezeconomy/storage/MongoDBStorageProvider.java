@@ -703,6 +703,55 @@ public class MongoDBStorageProvider implements StorageProvider {
     /**
      * Returns the set of orphaned UUIDs that would be deleted by cleanup.
      */
+    @Override
+    public void insertPendingNotification(UUID targetUuid, String message) {
+        synchronized (lock) {
+            try {
+                MongoCollection<Document> notifications = database.getCollection("ezeconomy_pending_notifications");
+                Document doc = new Document("uuid", targetUuid.toString())
+                        .append("message", message)
+                        .append("created_at", System.currentTimeMillis());
+                notifications.insertOne(doc);
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] MongoDB insertPendingNotification failed: " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public java.util.List<String> pollPendingNotifications(UUID targetUuid) {
+        java.util.List<String> messages = new java.util.ArrayList<>();
+        synchronized (lock) {
+            try {
+                MongoCollection<Document> notifications = database.getCollection("ezeconomy_pending_notifications");
+                com.mongodb.client.model.Filters filters = null;
+                for (Document doc : notifications.find(new Document("uuid", targetUuid.toString()))
+                        .sort(new Document("created_at", 1))) {
+                    messages.add(doc.getString("message"));
+                }
+                if (!messages.isEmpty()) {
+                    notifications.deleteMany(new Document("uuid", targetUuid.toString()));
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] MongoDB pollPendingNotifications failed: " + e.getMessage());
+            }
+        }
+        return messages;
+    }
+
+    @Override
+    public void cleanupOldNotifications(long olderThanMs) {
+        synchronized (lock) {
+            try {
+                MongoCollection<Document> notifications = database.getCollection("ezeconomy_pending_notifications");
+                long cutoff = System.currentTimeMillis() - olderThanMs;
+                notifications.deleteMany(new Document("created_at", new Document("$lt", cutoff)));
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] MongoDB cleanupOldNotifications failed: " + e.getMessage());
+            }
+        }
+    }
+
     public java.util.Set<String> previewOrphanedPlayers() {
         java.util.Set<String> orphaned = new java.util.HashSet<>();
         synchronized (lock) {
