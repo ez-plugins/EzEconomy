@@ -76,10 +76,38 @@
                                 <include>**/*IT.java</include>
                                 <include>**/*IntegrationTest.java</include>
                             </includes>
+                            <excludes>
+                                <exclude>**/*RuntimeIT.java</exclude>
+                            </excludes>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
+    <profiles>
+        <profile>
+            <id>paper-folia-runtime-it</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>3.5.5</version>
+                        <configuration>
+                            <useModulePath>false</useModulePath>
+                            <classesDirectory>${project.build.outputDirectory}</classesDirectory>
+                            <includes>
+                                <include>**/*RuntimeIT.java</include>
+                            </includes>
+                            <systemPropertyVariables>
+                                <ezeconomy.runtime.it.enabled>${ezeconomy.runtime.it.enabled}</ezeconomy.runtime.it.enabled>
+                                <ezeconomy.runtime.server>${ezeconomy.runtime.server}</ezeconomy.runtime.server>
+                            </systemPropertyVariables>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

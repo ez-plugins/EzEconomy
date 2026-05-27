@@ -1,5 +1,7 @@
 package com.skyblockexp.ezeconomy.lock;
 
+import org.bukkit.Bukkit;
+
 import com.skyblockexp.ezeconomy.storage.TransferLockManager;
 
 import java.util.Map;
@@ -9,34 +11,47 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class LocalLockManager implements LockManager {
-    private final Map<UUID, String> tokens = new ConcurrentHashMap<>();
+    private final Map<String, UUID> tokenOwners = new ConcurrentHashMap<>();
 
     @Override
     public String acquire(UUID uuid, long ttlMs, long retryMs, int maxAttempts) throws InterruptedException {
         ReentrantLock lock = TransferLockManager.getLock(uuid);
+        // Never block the primary thread in a sleep-retry loop:
+        // callers can fall back to local synchronization paths if needed.
+        boolean primaryThread = false;
+        try {
+            primaryThread = Bukkit.getServer() != null && Bukkit.isPrimaryThread();
+        } catch (Throwable ignored) {
+            primaryThread = false;
+        }
+        if (primaryThread) {
+            if (!lock.tryLock()) return null;
+            String token = "local-" + UUID.randomUUID();
+            tokenOwners.put(token, uuid);
+            return token;
+        }
+
+        long waitMs = Math.max(0L, retryMs);
         int attempts = 0;
         while (maxAttempts <= 0 || attempts < maxAttempts) {
-            // try immediate acquisition
-            if (lock.tryLock()) {
+            boolean acquired = waitMs <= 0 ? lock.tryLock() : lock.tryLock(waitMs, TimeUnit.MILLISECONDS);
+            if (acquired) {
                 String token = "local-" + UUID.randomUUID();
-                tokens.put(uuid, token);
+                tokenOwners.put(token, uuid);
                 return token;
             }
             attempts++;
-            if (retryMs > 0) Thread.sleep(retryMs);
-            // if maxAttempts <= 0 we treat as infinite attempts (but still yield between tries)
         }
         return null;
     }
 
     @Override
     public boolean release(UUID uuid, String token) {
-        String existing = tokens.get(uuid);
-        if (existing == null) return false;
-        if (!existing.equals(token)) return false;
+        if (token == null) return false;
+        UUID owner = tokenOwners.remove(token);
+        if (owner == null || !owner.equals(uuid)) return false;
         ReentrantLock lock = TransferLockManager.getLock(uuid);
         try {
-            tokens.remove(uuid);
             lock.unlock();
             return true;
         } catch (IllegalMonitorStateException ex) {

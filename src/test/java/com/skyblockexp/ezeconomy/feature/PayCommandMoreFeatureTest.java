@@ -7,6 +7,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import org.mockbukkit.mockbukkit.entity.PlayerMock;
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
+import com.skyblockexp.ezeconomy.util.PlayerLookup;
 
 import java.lang.reflect.Field;
 import com.skyblockexp.ezeconomy.feature.support.TestSupport;
@@ -126,5 +127,45 @@ public class PayCommandMoreFeatureTest {
         // Assert balances updated
         assertEquals(5.0, storage.getBalance(sender.getUniqueId(), CURRENCY), 0.0001);
         assertEquals(5.0, storage.getBalance(offline.getUniqueId(), CURRENCY), 0.0001);
+    }
+
+    @Test
+    public void testPayCommand_multipleSequentialPaymentsToSameOfflineRecipient() throws Exception {
+        Object offlineObj;
+        try {
+            java.lang.reflect.Method addOffline = server.getClass().getMethod("addOfflinePlayer", String.class);
+            offlineObj = addOffline.invoke(server, "offline_chain");
+        } catch (NoSuchMethodException ignored) {
+            offlineObj = org.bukkit.Bukkit.getOfflinePlayer("offline_chain");
+        }
+        org.bukkit.OfflinePlayer offline = (org.bukkit.OfflinePlayer) offlineObj;
+        PlayerLookup.addToCache(offline);
+
+        storage.setBalance(offline.getUniqueId(), CURRENCY, 0.0);
+
+        Object senderObj = server.getClass().getMethod("addPlayer", String.class).invoke(server, "sender_chain");
+        org.bukkit.entity.Player sender = (org.bukkit.entity.Player) senderObj;
+        sender.setOp(true);
+        storage.setBalance(sender.getUniqueId(), CURRENCY, 10_000.0);
+
+        sender.performCommand("pay offline_chain 1000");
+        sender.performCommand("pay offline_chain 2000");
+        sender.performCommand("pay offline_chain 3000");
+
+        waitForBalance(sender.getUniqueId(), 4_000.0, 2_000L);
+        waitForBalance(offline.getUniqueId(), 6_000.0, 2_000L);
+
+        assertEquals(4_000.0, storage.getBalance(sender.getUniqueId(), CURRENCY), 0.0001);
+        assertEquals(6_000.0, storage.getBalance(offline.getUniqueId(), CURRENCY), 0.0001);
+    }
+
+    private void waitForBalance(java.util.UUID uuid, double expected, long timeoutMs) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            if (Math.abs(storage.getBalance(uuid, CURRENCY) - expected) < 0.0001) {
+                return;
+            }
+            Thread.sleep(25L);
+        }
     }
 }

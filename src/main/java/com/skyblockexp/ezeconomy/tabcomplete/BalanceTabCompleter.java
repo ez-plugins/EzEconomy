@@ -1,19 +1,20 @@
 package com.skyblockexp.ezeconomy.tabcomplete;
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
+import com.skyblockexp.ezeconomy.util.PlayerLookup;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class BalanceTabCompleter implements TabCompleter {
     private final EzEconomyPlugin plugin;
+    private static final int MAX_NAME_SUGGESTIONS = 50;
 
     public BalanceTabCompleter(EzEconomyPlugin plugin) {
         this.plugin = plugin;
@@ -26,27 +27,44 @@ public class BalanceTabCompleter implements TabCompleter {
         if (args.length == 1) {
             String partial = args[0].toLowerCase();
             List<String> res = new ArrayList<>();
-            // suggest online players
-            res.addAll(Bukkit.getOnlinePlayers().stream()
-                    .map(OfflinePlayer::getName)
-                    .filter(n -> n != null && n.toLowerCase().startsWith(partial))
-                    .collect(Collectors.toList()));
+            boolean canLookupOthers = sender.hasPermission("ezeconomy.balance.others");
+            if (canLookupOthers) {
+                LinkedHashSet<String> names = new LinkedHashSet<>();
+                for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
+                    String name = p.getName();
+                    if (name != null && name.toLowerCase().startsWith(partial)) {
+                        names.add(name);
+                        if (names.size() >= MAX_NAME_SUGGESTIONS) break;
+                    }
+                }
+                if (names.size() < MAX_NAME_SUGGESTIONS) {
+                    for (String name : PlayerLookup.namesStartingWith(partial, MAX_NAME_SUGGESTIONS)) {
+                        names.add(name);
+                        if (names.size() >= MAX_NAME_SUGGESTIONS) break;
+                    }
+                }
+                res.addAll(names);
+            }
+
             // suggest currencies
             var cfg = plugin.getConfig();
             if (cfg.isConfigurationSection("multi-currency.currencies")) {
-                res.addAll(cfg.getConfigurationSection("multi-currency.currencies").getKeys(false).stream()
-                        .filter(k -> k.toLowerCase().startsWith(partial))
-                        .collect(Collectors.toList()));
+                for (String k : cfg.getConfigurationSection("multi-currency.currencies").getKeys(false)) {
+                    if (k.toLowerCase().startsWith(partial)) res.add(k);
+                }
             }
             return res;
         }
         if (args.length == 2) {
+            if (!sender.hasPermission("ezeconomy.balance.others")) return Collections.emptyList();
             String partial = args[1].toLowerCase();
             var cfg = plugin.getConfig();
             if (cfg.isConfigurationSection("multi-currency.currencies")) {
-                return cfg.getConfigurationSection("multi-currency.currencies").getKeys(false).stream()
-                        .filter(k -> k.toLowerCase().startsWith(partial))
-                        .collect(Collectors.toList());
+                List<String> out = new ArrayList<>();
+                for (String k : cfg.getConfigurationSection("multi-currency.currencies").getKeys(false)) {
+                    if (k.toLowerCase().startsWith(partial)) out.add(k);
+                }
+                return out;
             }
         }
         return Collections.emptyList();

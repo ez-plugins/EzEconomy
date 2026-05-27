@@ -131,7 +131,7 @@ public class GuiListener implements Listener {
                         com.skyblockexp.ezeconomy.core.Money money = com.skyblockexp.ezeconomy.core.Money.of(bd, currency);
                         plugin.getPayFlowManager().createPendingTransfer(player.getUniqueId(), targetUuid, target, money, currency, expiresAt);
                         player.closeInventory();
-                        PayConfirmGui.open(plugin, player, target, bd.toPlainString());
+                        PayConfirmGui.open(plugin, player, target, bd.toPlainString(), currency);
                         PlatformScheduler.runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(player.getUniqueId()), timeoutSeconds * 20L);
                         return;
                     } catch (NumberFormatException ex) {
@@ -196,7 +196,7 @@ public class GuiListener implements Listener {
                     int timeoutSeconds = plugin.getConfig().getInt("pay.confirmation.timeout_seconds", 30);
                     long expiresAt = System.currentTimeMillis() + (timeoutSeconds * 1000L);
                     plugin.getPayFlowManager().createPendingTransfer(player.getUniqueId(), targetUuid, target, money, currency, expiresAt);
-                    PayConfirmGui.open(plugin, player, target, amt);
+                    PayConfirmGui.open(plugin, player, target, amt, currency);
                     PlatformScheduler.runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(player.getUniqueId()), timeoutSeconds * 20L);
                 } catch (NumberFormatException ex) {
                     player.sendMessage(ChatColor.RED + "Invalid preset amount.");
@@ -244,7 +244,7 @@ public class GuiListener implements Listener {
         int timeoutSeconds = plugin.getConfig().getInt("pay.confirmation.timeout_seconds", 30);
         long expiresAt = System.currentTimeMillis() + (timeoutSeconds * 1000L);
         plugin.getPayFlowManager().createPendingTransfer(uuid, target, targetName, parsedMoney, plugin.getDefaultCurrency(), expiresAt);
-        PlatformScheduler.runTask(plugin, () -> PayConfirmGui.open(plugin, e.getPlayer(), targetName, parsedMoney.getAmount().toPlainString()));
+        PlatformScheduler.runTask(plugin, () -> PayConfirmGui.open(plugin, e.getPlayer(), targetName, parsedMoney.getAmount().toPlainString(), parsedMoney.getCurrencyId()));
         PlatformScheduler.runTaskLater(plugin, () -> plugin.getPayFlowManager().removeIfExpired(uuid), timeoutSeconds * 20L);
     }
 
