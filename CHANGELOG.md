@@ -19,6 +19,8 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ## [3.1.0] - 2026-05-27
 
+![Bungeecord and Velocity support](https://i.ibb.co/cXcFX7g9/velocity-and-bungeecord.png)
+
 ### Added
 - **Velocity proxy support** - New `ezeconomy-velocity` module provides a Velocity proxy plugin for cross-server payment notifications and global player list broadcasting. Deploy `ezeconomy-velocity.jar` on your Velocity proxy alongside the main plugin on backend servers.
 - **Cross-server messaging layer** - New `MessagingService`, `MessagingTransport`, and `MessageType` abstractions in core. Supports three transports: Velocity plugin messaging, BungeeCord plugin messaging, and Redis pub/sub.
