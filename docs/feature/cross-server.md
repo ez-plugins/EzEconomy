@@ -11,7 +11,7 @@ EzEconomy v3.1.0 introduces a unified cross-server messaging layer that handles 
 ## Available Transports
 
 | Transport | Requires | Proxy-Independent | Config Value |
-|-----------|----------|-------------------|--------------|
+| --------- | -------- | ----------------- | ------------ |
 | **Velocity** | `ezeconomy-velocity` on Velocity proxy | No | `velocity` |
 | **BungeeCord** | `ezeconomy-bungeecord-proxy` on Bungee proxy | No | `bungeecord` |
 | **Redis** | Redis server + `ezeconomy-redis` extension | Yes | `redis` |
@@ -71,7 +71,7 @@ The proxy (or Redis) broadcasts the full list of online players across the netwo
 ## Storage Backends and Cross-Server Support
 
 | Backend | Shared Across Servers | Pending Notifications | Recommended For |
-|---------|----------------------|----------------------|-----------------|
+| ------- | --------------------- | --------------------- | --------------- |
 | **MySQL** | Yes | Yes | Production multi-server |
 | **MongoDB** | Yes | Yes | Production multi-server |
 | **SQLite** | No (file-locked) | Yes (per-server) | Development/testing |

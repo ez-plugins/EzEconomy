@@ -44,7 +44,7 @@ EzEconomy supports Velocity proxies for cross-server payment notifications and g
 ## Message Types
 
 | Type | Direction | Purpose |
-|------|-----------|---------|
+| ---- | --------- | ------- |
 | `NOTIFY` | Backend to Proxy to Backend | Payment notification forwarding |
 | `RECIPIENT_OFFLINE` | Proxy to Backend | Indicates recipient is not online |
 | `PLAYER_LIST` | Proxy to all Backends | Global player list broadcast |
