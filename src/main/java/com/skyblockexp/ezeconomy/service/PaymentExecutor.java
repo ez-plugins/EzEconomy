@@ -37,14 +37,12 @@ public class PaymentExecutor {
         UUID fromUuid = from.getUniqueId();
 
         if (online == null) {
-            // Try local Bukkit lookup first
             OfflinePlayer localOffline = Bukkit.getOfflinePlayer(toName);
-            if (localOffline != null && localOffline.hasPlayedBefore()) {
-                toOffline = localOffline;
-            }
+            boolean localKnown = localOffline != null && localOffline.hasPlayedBefore();
 
-            // If not found locally, resolve from shared database or messaging service
-            if (toOffline == null && knownOffline) {
+            if (localKnown) {
+                toOffline = localOffline;
+            } else if (knownOffline) {
                 UUID resolvedUuid = null;
                 com.skyblockexp.ezeconomy.messaging.MessagingService ms = plugin.getMessagingService();
                 if (ms != null) {
@@ -58,6 +56,8 @@ public class PaymentExecutor {
                 }
                 if (resolvedUuid != null) {
                     toOffline = Bukkit.getOfflinePlayer(resolvedUuid);
+                } else {
+                    toOffline = localOffline;
                 }
             }
 
