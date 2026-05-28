@@ -17,6 +17,18 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
+## [3.1.1] - 2026-05-28
+
+### Fixed
+- **Cross-server `/pay` failing silently** - Payments to players on other backend servers failed because the recipient was looked up only in Bukkit's local player cache. `PayCommand` now checks `MessagingService.isNetworkPlayer()` and `StorageProvider.resolvePlayerByName()` when local lookups fail.
+- **Incorrect UUID for cross-server recipients** - `PaymentExecutor` was using `Bukkit.getOfflinePlayer(name)` which generates an offline-mode UUID for players who have never joined the local server. It now resolves the correct UUID from the messaging service or shared database.
+- **`MySQLStorageProvider.resolvePlayerByName()` not implemented** - The default no-op from the `StorageProvider` interface was being used. Now queries the `players` table by name to return the correct UUID.
+
+### Added
+- `MySQLStorageProvider.persistPlayerInfo()` implementation for explicit player data upserts.
+
+---
+
 ## [3.1.0] - 2026-05-27
 
 ![Bungeecord and Velocity support](https://i.ibb.co/cXcFX7g9/velocity-and-bungeecord.png)

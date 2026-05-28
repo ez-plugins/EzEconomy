@@ -156,12 +156,12 @@ This section documents all methods of the `StorageProvider` interface. Implement
 
 ## Cross-Server Support (v3.1.0+)
 
-These default methods support cross-server payment notifications. Override them if your backend stores player data or pending messages.
+These default methods support cross-server payment notifications. Override them if your backend stores player data or pending messages. As of v3.1.1, `resolvePlayerByName()` and `persistPlayerInfo()` are fully implemented in the MySQL storage provider and are used by `PayCommand` and `PaymentExecutor` for cross-server player resolution.
 
 - `UUID resolvePlayerByName(String name)`  
-  Look up a player UUID by name. Default: returns null.
+  Look up a player UUID by name from the shared database. Used by `PayCommand` when the recipient is not found in Bukkit's local player cache. Default: returns null. MySQL implementation queries the `players` table.
 - `void persistPlayerInfo(UUID uuid, String name, String displayName)`  
-  Store a player's UUID, name, and display name on join. Default: no-op.
+  Store a player's UUID, name, and display name. Called on join and during cross-server lookups. Default: no-op. MySQL implementation upserts into the `players` table.
 - `void insertPendingNotification(UUID targetUuid, String message)`  
   Store a notification for an offline player. Default: no-op.
 - `List<String> pollPendingNotifications(UUID targetUuid)`  
