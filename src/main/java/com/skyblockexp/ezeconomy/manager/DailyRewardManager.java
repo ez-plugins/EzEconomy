@@ -149,7 +149,7 @@ public class DailyRewardManager {
     }
 
     private void debug(String message) {
-        if (!plugin.getConfig().getBoolean("daily-reward.debug", false)) {
+        if (!plugin.isDebugEnabled()) {
             return;
         }
         plugin.getLogger().info("[DailyReward] " + message);

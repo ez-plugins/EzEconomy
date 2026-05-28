@@ -1,5 +1,6 @@
 package com.skyblockexp.ezeconomy.bootstrap.component;
 
+import com.github.ezframework.jaloquent.config.JaloquentConfig;
 import com.skyblockexp.ezeconomy.bootstrap.BootstrapComponent;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.core.MessageProvider;
@@ -77,6 +78,9 @@ public class ConfigComponent implements BootstrapComponent {
 
         plugin.setMessagesConfig(selected);
         plugin.setMessageProvider(new MessageProvider(selected, fallback, language));
+
+        // Apply global debug flag to Jaloquent's internal logger
+        JaloquentConfig.enableLogging(plugin.isDebugEnabled());
     }
 
     @Override

@@ -17,6 +17,19 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
+## [3.1.1] - 2026-05-28
+
+### Added
+- **Global `debug` flag** — new top-level `debug: false` option in `config.yml` controls all verbose/diagnostic logging in one place. When enabled, Jaloquent's internal SQL logging and plugin-level debug messages (cross-server messaging, daily-reward diagnostics) are written to the server console.
+
+### Changed
+- `DailyRewardManager` and `MessagingService` now respect the unified `debug` flag instead of the previous per-feature toggles (`daily-reward.debug` and `cross-server.verbose-logging`).
+
+### Removed
+- Per-feature debug flags `daily-reward.debug` and `cross-server.verbose-logging` from `config.yml` — superseded by the new top-level `debug` option.
+
+---
+
 ## [3.1.0] - 2026-05-27
 
 ![Bungeecord and Velocity support](https://i.ibb.co/cXcFX7g9/velocity-and-bungeecord.png)

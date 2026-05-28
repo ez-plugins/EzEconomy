@@ -287,4 +287,12 @@ public class EzEconomyPlugin extends JavaPlugin {
         if (storageConfigLoader == null) storageConfigLoader = new com.skyblockexp.ezeconomy.service.storage.StorageConfigLoader(this);
         return storageConfigLoader;
     }
+
+    /**
+     * Returns whether debug/verbose logging is enabled, as configured by {@code debug: true/false}
+     * in {@code config.yml}.
+     */
+    public boolean isDebugEnabled() {
+        return getConfig().getBoolean("debug", false);
+    }
 }

@@ -86,10 +86,25 @@ Enable cross-server payment notifications and player list synchronisation. Requi
 ```yaml
 cross-server:
   enabled: true
-  verbose-logging: false
 ```
 
 The transport is auto-detected based on which extensions are loaded (Velocity, BungeeCord, or Redis). See [Cross-server messaging](feature/cross-server.md) for details.
+
+### Debug logging
+
+Enable verbose diagnostic output from EzEconomy and its internal libraries.
+
+```yaml
+debug: false
+```
+
+When `true`:
+
+- Jaloquent SQL operations are logged to the server console.
+- Cross-server messaging events (relay, delivery, pending notifications) are printed.
+- Daily-reward diagnostics (invalid sounds, timing) are logged.
+
+Leave `false` in production to keep your console clean.
 
 ### Notes
 
