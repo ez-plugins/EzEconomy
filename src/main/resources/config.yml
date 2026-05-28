@@ -6,6 +6,11 @@ storage: yml
 # The plugin loads `languages/<language>.yml` and falls back to `languages/en.yml`.
 language: en
 
+# Enable debug/verbose logging for EzEconomy and its internal libraries (e.g. Jaloquent).
+# Set to `true` to see detailed diagnostic output in the server console.
+# Keep `false` in production to avoid log spam.
+debug: false
+
 # Daily login reward (optional)
 daily-reward:
   enabled: false
@@ -15,7 +20,6 @@ daily-reward:
   permission: ezeconomy.daily
   message: "&aYou received &e%amount% %currency% &afor your daily login!"
   sound: ENTITY_EXPERIENCE_ORB_PICKUP
-  debug: false
 
 # When enabled, the storage provider will be asked to create/store a record
 # for each player when they join the server. This helps ensure player data
@@ -76,7 +80,6 @@ locking:
 # Cross-server messaging (requires a proxy plugin: Velocity or BungeeCord)
 cross-server:
   enabled: false
-  verbose-logging: false
 
 # Caching strategy used for in-memory / distributed caching. Options:
 #   LOCAL     - in-process memory cache only (default)

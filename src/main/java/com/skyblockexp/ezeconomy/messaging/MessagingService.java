@@ -188,7 +188,7 @@ public class MessagingService implements PluginMessageListener {
 	}
 
 	private void logVerbose(String message) {
-		if (plugin.getConfig().getBoolean("cross-server.verbose-logging", false)) {
+		if (plugin.isDebugEnabled()) {
 			plugin.getLogger().info(message);
 		}
 	}
