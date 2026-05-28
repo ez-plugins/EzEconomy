@@ -99,6 +99,7 @@ debug: false
 ```
 
 When `true`:
+
 - Jaloquent SQL operations are logged to the server console.
 - Cross-server messaging events (relay, delivery, pending notifications) are printed.
 - Daily-reward diagnostics (invalid sounds, timing) are logged.
