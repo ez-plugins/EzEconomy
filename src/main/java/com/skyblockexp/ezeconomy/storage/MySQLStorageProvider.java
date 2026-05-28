@@ -1132,6 +1132,42 @@ public class MySQLStorageProvider implements StorageProvider {
         }
     }
 
+    @Override
+    public UUID resolvePlayerByName(String name) {
+        if (name == null) return null;
+        synchronized (lock) {
+            try {
+                if (playerRepo == null) return null;
+                java.util.List<PlayerModel> results = playerRepo.query(
+                        PlayerModel.queryBuilder()
+                                .whereEquals("name", name)
+                                .limit(1)
+                                .build());
+                if (!results.isEmpty()) {
+                    try {
+                        return UUID.fromString(results.get(0).getId());
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } catch (StorageException e) {
+                plugin.getLogger().warning("[EzEconomy] MySQL resolvePlayerByName failed for '" + name + "': " + e.getMessage());
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void persistPlayerInfo(UUID uuid, String name, String displayName) {
+        if (uuid == null || name == null) return;
+        synchronized (lock) {
+            try {
+                if (playerRepo == null) return;
+                playerRepo.save(PlayerModel.create(uuid, name, displayName != null ? displayName : name));
+            } catch (StorageException e) {
+                plugin.getLogger().warning("[EzEconomy] MySQL persistPlayerInfo failed for " + uuid + ": " + e.getMessage());
+            }
+        }
+    }
+
     public java.util.Set<String> previewOrphanedPlayers() {
         java.util.Set<String> orphaned = new java.util.HashSet<>();
         synchronized (lock) {
