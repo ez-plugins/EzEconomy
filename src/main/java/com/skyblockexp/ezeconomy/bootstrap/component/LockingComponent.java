@@ -9,6 +9,7 @@ import java.net.URLClassLoader;
 import java.util.ServiceLoader;
 import java.util.Iterator;
 import java.io.IOException;
+import java.util.function.Supplier;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import java.io.File;
@@ -54,10 +55,8 @@ public class LockingComponent implements BootstrapComponent {
             boolean fallback = bungeeCfg.getBoolean("fallback-to-local", true);
             try {
                 // 1) Try ServiceLoader using current classloader (useful for development/classpath-loaded providers)
-                ServiceLoader<LockManager> loader = ServiceLoader.load(LockManager.class);
-                Iterator<LockManager> it = loader.iterator();
-                if (it.hasNext()) {
-                    this.manager = it.next();
+                this.manager = safeLoadFirstLockManager(() -> ServiceLoader.load(LockManager.class).iterator(), "current classloader");
+                if (this.manager != null) {
                     plugin.getLogger().info("Loaded LockManager via ServiceLoader: " + this.manager.getClass().getName());
                 }
 
@@ -69,10 +68,8 @@ public class LockingComponent implements BootstrapComponent {
                         if (jars != null) {
                             for (File jar : jars) {
                                 try (URLClassLoader cl = new URLClassLoader(new URL[]{jar.toURI().toURL()}, this.getClass().getClassLoader())) {
-                                    ServiceLoader<LockManager> sl = ServiceLoader.load(LockManager.class, cl);
-                                    Iterator<LockManager> sit = sl.iterator();
-                                    if (sit.hasNext()) {
-                                        this.manager = sit.next();
+                                    this.manager = safeLoadFirstLockManager(() -> ServiceLoader.load(LockManager.class, cl).iterator(), "jar " + jar.getName());
+                                    if (this.manager != null) {
                                         plugin.getLogger().info("Loaded LockManager from " + jar.getName() + ": " + this.manager.getClass().getName());
                                         break;
                                     }
@@ -137,10 +134,8 @@ public class LockingComponent implements BootstrapComponent {
             boolean fallback = redisCfg.getBoolean("fallback-to-local", true);
             try {
                 // 1) Try ServiceLoader using current classloader (useful for development/classpath-loaded providers)
-                ServiceLoader<LockManager> loader = ServiceLoader.load(LockManager.class);
-                Iterator<LockManager> it = loader.iterator();
-                if (it.hasNext()) {
-                    this.manager = it.next();
+                this.manager = safeLoadFirstLockManager(() -> ServiceLoader.load(LockManager.class).iterator(), "current classloader");
+                if (this.manager != null) {
                     plugin.getLogger().info("Loaded LockManager via ServiceLoader: " + this.manager.getClass().getName());
                 }
 
@@ -152,10 +147,8 @@ public class LockingComponent implements BootstrapComponent {
                         if (jars != null) {
                             for (File jar : jars) {
                                 try (URLClassLoader cl = new URLClassLoader(new URL[]{jar.toURI().toURL()}, this.getClass().getClassLoader())) {
-                                    ServiceLoader<LockManager> sl = ServiceLoader.load(LockManager.class, cl);
-                                    Iterator<LockManager> sit = sl.iterator();
-                                    if (sit.hasNext()) {
-                                        this.manager = sit.next();
+                                    this.manager = safeLoadFirstLockManager(() -> ServiceLoader.load(LockManager.class, cl).iterator(), "jar " + jar.getName());
+                                    if (this.manager != null) {
                                         plugin.getLogger().info("Loaded LockManager from " + jar.getName() + ": " + this.manager.getClass().getName());
                                         break;
                                     }
@@ -195,6 +188,18 @@ public class LockingComponent implements BootstrapComponent {
             plugin.getLogger().info("Using LocalLockManager for balance locking.");
         }
         plugin.setLockManager(this.manager);
+    }
+
+    private LockManager safeLoadFirstLockManager(Supplier<Iterator<LockManager>> iteratorSupplier, String source) {
+        try {
+            Iterator<LockManager> it = iteratorSupplier.get();
+            if (it != null && it.hasNext()) {
+                return it.next();
+            }
+        } catch (Throwable t) {
+            plugin.getLogger().warning("Ignoring invalid LockManager provider from " + source + ": " + t.getMessage());
+        }
+        return null;
     }
 
     @Override

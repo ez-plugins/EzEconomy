@@ -9,6 +9,7 @@ import com.skyblockexp.ezeconomy.bootstrap.component.MetricsComponent;
 import com.skyblockexp.ezeconomy.bootstrap.component.PlaceholderComponent;
 import com.skyblockexp.ezeconomy.bootstrap.component.EconomyComponent;
 import com.skyblockexp.ezeconomy.bootstrap.component.ShutdownComponent;
+import com.skyblockexp.ezeconomy.bootstrap.component.MessagingComponent;
 import com.skyblockexp.ezeconomy.bootstrap.component.StorageComponent;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import java.util.ArrayList;
@@ -27,6 +28,7 @@ public class Bootstrap {
         components.add(new com.skyblockexp.ezeconomy.bootstrap.component.CacheComponent(plugin));
         components.add(new com.skyblockexp.ezeconomy.bootstrap.component.LockingComponent(plugin));
         components.add(new StorageComponent(plugin));
+        components.add(new MessagingComponent(plugin));
         components.add(new ManagersComponent(plugin));
         // Metrics component should be initialized after managers
         components.add(new MetricsComponent(plugin));

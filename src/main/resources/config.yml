@@ -67,6 +67,17 @@ multi-currency:
 # BUNGEECORD: use a proxy-backed lock transport via plugin messaging (requires bungeecord proxy component and bungeecord.yml).
 locking-strategy: LOCAL
 
+# Locking timing configuration (applies to all strategies)
+locking:
+  ttl-ms: 5000
+  retry-ms: 50
+  max-attempts: 100
+
+# Cross-server messaging (requires a proxy plugin: Velocity or BungeeCord)
+cross-server:
+  enabled: false
+  verbose-logging: false
+
 # Caching strategy used for in-memory / distributed caching. Options:
 #   LOCAL     - in-process memory cache only (default)
 #   REDIS     - use the Redis extension for a central cache

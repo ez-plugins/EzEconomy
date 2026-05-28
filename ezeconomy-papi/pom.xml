@@ -5,12 +5,11 @@
     <parent>
         <groupId>com.github.ez-plugins</groupId>
         <artifactId>ezeconomy-parent</artifactId>
-        <version>3.0.5</version>
+        <version>3.1.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     
     <artifactId>ezeconomy-papi</artifactId>
-    <version>3.0.5</version>
     <packaging>jar</packaging>
     <name>EzEconomy PlaceholderAPI Expansion</name>
     <properties>

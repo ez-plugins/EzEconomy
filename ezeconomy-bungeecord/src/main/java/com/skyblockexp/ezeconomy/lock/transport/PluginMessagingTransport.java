@@ -39,9 +39,10 @@ public class PluginMessagingTransport implements LockTransport, PluginMessageLis
         this.responseTimeoutMs = responseTimeoutMs;
         this.sharedSecret = sharedSecret == null ? "" : sharedSecret;
         try {
+            Bukkit.getMessenger().registerOutgoingPluginChannel(plugin, channel);
             Bukkit.getMessenger().registerIncomingPluginChannel(plugin, channel, this);
         } catch (Exception ex) {
-            plugin.getLogger().warning("Failed to register incoming plugin channel: " + ex.getMessage());
+            plugin.getLogger().warning("Failed to register plugin channels: " + ex.getMessage());
         }
     }
 

@@ -11,6 +11,12 @@ public class EzEconomyPapiPlugin extends JavaPlugin {
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+        org.bukkit.plugin.Plugin ezEconomy = Bukkit.getPluginManager().getPlugin("EzEconomy");
+        if (ezEconomy == null || !ezEconomy.isEnabled()) {
+            getLogger().warning("EzEconomy is not enabled; disabling EzEconomy-PAPI expansion.");
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
 
         // Register the expansion
         new EzEconomyPAPIExpansion(this).register();

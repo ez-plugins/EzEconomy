@@ -29,8 +29,11 @@
 - [Features - Multi-currency](docs/feature/multi-currency.md): Configure multiple currencies
 - [Features - Banking](docs/feature/banking.md): In-plugin bank accounts and permissions
 - [Features - Money formatting](docs/feature/money-formatting.md): Presentation options, locales, compact formats, and placeholders
+- [Cross-server messaging](docs/feature/cross-server.md): Velocity, BungeeCord, and Redis cross-server transports
 - [Caching strategy](docs/feature/caching-strategy.md): `LOCAL`, `REDIS`, `BUNGEECORD`, `DATABASE` options
 - [Locking strategy and options](docs/feature/locking-strategy.md): How to choose `LOCAL` vs `REDIS` and what each means
+- [Velocity integration](docs/integration/velocity.md): Velocity proxy setup for cross-server messaging
+- [BungeeCord integration](docs/integration/bungeecord.md): BungeeCord proxy locking and messaging
 - [Proxy & Redis notes](docs/integration/redis.md): Redis and proxy operational notes
 
 > Do you get the message "Missing message: ..."? Please check the latest available translations: https://github.com/ez-plugins/EzEconomy/tree/main/src/main/resources/languages
@@ -45,7 +48,9 @@ EzEconomy is designed for performance, reliability, and operational clarity. Hig
 - **YML, MySQL, SQLite, MongoDB, or custom storage**: Flexible, production-ready storage options
 - **Thread-safe**: Robust error handling and concurrency controls
 - **Multi-currency support**: Optional, per-player, fully configurable
-- **Async caching**: Optimized for large servers
+- **Cross-server messaging**: Payment notifications and player lists via Velocity, BungeeCord, or Redis pub/sub
+- **Distributed locking**: LOCAL, REDIS, or BUNGEECORD lock strategies for multi-server safety
+- **Async caching**: Optimised for large servers
 - **Comprehensive commands**: `/balance`, `/eco`, `/baltop`, `/bank`, `/pay`, `/currency`
 - **Granular permissions**: Per-command and per-bank action
 

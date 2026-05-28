@@ -17,6 +17,37 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
+## [3.1.0] - 2026-05-27
+
+### Added
+- **Velocity proxy support** - New `ezeconomy-velocity` module provides a Velocity proxy plugin for cross-server payment notifications and global player list broadcasting. Deploy `ezeconomy-velocity.jar` on your Velocity proxy alongside the main plugin on backend servers.
+- **Cross-server messaging layer** - New `MessagingService`, `MessagingTransport`, and `MessageType` abstractions in core. Supports three transports: Velocity plugin messaging, BungeeCord plugin messaging, and Redis pub/sub.
+- **Redis pub/sub messaging** - New `RedisMessagingTransport` in the `ezeconomy-redis` module enables proxy-independent cross-server messaging via Redis pub/sub. Ideal for multi-proxy setups or networks already running Redis.
+- **Pending notifications** - Payment notifications for offline players are now stored in the database and delivered on next join. Implemented in all four storage backends (YML, MySQL, SQLite, MongoDB).
+- **Player info persistence** - `StorageProvider.persistPlayerInfo()` stores UUID/name/display name on join, enabling `resolvePlayerByName()` for cross-server name lookups.
+- **Configurable lock timing** - New `locking` section in `config.yml` with `ttl-ms`, `retry-ms`, and `max-attempts` settings, replacing hardcoded values.
+- **VaultEconomyImpl distributed locking** - Withdraw and bank withdraw operations now acquire distributed locks (with local fallback) to prevent race conditions in multi-server environments.
+- **Cross-server documentation** - New `docs/feature/cross-server.md` and `docs/integration/velocity.md` covering all three messaging transports, configuration, and deployment.
+- **Velocity CI workflow** - GitHub Actions workflow for the `ezeconomy-velocity` module.
+- **MessagingComponent** - Bootstrap component that initialises cross-server messaging during plugin startup.
+- New message keys: `eco_give`, `baltop_footer`, `payment_cancelled`, `recipient_offline_queued`.
+- `/pay` alias: `ezpay`.
+
+### Changed
+- **BungeeCord proxy overhaul** - `EzBungeeProxyPlugin` now implements `Listener`, registers both `ezeconomy:locks` and `ezeconomy:notify` channels, handles payment notification forwarding, sends `RECIPIENT_OFFLINE` responses, and broadcasts the global player list every 3 seconds.
+- **BungeeCord proxy plugin.yml** - Fixed `main` class reference, added `description`, enabled resource filtering for `${project.version}`.
+- All sub-module POM versions now inherit from the parent (removed explicit `<version>` tags).
+- Updated README with cross-server messaging, Velocity integration, and distributed locking documentation links.
+- Updated `docs/feature/proxy-network.md` and `docs/integration/bungeecord.md` to reflect Velocity support and cross-server messaging.
+- `StorageProvider.transfer()` now uses configurable lock timing via `EzEconomyPlugin.getLockTtlMs/RetryMs/MaxAttempts()`.
+
+### Fixed
+- **BungeeCord proxy `plugin.yml`** - Main class was pointing to the wrong class (`EzBungeeProxy` instead of `EzBungeeProxyPlugin`).
+- **BungeeCord channel mismatches** - Unified lock and notification channels across server and proxy modules.
+- **PaymentExecutor cross-server notifications** - Offline recipients now receive payment notifications via cross-server messaging instead of silently dropping the message.
+
+---
+
 ## [3.0.5] - 2026-05-27
 
 ### Changed

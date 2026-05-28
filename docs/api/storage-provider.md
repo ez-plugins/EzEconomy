@@ -154,6 +154,21 @@ This section documents all methods of the `StorageProvider` interface. Implement
 - `Set<UUID> getBankMembers(String name)`  
   Get all member UUIDs of a bank.
 
+## Cross-Server Support (v3.1.0+)
+
+These default methods support cross-server payment notifications. Override them if your backend stores player data or pending messages.
+
+- `UUID resolvePlayerByName(String name)`  
+  Look up a player UUID by name. Default: returns null.
+- `void persistPlayerInfo(UUID uuid, String name, String displayName)`  
+  Store a player's UUID, name, and display name on join. Default: no-op.
+- `void insertPendingNotification(UUID targetUuid, String message)`  
+  Store a notification for an offline player. Default: no-op.
+- `List<String> pollPendingNotifications(UUID targetUuid)`  
+  Retrieve and delete pending notifications for a player. Default: returns empty list.
+- `void cleanupOldNotifications(long olderThanMs)`  
+  Remove notifications older than the given threshold. Default: no-op.
+
 ## Connection & Status
 
 - `boolean isConnected()`  

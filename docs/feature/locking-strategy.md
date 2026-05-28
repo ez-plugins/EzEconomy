@@ -11,17 +11,29 @@ parent: Features
 - Default: `LOCAL` (in-JVM locking). No extra setup required.
 - `REDIS` is optional and recommended only for multi-server setups that need cross-instance synchronization.
 
-## Config key
+## Config keys
 
 - `locking-strategy` (in the main `config.yml`)
   - Type: `string`
   - Allowed values: `LOCAL`, `REDIS`, `BUNGEECORD`
   - Default: `LOCAL`
 
+- `locking` section (in `config.yml`, added in v3.1.0):
+
+```yaml
+locking:
+  ttl-ms: 10000       # Lock expiry time in milliseconds
+  retry-ms: 50         # Delay between lock acquisition retries
+  max-attempts: 20     # Maximum retry attempts before giving up
+```
+
+These timing values apply to all lock strategies and replace the previously hardcoded defaults.
+
 ## When to use which
 
 - `LOCAL`: Single server or small networks where each server handles its own state. Easiest to run and troubleshoot.
 - `REDIS`: Multiple servers sharing the same economy state. Requires the `ezeconomy-redis` extension and a configured `redis.yml`.
+- `BUNGEECORD`: Proxy-backed locking via plugin messaging. Requires `ezeconomy-bungeecord-proxy` on the proxy. Single-authority model, not suitable for multi-proxy clusters.
 
 ## Behavior & safety
 
@@ -37,4 +49,6 @@ parent: Features
 
 ## See also
 
-- [docs/redis.md](docs/redis.md) — short guide for `redis.yml`, installation, and troubleshooting.
+- [Redis integration](../integration/redis.md) — `redis.yml` setup, installation, and troubleshooting.
+- [Cross-server messaging](cross-server.md) — payment notification transports.
+- [Proxy network](proxy-network.md) — BungeeCord proxy-backed locking and caching.

@@ -1,4 +1,5 @@
 name: EzEconomy-Bungeecord-Proxy
-main: com.skyblockexp.ezeconomy.bungeecord.proxy.EzBungeeProxy
-version: 0.1.0
+main: com.skyblockexp.ezeconomy.bungeecord.proxy.EzBungeeProxyPlugin
+version: ${project.version}
 author: EzEconomy
+description: Cross-server locking, caching, and payment forwarding for EzEconomy

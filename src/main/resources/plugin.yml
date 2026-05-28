@@ -26,6 +26,7 @@ commands:
   pay:
     description: Pay money to another player or all players
     usage: /pay <player|*> <amount> [currency]
+    aliases: [ezpay]
   payall:
     description: Pay money to all players (alias for /pay *)
     usage: /payall <amount> [currency]

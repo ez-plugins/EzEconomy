@@ -39,7 +39,19 @@ and async caching  all designed to keep your economy safe and fast under load.
 | --- | --- |
 | [Banking](feature/banking) | Shared bank accounts with member roles |
 | [Multi-Currency](feature/multi-currency) | Multiple currencies with conversion rates |
-| [Integrations](integration/) | Vault, PlaceholderAPI, Redis, BungeeCord |
+| [Cross-Server Messaging](feature/cross-server) | Payment notifications via Velocity, BungeeCord, or Redis |
+| [Locking Strategy](feature/locking-strategy) | LOCAL, REDIS, or BUNGEECORD distributed locking |
+| [Caching Strategy](feature/caching-strategy) | LOCAL, REDIS, BUNGEECORD, or DATABASE caching |
+
+## Integrations
+
+| Integration | Description |
+| --- | --- |
+| [Vault](integration/vault) | Automatic Vault economy provider registration |
+| [PlaceholderAPI](integration/placeholderapi) | Balance and bank placeholders |
+| [Velocity](integration/velocity) | Velocity proxy cross-server messaging |
+| [BungeeCord](integration/bungeecord) | BungeeCord proxy locking, caching, and messaging |
+| [Redis](integration/redis) | Redis distributed locking and pub/sub messaging |
 
 ## For Developers
 

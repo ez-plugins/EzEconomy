@@ -977,6 +977,49 @@ public class YMLStorageProvider implements StorageProvider {
     /**
      * Returns the set of orphaned player file names that would be deleted by cleanup.
      */
+    @Override
+    public void insertPendingNotification(UUID targetUuid, String message) {
+        File notifFile = new File(dataFolder, "pending_notifications.yml");
+        synchronized (playerLocks.computeIfAbsent(targetUuid, k -> new Object())) {
+            try {
+                YamlConfiguration cfg = notifFile.exists() ? YamlConfiguration.loadConfiguration(notifFile) : new YamlConfiguration();
+                String key = targetUuid.toString();
+                java.util.List<String> existing = cfg.getStringList(key);
+                existing.add(message);
+                cfg.set(key, existing);
+                cfg.save(notifFile);
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] YML insertPendingNotification failed: " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public java.util.List<String> pollPendingNotifications(UUID targetUuid) {
+        File notifFile = new File(dataFolder, "pending_notifications.yml");
+        java.util.List<String> messages = new java.util.ArrayList<>();
+        if (!notifFile.exists()) return messages;
+        synchronized (playerLocks.computeIfAbsent(targetUuid, k -> new Object())) {
+            try {
+                YamlConfiguration cfg = YamlConfiguration.loadConfiguration(notifFile);
+                String key = targetUuid.toString();
+                if (cfg.contains(key)) {
+                    messages.addAll(cfg.getStringList(key));
+                    cfg.set(key, null);
+                    cfg.save(notifFile);
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] YML pollPendingNotifications failed: " + e.getMessage());
+            }
+        }
+        return messages;
+    }
+
+    @Override
+    public void cleanupOldNotifications(long olderThanMs) {
+        // YML file-based notifications do not store timestamps; no-op.
+    }
+
     public java.util.Set<String> previewOrphanedPlayers() {
         Set<String> orphaned = new HashSet<>();
         File[] files = dataFolder.listFiles((dir, name) -> name.endsWith(".yml"));

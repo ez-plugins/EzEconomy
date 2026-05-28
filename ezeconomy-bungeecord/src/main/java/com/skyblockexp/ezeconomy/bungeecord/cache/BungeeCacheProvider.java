@@ -19,7 +19,7 @@ public class BungeeCacheProvider<K, V> implements CacheProvider<K, V> {
         try {
             EzEconomyPlugin plugin = EzEconomyPlugin.getInstance();
             if (plugin != null) {
-                String channel = plugin.getConfig().getString("bungee.channel", "ez:economy");
+                String channel = plugin.getConfig().getString("bungee.channel", "ezeconomy:locks");
                 long timeout = plugin.getConfig().getLong("bungee.response-timeout-ms", 5000L);
                 t = new PluginMessagingTransport(plugin, channel, timeout);
             }

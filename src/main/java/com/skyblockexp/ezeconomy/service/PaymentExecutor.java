@@ -137,6 +137,8 @@ public class PaymentExecutor {
                             } else {
                                 MessageUtils.send(toOffline.getPlayer(), plugin, "received", java.util.Map.of("player", from.getName(), "amount", receiverDisplay));
                             }
+                        } else {
+                            notifyCrossServer(plugin, toOffline.getUniqueId(), toOffline.getName(), from.getName(), receiverDisplay, recipientCurrency);
                         }
                         return true;
                     } finally {
@@ -203,6 +205,8 @@ public class PaymentExecutor {
                     } else {
                         MessageUtils.send(toOffline.getPlayer(), plugin, "received", java.util.Map.of("player", from.getName(), "amount", receiverDisplay));
                     }
+                } else {
+                    notifyCrossServer(plugin, toOffline.getUniqueId(), toOffline.getName(), from.getName(), receiverDisplay, recipientCurrency);
                 }
                 return true;
             } finally {
@@ -239,7 +243,19 @@ public class PaymentExecutor {
         }
         if (toOffline.isOnline() && toOffline.getPlayer() != null) {
             MessageUtils.send(toOffline.getPlayer(), plugin, "received", java.util.Map.of("player", from.getName(), "amount", amountWithSymbol));
+        } else {
+            notifyCrossServer(plugin, toOffline.getUniqueId(), toOffline.getName(), from.getName(), amountWithSymbol, currency);
         }
         return true;
+    }
+
+    private static void notifyCrossServer(EzEconomyPlugin plugin, UUID recipientUuid,
+                                           String recipientName, String senderName,
+                                           String amount, String currency) {
+        if (!plugin.getConfig().getBoolean("cross-server.enabled", false)) return;
+        com.skyblockexp.ezeconomy.messaging.MessagingService ms = plugin.getMessagingService();
+        if (ms == null) return;
+        ms.sendPaymentNotification(recipientUuid, recipientName, senderName, amount, currency);
+        plugin.getLogger().info("PaymentExecutor: sent cross-server notification for " + recipientName);
     }
 }

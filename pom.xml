@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.ez-plugins</groupId>
     <artifactId>ezeconomy-parent</artifactId>
-    <version>3.0.5</version>
+    <version>3.1.0</version>
     <packaging>pom</packaging>
     <name>EzEconomy</name>
     <description>Vault-compatible economy provider with YML and MySQL support</description>
@@ -14,6 +14,7 @@
         <module>ezeconomy-papi</module>
         <module>ezeconomy-bungeecord</module>
         <module>ezeconomy-bungeecord-proxy</module>
+        <module>ezeconomy-velocity</module>
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

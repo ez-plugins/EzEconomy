@@ -107,6 +107,12 @@ public class SQLiteStorageProvider implements StorageProvider {
                     .column("id", "TEXT").primaryKey("id")
                     .column("uuid", "TEXT").column("currency", "TEXT").column("amount", "DOUBLE").column("timestamp", "INTEGER")
                     .build(SqlDialect.SQLITE).getSql(), noParams);
+            tempJdbc.executeUpdate("CREATE TABLE IF NOT EXISTS ezeconomy_pending_notifications ("
+                    + "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                    + "uuid TEXT NOT NULL, "
+                    + "message TEXT NOT NULL, "
+                    + "created_at INTEGER DEFAULT (strftime('%s','now'))"
+                    + ")", noParams);
             initRepositories();
         } catch (Exception e) {
             plugin.getLogger().severe("SQLite connection failed: " + e.getMessage());
@@ -963,6 +969,71 @@ public class SQLiteStorageProvider implements StorageProvider {
                 transactionRepo.save(TransactionModel.fromTransaction(tx));
             } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] SQLite logTransaction failed: " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public void insertPendingNotification(UUID targetUuid, String message) {
+        synchronized (lock) {
+            try {
+                if (connection == null || connection.isClosed()) return;
+                try (PreparedStatement stmt = connection.prepareStatement(
+                        "INSERT INTO ezeconomy_pending_notifications (uuid, message) VALUES (?, ?)")) {
+                    stmt.setString(1, targetUuid.toString());
+                    stmt.setString(2, message);
+                    stmt.executeUpdate();
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] SQLite insertPendingNotification failed: " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public java.util.List<String> pollPendingNotifications(UUID targetUuid) {
+        java.util.List<String> messages = new java.util.ArrayList<>();
+        synchronized (lock) {
+            try {
+                if (connection == null || connection.isClosed()) return messages;
+                try (PreparedStatement stmt = connection.prepareStatement(
+                        "SELECT id, message FROM ezeconomy_pending_notifications WHERE uuid = ? ORDER BY created_at ASC")) {
+                    stmt.setString(1, targetUuid.toString());
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        java.util.List<Long> ids = new java.util.ArrayList<>();
+                        while (rs.next()) {
+                            ids.add(rs.getLong("id"));
+                            messages.add(rs.getString("message"));
+                        }
+                        for (Long id : ids) {
+                            try (PreparedStatement del = connection.prepareStatement(
+                                    "DELETE FROM ezeconomy_pending_notifications WHERE id = ?")) {
+                                del.setLong(1, id);
+                                del.executeUpdate();
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] SQLite pollPendingNotifications failed: " + e.getMessage());
+            }
+        }
+        return messages;
+    }
+
+    @Override
+    public void cleanupOldNotifications(long olderThanMs) {
+        synchronized (lock) {
+            try {
+                if (connection == null || connection.isClosed()) return;
+                long cutoff = (System.currentTimeMillis() - olderThanMs) / 1000;
+                try (PreparedStatement stmt = connection.prepareStatement(
+                        "DELETE FROM ezeconomy_pending_notifications WHERE created_at < ?")) {
+                    stmt.setLong(1, cutoff);
+                    stmt.executeUpdate();
+                }
+            } catch (Exception e) {
+                plugin.getLogger().warning("[EzEconomy] SQLite cleanupOldNotifications failed: " + e.getMessage());
             }
         }
     }
