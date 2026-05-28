@@ -23,17 +23,6 @@ daily-reward:
 store-on-join:
   enabled: false
 
-# Cross-server messaging (requires a proxy plugin: Velocity or BungeeCord)
-cross-server:
-  enabled: false
-  verbose-logging: false
-
-# Locking timing configuration (applies to all strategies)
-locking:
-  ttl-ms: 5000
-  retry-ms: 50
-  max-attempts: 100
-
 # Banking feature toggle: set to `false` to disable built-in bank subsystem
 # (commands, GUIs, Vault bank methods, and bank PAPI placeholders).
 banking:
@@ -77,6 +66,17 @@ multi-currency:
 # REDIS: uses a distributed Redis lock (requires ezeconomy-redis extension and redis.yml).
 # BUNGEECORD: use a proxy-backed lock transport via plugin messaging (requires bungeecord proxy component and bungeecord.yml).
 locking-strategy: LOCAL
+
+# Locking timing configuration (applies to all strategies)
+locking:
+  ttl-ms: 5000
+  retry-ms: 50
+  max-attempts: 100
+
+# Cross-server messaging (requires a proxy plugin: Velocity or BungeeCord)
+cross-server:
+  enabled: false
+  verbose-logging: false
 
 # Caching strategy used for in-memory / distributed caching. Options:
 #   LOCAL     - in-process memory cache only (default)
