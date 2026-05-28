@@ -31,18 +31,37 @@ public class PaymentExecutor {
         if (storage == null) return true;
         plugin.getLogger().info("PaymentExecutor: start execute from=" + from.getName() + " toName=" + toName + " amount=" + netAmount + " currency=" + currency + " knownOffline=" + knownOffline);
 
-        // Try online fast path
         Player online = Bukkit.getPlayerExact(toName);
-        OfflinePlayer toOffline = online != null ? online : Bukkit.getOfflinePlayer(toName);
+        OfflinePlayer toOffline = online != null ? online : null;
 
         UUID fromUuid = from.getUniqueId();
 
-        // If recipient is not online and not known to the server, treat as not found.
-        if (online == null && !knownOffline) {
-            // If OfflinePlayer has played before, consider known
-            boolean hasPlayed = toOffline != null && toOffline.hasPlayedBefore();
-            plugin.getLogger().info("PaymentExecutor: recipient online=null knownOffline=false toOffline=" + (toOffline!=null) + " hasPlayedBefore=" + hasPlayed);
-            if (toOffline == null || !hasPlayed) {
+        if (online == null) {
+            OfflinePlayer localOffline = Bukkit.getOfflinePlayer(toName);
+            boolean localKnown = localOffline != null && localOffline.hasPlayedBefore();
+
+            if (localKnown) {
+                toOffline = localOffline;
+            } else if (knownOffline) {
+                UUID resolvedUuid = null;
+                com.skyblockexp.ezeconomy.messaging.MessagingService ms = plugin.getMessagingService();
+                if (ms != null) {
+                    resolvedUuid = ms.getNetworkPlayerUuid(toName);
+                }
+                if (resolvedUuid == null) {
+                    StorageProvider storageForResolve = plugin.getStorageOrWarn();
+                    if (storageForResolve != null) {
+                        resolvedUuid = storageForResolve.resolvePlayerByName(toName);
+                    }
+                }
+                if (resolvedUuid != null) {
+                    toOffline = Bukkit.getOfflinePlayer(resolvedUuid);
+                } else {
+                    toOffline = localOffline;
+                }
+            }
+
+            if (toOffline == null) {
                 plugin.getLogger().info("PaymentExecutor: recipient not found, aborting");
                 MessageUtils.send(from, plugin, "player_not_found");
                 return true;

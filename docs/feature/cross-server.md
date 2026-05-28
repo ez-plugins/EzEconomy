@@ -6,7 +6,7 @@ parent: Features
 
 # Cross-Server Messaging
 
-EzEconomy v3.1.0 introduces a unified cross-server messaging layer that handles payment notifications, player list synchronisation, and pending offline notifications across multiple backend servers.
+EzEconomy v3.1.0 introduced a unified cross-server messaging layer that handles payment notifications, player list synchronisation, and pending offline notifications across multiple backend servers. v3.1.1 fixes cross-server `/pay` resolution so that payments work correctly when the recipient has never joined the sender's server.
 
 ## Available Transports
 

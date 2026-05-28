@@ -232,7 +232,6 @@ public class PayCommand implements CommandExecutor {
         if (online != null) {
             knownOffline = true;
         } else {
-            // Use PlayerLookup to avoid expensive or blocking lookups.
             var maybe = com.skyblockexp.ezeconomy.util.PlayerLookup.findByName(operands[0]);
             if (maybe.isPresent()) {
                 OfflinePlayer sample = maybe.get();
@@ -247,8 +246,20 @@ public class PayCommand implements CommandExecutor {
                                 knownOffline = true;
                             }
                         }
-                    } catch (Exception ignored) {
-                        // swallow and treat as unknown
+                    } catch (Exception ignored) {}
+                }
+            }
+            if (!knownOffline) {
+                com.skyblockexp.ezeconomy.messaging.MessagingService ms = plugin.getMessagingService();
+                if (ms != null && ms.isNetworkPlayer(operands[0])) {
+                    knownOffline = true;
+                } else {
+                    var storage = plugin.getStorageOrWarn();
+                    if (storage != null) {
+                        UUID resolved = storage.resolvePlayerByName(operands[0]);
+                        if (resolved != null) {
+                            knownOffline = true;
+                        }
                     }
                 }
             }
