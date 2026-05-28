@@ -328,7 +328,7 @@
         <dependency>
             <groupId>com.github.EzFramework</groupId>
             <artifactId>Jaloquent</artifactId>
-            <version>1.3.0</version>
+            <version>1.3.3</version>
         </dependency>
         <dependency>
             <groupId>io.micrometer</groupId>
@@ -338,7 +338,7 @@
         <dependency>
             <groupId>com.github.EzFramework</groupId>
             <artifactId>JavaQueryBuilder</artifactId>
-            <version>1.2.0</version>
+            <version>1.2.1</version>
         </dependency>
         <!-- Jaker is optional in Jaloquent but required for Factory definitions in tests -->
         <dependency>
