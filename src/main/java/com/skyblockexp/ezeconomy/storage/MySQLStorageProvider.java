@@ -1069,7 +1069,7 @@ public class MySQLStorageProvider implements StorageProvider {
     public void insertPendingNotification(UUID targetUuid, String message) {
         synchronized (lock) {
             try {
-                ensureConnected();
+                if (connection == null || connection.isClosed()) return;
                 try (PreparedStatement stmt = connection.prepareStatement(
                         "INSERT INTO ezeconomy_pending_notifications (uuid, message, created_at) VALUES (?, ?, NOW())")) {
                     stmt.setString(1, targetUuid.toString());
@@ -1087,7 +1087,7 @@ public class MySQLStorageProvider implements StorageProvider {
         java.util.List<String> messages = new java.util.ArrayList<>();
         synchronized (lock) {
             try {
-                ensureConnected();
+                if (connection == null || connection.isClosed()) return messages;
                 try (PreparedStatement stmt = connection.prepareStatement(
                         "SELECT id, message FROM ezeconomy_pending_notifications WHERE uuid = ? ORDER BY created_at ASC")) {
                     stmt.setString(1, targetUuid.toString());
@@ -1120,7 +1120,7 @@ public class MySQLStorageProvider implements StorageProvider {
     public void cleanupOldNotifications(long olderThanMs) {
         synchronized (lock) {
             try {
-                ensureConnected();
+                if (connection == null || connection.isClosed()) return;
                 try (PreparedStatement stmt = connection.prepareStatement(
                         "DELETE FROM ezeconomy_pending_notifications WHERE created_at < DATE_SUB(NOW(), INTERVAL ? SECOND)")) {
                     stmt.setLong(1, olderThanMs / 1000);

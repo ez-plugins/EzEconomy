@@ -66,6 +66,31 @@ caching-strategy: LOCAL
 
 If `caching-strategy` is not present, the plugin will fallback to the older `locking-strategy` value for backward compatibility.
 
+### Locking
+
+Configure how EzEconomy handles distributed lock acquisition for transfer operations.
+
+```yaml
+locking:
+  ttl-ms: 5000         # How long a lock is held before automatic expiry
+  retry-ms: 50         # Delay between lock acquisition retries
+  max-attempts: 100    # Maximum retry attempts before giving up
+```
+
+These values apply regardless of the chosen `locking-strategy` (`LOCAL`, `REDIS`, or `BUNGEECORD`).
+
+### Cross-server messaging
+
+Enable cross-server payment notifications and player list synchronisation. Requires a shared storage backend (MySQL or MongoDB) for full functionality.
+
+```yaml
+cross-server:
+  enabled: true
+  verbose-logging: false
+```
+
+The transport is auto-detected based on which extensions are loaded (Velocity, BungeeCord, or Redis). See [Cross-server messaging](feature/cross-server.md) for details.
+
 ### Notes
 
 - `storage` must match one of the supported providers: `yml`, `mysql`, `sqlite`, `mongodb`, or `custom`.

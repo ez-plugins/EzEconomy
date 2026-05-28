@@ -4,15 +4,12 @@ nav_order: 3
 parent: Integrations
 ---
 
-# redis.yml — Redis lock configuration (short guide)
+# redis.yml — Redis configuration (short guide)
 
 ## Quick summary
 
 - Redis is optional. The plugin defaults to local (in-JVM) locking for single-server setups.
-- Use Redis only for multi-server deployments that need cross-instance locking.
-- The Redis implementation is shipped as an optional extension jar (`ezeconomy-redis.jar`).
-- Redis is optional. The plugin defaults to local (in-JVM) locking for single-server setups.
-- Use Redis only for multi-server deployments that need cross-instance locking.
+- Use Redis for multi-server deployments that need cross-instance locking and/or cross-server messaging.
 - The Redis implementation is shipped as an optional extension jar (`ezeconomy-redis.jar`).
 
 ## Enable Redis (high level)
@@ -69,7 +66,28 @@ fallback-to-local: true
 
 - The repository includes unit tests that mock Redis for local CI. For full integration, run the Testcontainers-based CI job or test against a local Redis instance.
 
+## Cross-Server Messaging via Redis
+
+As of v3.1.0, the `ezeconomy-redis` extension also provides `RedisMessagingTransport` for proxy-independent cross-server payment notifications. This uses Redis pub/sub and does not require a Velocity or BungeeCord proxy.
+
+Add to `redis.yml`:
+
+```yaml
+messaging:
+  channel: ezeconomy:messages
+```
+
+Enable cross-server messaging in `config.yml`:
+
+```yaml
+cross-server:
+  enabled: true
+```
+
+See [Cross-server messaging](../feature/cross-server.md) for transport comparison and configuration details.
+
 ## See also
 
-- `docs/locking-strategy.md` — how to choose LOCAL vs REDIS.
-- Source: `RedisLockManager` implementation (extension module).
+- [Locking strategy](../feature/locking-strategy.md) — how to choose LOCAL vs REDIS vs BUNGEECORD.
+- [Cross-server messaging](../feature/cross-server.md) — all messaging transport options.
+- Source: `RedisLockManager` and `RedisMessagingTransport` (extension module).

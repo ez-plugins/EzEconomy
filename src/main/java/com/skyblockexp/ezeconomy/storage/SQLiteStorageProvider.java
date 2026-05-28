@@ -977,7 +977,7 @@ public class SQLiteStorageProvider implements StorageProvider {
     public void insertPendingNotification(UUID targetUuid, String message) {
         synchronized (lock) {
             try {
-                ensureConnection();
+                if (connection == null || connection.isClosed()) return;
                 try (PreparedStatement stmt = connection.prepareStatement(
                         "INSERT INTO ezeconomy_pending_notifications (uuid, message) VALUES (?, ?)")) {
                     stmt.setString(1, targetUuid.toString());
@@ -995,7 +995,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         java.util.List<String> messages = new java.util.ArrayList<>();
         synchronized (lock) {
             try {
-                ensureConnection();
+                if (connection == null || connection.isClosed()) return messages;
                 try (PreparedStatement stmt = connection.prepareStatement(
                         "SELECT id, message FROM ezeconomy_pending_notifications WHERE uuid = ? ORDER BY created_at ASC")) {
                     stmt.setString(1, targetUuid.toString());
@@ -1025,7 +1025,7 @@ public class SQLiteStorageProvider implements StorageProvider {
     public void cleanupOldNotifications(long olderThanMs) {
         synchronized (lock) {
             try {
-                ensureConnection();
+                if (connection == null || connection.isClosed()) return;
                 long cutoff = (System.currentTimeMillis() - olderThanMs) / 1000;
                 try (PreparedStatement stmt = connection.prepareStatement(
                         "DELETE FROM ezeconomy_pending_notifications WHERE created_at < ?")) {
