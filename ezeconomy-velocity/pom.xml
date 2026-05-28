@@ -6,7 +6,7 @@
     <parent>
         <groupId>com.github.ez-plugins</groupId>
         <artifactId>ezeconomy-parent</artifactId>
-        <version>3.1.1</version>
+        <version>3.1.0</version>
     </parent>
     <artifactId>ezeconomy-velocity</artifactId>
     <packaging>jar</packaging>
