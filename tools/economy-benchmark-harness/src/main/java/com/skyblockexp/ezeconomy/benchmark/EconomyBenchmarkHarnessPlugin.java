@@ -1,6 +1,7 @@
 package com.skyblockexp.ezeconomy.benchmark;
 
 import net.milkbowl.vault.economy.Economy;
+import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -64,6 +65,9 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
             ex.printStackTrace();
         }
 
+        runBankBenchmarks(economy, activeProvider, pluginUnderTest, pluginVersion, storageMode, redisMode,
+            warmupIterations, measureIterations, runId, runAttempt);
+        getLogger().info("All benchmark results written");
         shutdown();
     }
 
@@ -322,6 +326,203 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
 
     private void shutdown() {
         Bukkit.getScheduler().runTask(this, Bukkit::shutdown);
+    }
+
+    // ---- Bank benchmarks ----
+
+    private void runBankBenchmarks(Economy economy, String activeProvider,
+            String pluginUnderTest, String pluginVersion, String storageMode, String redisMode,
+            int warmupIterations, int measureIterations, String runId, String runAttempt) {
+        if (!economy.hasBankSupport()) {
+            writeBankSkip(pluginUnderTest, pluginVersion, storageMode, redisMode,
+                "Vault bank API not supported by this economy provider");
+            return;
+        }
+
+        org.bukkit.OfflinePlayer bankOwner = Bukkit.getOfflinePlayer(
+            UUID.fromString("22222222-2222-2222-2222-222222222222"));
+        String bankName = "ez-bench";
+
+        economy.deleteBank(bankName);
+        economy.createBank(bankName, bankOwner);
+
+        try {
+            BenchResult bankDeposit = benchBankDeposit(economy, bankName, warmupIterations, measureIterations);
+            BenchResult bankWithdraw = benchBankWithdraw(economy, bankName, warmupIterations, measureIterations);
+            BenchResult bankBalanceHas = benchBankBalanceHas(economy, bankName, warmupIterations, measureIterations);
+
+            writeBankOutputs(pluginUnderTest, pluginVersion, storageMode, redisMode, warmupIterations,
+                measureIterations, runId, runAttempt, activeProvider, bankDeposit, bankWithdraw, bankBalanceHas);
+        } catch (Exception ex) {
+            writeBankFailure(pluginUnderTest, pluginVersion, storageMode, redisMode, warmupIterations,
+                measureIterations, "Bank benchmark failed: " + ex.getClass().getSimpleName() + ": " + ex.getMessage());
+            getLogger().warning("Bank benchmark failed");
+            ex.printStackTrace();
+        } finally {
+            economy.deleteBank(bankName);
+        }
+    }
+
+    private static BenchResult benchBankDeposit(Economy economy, String bankName, int warmup, int iterations) {
+        for (int i = 0; i < warmup; i++) {
+            bankDeposit(economy, bankName, 1.0D);
+        }
+        long totalNanos = 0L;
+        long[] samples = new long[iterations];
+        RamStats ramStats = new RamStats();
+        for (int i = 0; i < iterations; i++) {
+            long start = System.nanoTime();
+            bankDeposit(economy, bankName, 1.0D);
+            long elapsed = System.nanoTime() - start;
+            samples[i] = elapsed;
+            totalNanos += elapsed;
+            ramStats.capture();
+        }
+        return BenchResult.from("bank_deposit", totalNanos, samples, ramStats);
+    }
+
+    private static BenchResult benchBankWithdraw(Economy economy, String bankName, int warmup, int iterations) {
+        bankDeposit(economy, bankName, warmup + iterations + 100.0D);
+        for (int i = 0; i < warmup; i++) {
+            bankWithdraw(economy, bankName, 1.0D);
+        }
+        long totalNanos = 0L;
+        long[] samples = new long[iterations];
+        RamStats ramStats = new RamStats();
+        for (int i = 0; i < iterations; i++) {
+            long start = System.nanoTime();
+            bankWithdraw(economy, bankName, 1.0D);
+            long elapsed = System.nanoTime() - start;
+            samples[i] = elapsed;
+            totalNanos += elapsed;
+            ramStats.capture();
+        }
+        return BenchResult.from("bank_withdraw", totalNanos, samples, ramStats);
+    }
+
+    private static BenchResult benchBankBalanceHas(Economy economy, String bankName, int warmup, int iterations) {
+        bankDeposit(economy, bankName, 1000.0D);
+        for (int i = 0; i < warmup; i++) {
+            bankBalance(economy, bankName);
+            bankHas(economy, bankName, 1.0D);
+        }
+        long totalNanos = 0L;
+        long[] samples = new long[iterations];
+        RamStats ramStats = new RamStats();
+        for (int i = 0; i < iterations; i++) {
+            long start = System.nanoTime();
+            bankBalance(economy, bankName);
+            bankHas(economy, bankName, 1.0D);
+            long elapsed = System.nanoTime() - start;
+            samples[i] = elapsed;
+            totalNanos += elapsed;
+            ramStats.capture();
+        }
+        return BenchResult.from("bank_balance_has", totalNanos, samples, ramStats);
+    }
+
+    private static void bankDeposit(Economy economy, String bankName, double amount) {
+        economy.bankDeposit(bankName, amount);
+    }
+
+    private static void bankWithdraw(Economy economy, String bankName, double amount) {
+        economy.bankWithdraw(bankName, amount);
+    }
+
+    private static double bankBalance(Economy economy, String bankName) {
+        EconomyResponse resp = economy.bankBalance(bankName);
+        return resp != null ? resp.balance : 0.0D;
+    }
+
+    private static boolean bankHas(Economy economy, String bankName, double amount) {
+        EconomyResponse resp = economy.bankHas(bankName, amount);
+        return resp != null && resp.transactionSuccess();
+    }
+
+    private void writeBankOutputs(String plugin, String pluginVersion, String storage, String redis,
+                                  int warmup, int iterations, String runId, String runAttempt, String provider,
+                                  BenchResult bankDeposit, BenchResult bankWithdraw, BenchResult bankBalanceHas) {
+        File outDir = new File(getDataFolder(), "results");
+        if (!outDir.exists() && !outDir.mkdirs()) {
+            getLogger().warning("Failed to create results directory: " + outDir.getAbsolutePath());
+            return;
+        }
+
+        File jsonFile = new File(outDir, "result-bank.json");
+        File csvFile = new File(outDir, "result-bank.csv");
+
+        String now = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date());
+
+        String json = "{\n"
+            + "  \"status\": \"ok\",\n"
+            + "  \"plugin\": \"" + escape(plugin) + "\",\n"
+            + "  \"pluginVersion\": \"" + escape(pluginVersion) + "\",\n"
+            + "  \"activeVaultProvider\": \"" + escape(provider) + "\",\n"
+            + "  \"storage\": \"" + escape(storage) + "\",\n"
+            + "  \"redis\": \"" + escape(redis) + "\",\n"
+            + "  \"warmupIterations\": " + warmup + ",\n"
+            + "  \"measureIterations\": " + iterations + ",\n"
+            + "  \"runId\": \"" + escape(runId) + "\",\n"
+            + "  \"runAttempt\": \"" + escape(runAttempt) + "\",\n"
+            + "  \"timestamp\": \"" + escape(now) + "\",\n"
+            + "  \"metrics\": {\n"
+            + metricJson("bank_deposit", bankDeposit) + ",\n"
+            + metricJson("bank_withdraw", bankWithdraw) + ",\n"
+            + metricJson("bank_balance_has", bankBalanceHas) + "\n"
+            + "  }\n"
+            + "}\n";
+
+        writeText(jsonFile, json);
+
+        String csv = "plugin,plugin_version,active_provider,storage,redis,operation,average_ns,average_ms,p95_ns,p95_ms,avg_used_ram_bytes,avg_used_ram_mib,peak_used_ram_bytes,peak_used_ram_mib,iterations,warmup,timestamp\n"
+            + csvLine(plugin, pluginVersion, provider, storage, redis, bankDeposit, iterations, warmup, now)
+            + csvLine(plugin, pluginVersion, provider, storage, redis, bankWithdraw, iterations, warmup, now)
+            + csvLine(plugin, pluginVersion, provider, storage, redis, bankBalanceHas, iterations, warmup, now);
+
+        writeText(csvFile, csv);
+        getLogger().info("Bank benchmark results written to " + outDir.getAbsolutePath());
+    }
+
+    private void writeBankSkip(String plugin, String pluginVersion, String storage, String redis, String reason) {
+        File outDir = new File(getDataFolder(), "results");
+        if (!outDir.exists()) {
+            outDir.mkdirs();
+        }
+        File jsonFile = new File(outDir, "result-bank.json");
+        String now = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date());
+        String json = "{\n"
+            + "  \"status\": \"skipped\",\n"
+            + "  \"plugin\": \"" + escape(plugin) + "\",\n"
+            + "  \"pluginVersion\": \"" + escape(pluginVersion) + "\",\n"
+            + "  \"storage\": \"" + escape(storage) + "\",\n"
+            + "  \"redis\": \"" + escape(redis) + "\",\n"
+            + "  \"timestamp\": \"" + escape(now) + "\",\n"
+            + "  \"reason\": \"" + escape(reason) + "\"\n"
+            + "}\n";
+        writeText(jsonFile, json);
+        getLogger().info("Bank benchmark skipped: " + reason);
+    }
+
+    private void writeBankFailure(String plugin, String pluginVersion, String storage, String redis,
+                                  int warmup, int iterations, String reason) {
+        File outDir = new File(getDataFolder(), "results");
+        if (!outDir.exists()) {
+            outDir.mkdirs();
+        }
+        File jsonFile = new File(outDir, "result-bank.json");
+        String now = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(new Date());
+        String json = "{\n"
+            + "  \"status\": \"failed\",\n"
+            + "  \"plugin\": \"" + escape(plugin) + "\",\n"
+            + "  \"pluginVersion\": \"" + escape(pluginVersion) + "\",\n"
+            + "  \"storage\": \"" + escape(storage) + "\",\n"
+            + "  \"redis\": \"" + escape(redis) + "\",\n"
+            + "  \"warmupIterations\": " + warmup + ",\n"
+            + "  \"measureIterations\": " + iterations + ",\n"
+            + "  \"timestamp\": \"" + escape(now) + "\",\n"
+            + "  \"reason\": \"" + escape(reason) + "\"\n"
+            + "}\n";
+        writeText(jsonFile, json);
     }
 
     private static final class BenchResult {

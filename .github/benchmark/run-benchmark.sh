@@ -18,7 +18,7 @@ while [[ $ELAPSED -lt $TIMEOUT ]]; do
   sleep 5
   ELAPSED=$((ELAPSED + 5))
 
-  if [[ -f logs/latest.log ]] && grep -q "Benchmark results written" logs/latest.log; then
+  if [[ -f logs/latest.log ]] && grep -q "All benchmark results written" logs/latest.log; then
     echo "Benchmark complete after ${ELAPSED}s"
     break
   fi
@@ -64,6 +64,14 @@ else
 plugin,plugin_version,active_provider,storage,redis,operation,average_ns,average_ms,p95_ns,p95_ms,avg_used_ram_bytes,avg_used_ram_mib,peak_used_ram_bytes,peak_used_ram_mib,iterations,warmup,timestamp
 "${BENCH_PLUGIN}","${BENCH_PLUGIN_VERSION:-unknown}","N/A","${BENCH_STORAGE}","${BENCH_REDIS}","N/A",0,0,0,0,0,0,0,0,0,0,"N/A"
 CSV
+fi
+
+if [[ -f plugins/EconomyBenchmarkHarness/results/result-bank.json ]]; then
+  cp plugins/EconomyBenchmarkHarness/results/result-bank.json "../$RESULT_DIR/result-bank.json"
+fi
+
+if [[ -f plugins/EconomyBenchmarkHarness/results/result-bank.csv ]]; then
+  cp plugins/EconomyBenchmarkHarness/results/result-bank.csv "../$RESULT_DIR/result-bank.csv"
 fi
 
 cp -r logs "../$RESULT_DIR/server-logs" || true

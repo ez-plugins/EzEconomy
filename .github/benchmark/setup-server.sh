@@ -19,8 +19,8 @@ case "${BENCH_PLUGIN:?BENCH_PLUGIN required}" in
   essentialsx)
     cp "${ESSENTIALSX_JAR_PATH:?ESSENTIALSX_JAR_PATH required}" "$SERVER_DIR/plugins/EssentialsX.jar"
     ;;
-  cmi)
-    cp "${CMI_JAR_PATH:?CMI_JAR_PATH required}" "$SERVER_DIR/plugins/CMI.jar"
+  xconomy)
+    cp "${XCONOMY_JAR_PATH:?XCONOMY_JAR_PATH required}" "$SERVER_DIR/plugins/XConomy.jar"
     ;;
   *)
     echo "Unknown BENCH_PLUGIN: ${BENCH_PLUGIN}" >&2

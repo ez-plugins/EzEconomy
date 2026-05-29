@@ -6,11 +6,23 @@ import os
 from pathlib import Path
 
 OPS = ["deposit", "withdraw", "balance_has"]
+BANK_OPS = ["bank_deposit", "bank_withdraw", "bank_balance_has"]
 
 
 def load_results(root: Path):
     rows = []
     for path in root.rglob("result.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        rows.append(data)
+    return rows
+
+
+def load_bank_results(root: Path):
+    rows = []
+    for path in root.rglob("result-bank.json"):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except Exception:
@@ -90,6 +102,33 @@ def make_summary(rows):
     return "\n".join(lines) + "\n"
 
 
+def make_bank_summary(rows):
+    lines = []
+    lines.append("| Plugin | Version | Storage | Redis | Status | BankDeposit avg (ms) | BankWithdraw avg (ms) | BankBalance/Has avg (ms) | RAM avg (MiB) | RAM peak (MiB) |")
+    lines.append("|---|---|---|---|---|---:|---:|---:|---:|---:|")
+
+    for r in sorted(rows, key=key):
+        status = r.get("status", "unknown")
+        dep = metric(r, "bank_deposit", "averageMs")
+        wdr = metric(r, "bank_withdraw", "averageMs")
+        bal = metric(r, "bank_balance_has", "averageMs")
+        ram_avg = metric(r, "bank_balance_has", "avgUsedRamMiB")
+        ram_peak = metric(r, "bank_balance_has", "peakUsedRamMiB")
+
+        if status == "skipped":
+            reason = r.get("reason", "unsupported")
+            status = f"skipped ({reason})"
+        elif status == "failed":
+            reason = r.get("reason", "error")
+            status = f"failed ({reason})"
+
+        lines.append(
+            f"| {r.get('plugin','unknown')} | {r.get('pluginVersion','unknown')} | {r.get('storage','unknown')} | {r.get('redis','unknown')} | {status} | {fmt_ms(dep)} | {fmt_ms(wdr)} | {fmt_ms(bal)} | {fmt_mib(ram_avg)} | {fmt_mib(ram_peak)} |"
+        )
+
+    return "\n".join(lines) + "\n"
+
+
 def write_csv(rows, out_path: Path):
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as f:
@@ -124,6 +163,40 @@ def write_csv(rows, out_path: Path):
             ])
 
 
+def write_bank_csv(rows, out_path: Path):
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "plugin", "pluginVersion", "storage", "redis", "status", "reason",
+            "bank_deposit_avg_ms", "bank_withdraw_avg_ms", "bank_balance_has_avg_ms",
+            "bank_deposit_p95_ms", "bank_withdraw_p95_ms", "bank_balance_has_p95_ms",
+            "bank_deposit_avg_ram_mib", "bank_withdraw_avg_ram_mib", "bank_balance_has_avg_ram_mib",
+            "bank_deposit_peak_ram_mib", "bank_withdraw_peak_ram_mib", "bank_balance_has_peak_ram_mib"
+        ])
+        for r in sorted(rows, key=key):
+            writer.writerow([
+                r.get("plugin", "unknown"),
+                r.get("pluginVersion", "unknown"),
+                r.get("storage", "unknown"),
+                r.get("redis", "unknown"),
+                r.get("status", "unknown"),
+                r.get("reason", ""),
+                metric(r, "bank_deposit", "averageMs"),
+                metric(r, "bank_withdraw", "averageMs"),
+                metric(r, "bank_balance_has", "averageMs"),
+                metric(r, "bank_deposit", "p95Ms"),
+                metric(r, "bank_withdraw", "p95Ms"),
+                metric(r, "bank_balance_has", "p95Ms"),
+                metric(r, "bank_deposit", "avgUsedRamMiB"),
+                metric(r, "bank_withdraw", "avgUsedRamMiB"),
+                metric(r, "bank_balance_has", "avgUsedRamMiB"),
+                metric(r, "bank_deposit", "peakUsedRamMiB"),
+                metric(r, "bank_withdraw", "peakUsedRamMiB"),
+                metric(r, "bank_balance_has", "peakUsedRamMiB"),
+            ])
+
+
 def validate(rows):
     for r in rows:
         status = r.get("status")
@@ -150,6 +223,8 @@ def main():
     parser.add_argument("--out-json", required=True)
     parser.add_argument("--out-csv", required=True)
     parser.add_argument("--out-md", required=True)
+    parser.add_argument("--out-bank-json")
+    parser.add_argument("--out-bank-csv")
     args = parser.parse_args()
 
     root = Path(args.input)
@@ -166,15 +241,29 @@ def main():
     write_csv(rows, Path(args.out_csv))
 
     summary = make_summary(rows)
+
+    bank_rows = load_bank_results(root)
+    bank_section = ""
+    if bank_rows:
+        bank_section = "\n## Bank Operation Benchmarks\n\n" + make_bank_summary(bank_rows) + "\n"
+        if args.out_bank_json:
+            out_bank_json = Path(args.out_bank_json)
+            out_bank_json.parent.mkdir(parents=True, exist_ok=True)
+            out_bank_json.write_text(json.dumps(bank_rows, indent=2), encoding="utf-8")
+        if args.out_bank_csv:
+            write_bank_csv(bank_rows, Path(args.out_bank_csv))
+
     out_md = Path(args.out_md)
     out_md.parent.mkdir(parents=True, exist_ok=True)
-    out_md.write_text(summary, encoding="utf-8")
+    out_md.write_text(summary + bank_section, encoding="utf-8")
 
     github_step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if github_step_summary:
         with open(github_step_summary, "a", encoding="utf-8") as f:
             f.write("\n## Economy Benchmark Summary\n\n")
             f.write(summary)
+            if bank_section:
+                f.write(bank_section)
 
 
 if __name__ == "__main__":

@@ -76,22 +76,34 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        plugin: [ezeconomy, essentialsx, cmi]
+        # EzEconomy supports all storage × redis combinations.
+        plugin: [ezeconomy]
         storage: [sqlite, mysql]
         redis: [off, on]
+        include:
+          # EssentialsX is file-based; only one valid benchmark lane.
+          - plugin: essentialsx
+            storage: file
+            redis: off
+          # XConomy supports mysql and sqlite; no redis economy mode.
+          - plugin: xconomy
+            storage: mysql
+            redis: off
+          - plugin: xconomy
+            storage: sqlite
+            redis: off
     env:
       BENCH_WARMUP: '100'
       BENCH_ITERATIONS: '1000'
       PAPER_MC_VERSION: '1.21.1'
       ESSENTIALSX_VERSION: '2.21.1'
-      CMI_VERSION: '9.7.3.4'
+      XCONOMY_VERSION: '2.26.3'
       BENCH_PLUGIN: ${{ matrix.plugin }}
       BENCH_STORAGE: ${{ matrix.storage }}
       BENCH_REDIS: ${{ matrix.redis }}
-      BENCH_PLUGIN_VERSION: ${{ matrix.plugin == 'ezeconomy' && needs.build-artifacts.outputs.ezeconomy_version || (matrix.plugin == 'essentialsx' && '2.21.1' || '9.7.3.4') }}
+      BENCH_PLUGIN_VERSION: ${{ matrix.plugin == 'ezeconomy' && needs.build-artifacts.outputs.ezeconomy_version || (matrix.plugin == 'essentialsx' && '2.21.1' || '2.26.3') }}
       MYSQL_PORT: '3306'
       REDIS_PORT: '6379'
-      CMI_DOWNLOAD_URL: ${{ secrets.CMI_DOWNLOAD_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -149,8 +161,8 @@ jobs:
             curl -sSfL -o downloads/EssentialsX.jar "https://github.com/EssentialsX/Essentials/releases/download/${ESSENTIALSX_VERSION}/EssentialsX-${ESSENTIALSX_VERSION}.jar"
           fi
 
-          if [[ "${BENCH_PLUGIN}" == "cmi" && -n "${CMI_DOWNLOAD_URL}" ]]; then
-            curl -sSfL -o downloads/CMI.jar "${CMI_DOWNLOAD_URL}"
+          if [[ "${BENCH_PLUGIN}" == "xconomy" ]]; then
+            curl -sSfL -o downloads/XConomy.jar "https://github.com/YiC200333/XConomy/releases/download/${XCONOMY_VERSION}/XConomy-Paper-${XCONOMY_VERSION}.jar"
           fi
 
       - name: Prepare lane
@@ -168,7 +180,7 @@ jobs:
           EZECONOMY_JAR_PATH: ${{ steps.jars.outputs.ezeconomy_jar }}
           EZECONOMY_REDIS_JAR_PATH: ${{ steps.jars.outputs.ezeconomy_redis_jar }}
           ESSENTIALSX_JAR_PATH: downloads/EssentialsX.jar
-          CMI_JAR_PATH: downloads/CMI.jar
+          XCONOMY_JAR_PATH: downloads/XConomy.jar
         run: |
           ./.github/benchmark/setup-server.sh server
 
@@ -211,7 +223,9 @@ jobs:
             --input artifacts \
             --out-json benchmark-summary/summary.json \
             --out-csv benchmark-summary/summary.csv \
-            --out-md benchmark-summary/summary.md
+            --out-md benchmark-summary/summary.md \
+            --out-bank-json benchmark-summary/summary-bank.json \
+            --out-bank-csv benchmark-summary/summary-bank.csv
 
       - name: Upload aggregate summary
         uses: actions/upload-artifact@v7
