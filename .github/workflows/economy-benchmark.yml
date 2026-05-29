@@ -3,8 +3,6 @@ name: Economy Benchmark
 on:
   pull_request:
     branches: [ main, master, v3.x ]
-  push:
-    branches: [ main, master, v3.x, 'feat/**' ]
   workflow_dispatch:
 
 jobs:
