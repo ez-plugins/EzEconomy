@@ -35,6 +35,8 @@ import com.skyblockexp.ezeconomy.util.EventDispatcher;
 import com.skyblockexp.ezeconomy.cache.CacheManager;
 import com.skyblockexp.ezeconomy.cache.CacheProvider;
 import com.skyblockexp.ezeconomy.cache.ExpiringCache;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 /**
  * MySQL implementation of the StorageProvider interface for EzEconomy.
@@ -61,6 +63,7 @@ public class MySQLStorageProvider implements StorageProvider {
     private PreparedStatement psDepositUpsert;
     private PreparedStatement psWithdrawIfEnough;
     private PreparedStatement psSelectBalanceById;
+    private HikariDataSource hotPathDataSource;
 
     /**
      * Constructs a MySQLStorageProvider with the given plugin and configuration.
@@ -145,6 +148,7 @@ public class MySQLStorageProvider implements StorageProvider {
             connection = DriverManager.getConnection(
                 buildJdbcUrl(host, port, database),
                 username, password);
+            initHotPathPool(buildJdbcUrl(host, port, database), username, password);
             initRepositories();
         } catch (SQLException e) {
             plugin.getLogger().warning("MySQL connection failed: " + e.getMessage());
@@ -254,6 +258,21 @@ public class MySQLStorageProvider implements StorageProvider {
     public double getBalance(UUID uuid, String currency) {
         Double cached = getCached(balanceCacheKey(uuid, currency));
         if (cached != null) return cached.doubleValue();
+        if (hasHotPathPool()) {
+            String id = BalanceModel.idFor(uuid, currency);
+            try (Connection conn = hotPathDataSource.getConnection();
+                 PreparedStatement ps = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
+                ps.setString(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    double value = rs.next() ? rs.getDouble(1) : 0.0;
+                    putCached(balanceCacheKey(uuid, currency), value);
+                    return value;
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] MySQL getBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
+                return 0.0;
+            }
+        }
         synchronized (lock) {
             try {
                 double value = balanceRepo.find(BalanceModel.idFor(uuid, currency))
@@ -381,6 +400,35 @@ public class MySQLStorageProvider implements StorageProvider {
     @Override
     public EconomyMutationResult depositAndGetBalance(UUID uuid, String currency, double amount) {
         String cacheKey = balanceCacheKey(uuid, currency);
+        if (hasHotPathPool()) {
+            String id = BalanceModel.idFor(uuid, currency);
+            Double cached = getCached(cacheKey);
+            try (Connection conn = hotPathDataSource.getConnection();
+                 PreparedStatement upsert = conn.prepareStatement(
+                         "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) "
+                                 + "ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)");
+                 PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
+                upsert.setString(1, id);
+                upsert.setString(2, uuid.toString());
+                upsert.setString(3, currency);
+                upsert.setDouble(4, amount);
+                upsert.executeUpdate();
+                if (cached != null && canUseLocalFastBalanceResponse()) {
+                    double updatedFast = cached.doubleValue() + amount;
+                    putCached(cacheKey, updatedFast);
+                    return EconomyMutationResult.success(updatedFast);
+                }
+                select.setString(1, id);
+                try (ResultSet rs = select.executeQuery()) {
+                    double updated = rs.next() ? rs.getDouble(1) : amount;
+                    putCached(cacheKey, updated);
+                    return EconomyMutationResult.success(updated);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] MySQL depositAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
+            }
+        }
         synchronized (lock) {
             try {
                 ensureHotStatements();
@@ -413,6 +461,34 @@ public class MySQLStorageProvider implements StorageProvider {
     @Override
     public EconomyMutationResult withdrawAndGetBalance(UUID uuid, String currency, double amount) {
         String cacheKey = balanceCacheKey(uuid, currency);
+        if (hasHotPathPool()) {
+            String id = BalanceModel.idFor(uuid, currency);
+            Double cached = getCached(cacheKey);
+            try (Connection conn = hotPathDataSource.getConnection();
+                 PreparedStatement withdraw = conn.prepareStatement(
+                         "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?");
+                 PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
+                withdraw.setDouble(1, amount);
+                withdraw.setString(2, id);
+                withdraw.setDouble(3, amount);
+                int rows = withdraw.executeUpdate();
+                if (rows > 0 && cached != null && canUseLocalFastBalanceResponse()) {
+                    double updatedFast = cached.doubleValue() - amount;
+                    putCached(cacheKey, updatedFast);
+                    return EconomyMutationResult.success(updatedFast);
+                }
+                select.setString(1, id);
+                try (ResultSet rs = select.executeQuery()) {
+                    double current = rs.next() ? rs.getDouble(1) : 0.0;
+                    if (rows <= 0) return EconomyMutationResult.failure(current, "Insufficient funds");
+                    putCached(cacheKey, current);
+                    return EconomyMutationResult.success(current);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] MySQL withdrawAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
+            }
+        }
         synchronized (lock) {
             try {
                 ensureHotStatements();
@@ -446,6 +522,10 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             try {
                 closeHotStatements();
+                if (hotPathDataSource != null) {
+                    hotPathDataSource.close();
+                    hotPathDataSource = null;
+                }
                 if (connection != null && !connection.isClosed()) connection.close();
             } catch (SQLException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL shutdown failed: " + e.getMessage());
@@ -578,6 +658,36 @@ public class MySQLStorageProvider implements StorageProvider {
         }
     }
 
+    private void initHotPathPool(String jdbcUrl, String username, String password) {
+        boolean enabled = dbConfig.getBoolean("mysql.pool.enabled", true);
+        if (!enabled) {
+            if (hotPathDataSource != null) {
+                hotPathDataSource.close();
+                hotPathDataSource = null;
+            }
+            return;
+        }
+        if (hotPathDataSource != null) {
+            hotPathDataSource.close();
+        }
+        HikariConfig cfg = new HikariConfig();
+        cfg.setPoolName("EzEconomy-MySQL");
+        cfg.setJdbcUrl(jdbcUrl);
+        cfg.setUsername(username);
+        cfg.setPassword(password);
+        cfg.setMaximumPoolSize(Math.max(2, dbConfig.getInt("mysql.pool.maximum-pool-size", 32)));
+        cfg.setMinimumIdle(Math.max(1, dbConfig.getInt("mysql.pool.minimum-idle", 8)));
+        cfg.setConnectionTimeout(Math.max(1000L, dbConfig.getLong("mysql.pool.connection-timeout-ms", 8000L)));
+        cfg.setIdleTimeout(Math.max(30000L, dbConfig.getLong("mysql.pool.idle-timeout-ms", 240000L)));
+        cfg.setMaxLifetime(Math.max(60000L, dbConfig.getLong("mysql.pool.max-lifetime-ms", 1200000L)));
+        cfg.setAutoCommit(true);
+        hotPathDataSource = new HikariDataSource(cfg);
+    }
+
+    private boolean hasHotPathPool() {
+        return hotPathDataSource != null;
+    }
+
     private void ensureHotStatements() throws SQLException {
         if (psDepositUpsert == null || psDepositUpsert.isClosed()) {
             psDepositUpsert = connection.prepareStatement(
@@ -689,6 +799,20 @@ public class MySQLStorageProvider implements StorageProvider {
     public double getBankBalance(String name, String currency) {
         Double cached = getCached(bankBalanceCacheKey(name, currency));
         if (cached != null) return cached.doubleValue();
+        if (hasHotPathPool()) {
+            String id = BankModel.idFor(name, currency);
+            try (Connection conn = hotPathDataSource.getConnection();
+                 PreparedStatement ps = conn.prepareStatement("SELECT balance FROM banks WHERE id = ?")) {
+                ps.setString(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    double value = rs.next() ? rs.getDouble(1) : 0.0;
+                    putCached(bankBalanceCacheKey(name, currency), value);
+                    return value;
+                }
+            } catch (SQLException ignored) {
+                return 0.0;
+            }
+        }
         synchronized (lock) {
             ensureBankTables();
             try {
@@ -850,6 +974,27 @@ public class MySQLStorageProvider implements StorageProvider {
 
     @Override
     public EconomyMutationResult depositBankAndGetBalance(String name, String currency, double amount) {
+        if (hasHotPathPool()) {
+            String id = BankModel.idFor(name, currency);
+            String cacheKey = bankBalanceCacheKey(name, currency);
+            try (Connection conn = hotPathDataSource.getConnection();
+                 PreparedStatement update = conn.prepareStatement("UPDATE banks SET balance = balance + ? WHERE id = ?");
+                 PreparedStatement select = conn.prepareStatement("SELECT balance FROM banks WHERE id = ?")) {
+                update.setDouble(1, amount);
+                update.setString(2, id);
+                int rows = update.executeUpdate();
+                if (rows <= 0) return EconomyMutationResult.failure(0.0, "Bank does not exist");
+                select.setString(1, id);
+                try (ResultSet rs = select.executeQuery()) {
+                    double updated = rs.next() ? rs.getDouble(1) : 0.0;
+                    putCached(cacheKey, updated);
+                    return EconomyMutationResult.success(updated);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] MySQL depositBankAndGetBalance failed: " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
+            }
+        }
         com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
         UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
         String cacheKey = bankBalanceCacheKey(name, currency);
@@ -891,6 +1036,30 @@ public class MySQLStorageProvider implements StorageProvider {
 
     @Override
     public EconomyMutationResult withdrawBankAndGetBalance(String name, String currency, double amount) {
+        if (hasHotPathPool()) {
+            String id = BankModel.idFor(name, currency);
+            String cacheKey = bankBalanceCacheKey(name, currency);
+            try (Connection conn = hotPathDataSource.getConnection();
+                 PreparedStatement withdraw = conn.prepareStatement(
+                         "UPDATE banks SET balance = balance - ? WHERE id = ? AND balance >= ?");
+                 PreparedStatement select = conn.prepareStatement("SELECT balance FROM banks WHERE id = ?")) {
+                withdraw.setDouble(1, amount);
+                withdraw.setString(2, id);
+                withdraw.setDouble(3, amount);
+                int rows = withdraw.executeUpdate();
+                select.setString(1, id);
+                try (ResultSet rs = select.executeQuery()) {
+                    if (!rs.next()) return EconomyMutationResult.failure(0.0, "Bank does not exist");
+                    double current = rs.getDouble(1);
+                    if (rows <= 0) return EconomyMutationResult.failure(current, "Insufficient funds");
+                    putCached(cacheKey, current);
+                    return EconomyMutationResult.success(current);
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().severe("[EzEconomy] MySQL withdrawBankAndGetBalance failed: " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
+            }
+        }
         com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
         UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
         String cacheKey = bankBalanceCacheKey(name, currency);
