@@ -269,27 +269,6 @@ public class SQLiteStorageProvider implements StorageProvider {
     public double getBalance(UUID uuid, String currency) {
         Double cached = getCached(balanceCacheKey(uuid, currency));
         if (cached != null) return cached.doubleValue();
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        double value = balanceRepo.find(BalanceModel.idFor(uuid, currency)).map(BalanceModel::getBalance).orElse(0.0);
-                        putCached(balanceCacheKey(uuid, currency), value);
-                        return value;
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] SQLite getBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                    }
-                    return 0.0;
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
         synchronized (lock) {
             try {
                 double value = balanceRepo.find(BalanceModel.idFor(uuid, currency)).map(BalanceModel::getBalance).orElse(0.0);
@@ -351,25 +330,6 @@ public class SQLiteStorageProvider implements StorageProvider {
 
     @Override
     public boolean playerExists(UUID uuid) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        return !balanceRepo.query(BalanceModel.queryBuilder().whereEquals("uuid", uuid.toString()).limit(1).build()).isEmpty();
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] SQLite playerExists failed for " + uuid + ": " + e.getMessage());
-                        return false;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
         synchronized (lock) {
             try {
                 return !balanceRepo.query(BalanceModel.queryBuilder().whereEquals("uuid", uuid.toString()).limit(1).build()).isEmpty();
@@ -769,26 +729,6 @@ public class SQLiteStorageProvider implements StorageProvider {
 
     @Override
     public boolean bankExists(String name) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        return !bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build()).isEmpty();
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] SQLite bankExists failed: " + e.getMessage());
-                        return false;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(bankId, token);
-            }
-        }
         synchronized (lock) {
             try {
                 return !bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build()).isEmpty();
@@ -803,26 +743,6 @@ public class SQLiteStorageProvider implements StorageProvider {
     public double getBankBalance(String name, String currency) {
         Double cached = getCached(bankBalanceCacheKey(name, currency));
         if (cached != null) return cached.doubleValue();
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        double value = bankRepo.find(BankModel.idFor(name, currency)).map(BankModel::getBalance).orElse(0.0);
-                        putCached(bankBalanceCacheKey(name, currency), value);
-                        return value;
-                    } catch (StorageException e) {}
-                    return 0.0;
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(bankId, token);
-            }
-        }
         synchronized (lock) {
             try {
                 double value = bankRepo.find(BankModel.idFor(name, currency)).map(BankModel::getBalance).orElse(0.0);

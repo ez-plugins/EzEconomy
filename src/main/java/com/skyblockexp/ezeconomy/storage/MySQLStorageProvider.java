@@ -57,6 +57,7 @@ public class MySQLStorageProvider implements StorageProvider {
     private ModelRepository<TransactionModel> transactionRepo;
     private final boolean balanceCacheEnabled;
     private final long balanceCacheTtlMs;
+    private volatile boolean schemaInitialized;
 
     /**
      * Constructs a MySQLStorageProvider with the given plugin and configuration.
@@ -115,10 +116,14 @@ public class MySQLStorageProvider implements StorageProvider {
                         + "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
                         + "INDEX idx_pending_uuid (uuid)"
                         + ")", noParams);
+                schemaInitialized = true;
             } catch (Exception e) {
+                schemaInitialized = false;
                 plugin.getLogger().warning("MySQL schema init failed: " + e.getMessage());
                 throw new StorageInitException("Failed to initialize MySQL schema", e);
             }
+        } else {
+            schemaInitialized = true;
         }
     }
 
@@ -231,28 +236,6 @@ public class MySQLStorageProvider implements StorageProvider {
     public double getBalance(UUID uuid, String currency) {
         Double cached = getCached(balanceCacheKey(uuid, currency));
         if (cached != null) return cached.doubleValue();
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        double value = balanceRepo.find(BalanceModel.idFor(uuid, currency))
-                               .map(BalanceModel::getBalance).orElse(0.0);
-                        putCached(balanceCacheKey(uuid, currency), value);
-                        return value;
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] MySQL getBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                        return 0.0;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
         synchronized (lock) {
             try {
                 double value = balanceRepo.find(BalanceModel.idFor(uuid, currency))
@@ -316,25 +299,6 @@ public class MySQLStorageProvider implements StorageProvider {
     }
     @Override
     public boolean playerExists(UUID uuid) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        return !balanceRepo.query(BalanceModel.queryBuilder().whereEquals("uuid", uuid.toString()).limit(1).build()).isEmpty();
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] MySQL playerExists failed for " + uuid + ": " + e.getMessage());
-                        return false;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
         synchronized (lock) {
             try {
                 return !balanceRepo.query(BalanceModel.queryBuilder().whereEquals("uuid", uuid.toString()).limit(1).build()).isEmpty();
@@ -687,18 +651,9 @@ public class MySQLStorageProvider implements StorageProvider {
 
     // --- Bank support ---
     private void ensureBankTables() {
-        try {
-            java.util.List<Object> noParams = java.util.Collections.emptyList();
-            jdbcStore.executeUpdate(QueryBuilder.createTable("banks").ifNotExists()
-                    .column("id", "VARCHAR(97)").primaryKey("id")
-                    .column("name", "VARCHAR(64)").column("currency", "VARCHAR(32)").column("balance", "DOUBLE")
-                    .build(SqlDialect.MYSQL).getSql(), noParams);
-            jdbcStore.executeUpdate(QueryBuilder.createTable("bank_members").ifNotExists()
-                    .column("id", "VARCHAR(101)").primaryKey("id")
-                    .column("bank", "VARCHAR(64)").column("uuid", "VARCHAR(36)").column("owner", "BOOLEAN")
-                    .build(SqlDialect.MYSQL).getSql(), noParams);
-        } catch (Exception e) {
-            plugin.getLogger().severe("[EzEconomy] MySQL ensureBankTables failed: " + e.getMessage());
+        if (!schemaInitialized) {
+            plugin.getLogger().severe("[EzEconomy] MySQL schema is not initialized. Call init() on server startup.");
+            throw new IllegalStateException("MySQL schema not initialized");
         }
     }
 
@@ -775,26 +730,6 @@ public class MySQLStorageProvider implements StorageProvider {
     }
 
     public boolean bankExists(String name) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    ensureBankTables();
-                    try {
-                        return !bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build()).isEmpty();
-                    } catch (StorageException e) {
-                        return false;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(bankId, token);
-            }
-        }
         synchronized (lock) {
             ensureBankTables();
             try {
@@ -808,27 +743,6 @@ public class MySQLStorageProvider implements StorageProvider {
     public double getBankBalance(String name, String currency) {
         Double cached = getCached(bankBalanceCacheKey(name, currency));
         if (cached != null) return cached.doubleValue();
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    ensureBankTables();
-                    try {
-                        double value = bankRepo.find(BankModel.idFor(name, currency)).map(BankModel::getBalance).orElse(0.0);
-                        putCached(bankBalanceCacheKey(name, currency), value);
-                        return value;
-                    } catch (StorageException e) {}
-                    return 0.0;
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(bankId, token);
-            }
-        }
         synchronized (lock) {
             ensureBankTables();
             try {
