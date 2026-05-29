@@ -44,27 +44,32 @@ public class EzJdbcStore implements DataStore, JdbcStore, TransactionalJdbcStore
 
     @Override
     public List<Map<String, Object>> query(String sql, List<Object> params) throws Exception {
-        PreparedStatement ps = connection.prepareStatement(sql);
-        bindParams(ps, params);
-        ResultSet rs = ps.executeQuery();
-        List<Map<String, Object>> rows = new ArrayList<>();
-        ResultSetMetaData meta = rs.getMetaData();
-        int cols = meta.getColumnCount();
-        while (rs.next()) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            for (int i = 1; i <= cols; i++) {
-                row.put(meta.getColumnLabel(i), rs.getObject(i));
+        String transformed = transformSql(sql);
+        try (PreparedStatement ps = connection.prepareStatement(transformed)) {
+            bindParams(ps, params);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<Map<String, Object>> rows = new ArrayList<>();
+                ResultSetMetaData meta = rs.getMetaData();
+                int cols = meta.getColumnCount();
+                while (rs.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int i = 1; i <= cols; i++) {
+                        row.put(meta.getColumnLabel(i), rs.getObject(i));
+                    }
+                    rows.add(row);
+                }
+                return rows;
             }
-            rows.add(row);
         }
-        return rows;
     }
 
     @Override
     public int executeUpdate(String sql, List<Object> params) throws Exception {
-        PreparedStatement ps = connection.prepareStatement(transformSql(sql));
-        bindParams(ps, params);
-        return ps.executeUpdate();
+        String transformed = transformSql(sql);
+        try (PreparedStatement ps = connection.prepareStatement(transformed)) {
+            bindParams(ps, params);
+            return ps.executeUpdate();
+        }
     }
 
     /**
