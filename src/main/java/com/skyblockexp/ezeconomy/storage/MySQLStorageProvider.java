@@ -220,6 +220,12 @@ public class MySQLStorageProvider implements StorageProvider {
         }
     }
 
+    private boolean canUseLocalFastBalanceResponse() {
+        if (!balanceCacheEnabled) return false;
+        String strategy = plugin.getConfig().getString("caching-strategy", "LOCAL");
+        return strategy != null && "LOCAL".equalsIgnoreCase(strategy.trim());
+    }
+
     @Override
     public java.util.List<Transaction> getTransactions(java.util.UUID uuid, String currency) {
         java.util.List<Transaction> transactions = new java.util.ArrayList<>();
@@ -273,7 +279,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(uuid, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         PlayerModel pm = playerRepo.find(uuid.toString()).orElse(null);
@@ -327,7 +333,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(uuid, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         balanceRepo.save(BalanceModel.create(uuid, currency, amount));
@@ -379,11 +385,17 @@ public class MySQLStorageProvider implements StorageProvider {
             try {
                 ensureHotStatements();
                 String id = BalanceModel.idFor(uuid, currency);
+                Double cached = getCached(cacheKey);
                 psDepositUpsert.setString(1, id);
                 psDepositUpsert.setString(2, uuid.toString());
                 psDepositUpsert.setString(3, currency);
                 psDepositUpsert.setDouble(4, amount);
                 psDepositUpsert.executeUpdate();
+                if (cached != null && canUseLocalFastBalanceResponse()) {
+                    double updatedFast = cached.doubleValue() + amount;
+                    putCached(cacheKey, updatedFast);
+                    return EconomyMutationResult.success(updatedFast);
+                }
                 double updated;
                 psSelectBalanceById.setString(1, id);
                 try (ResultSet rs = psSelectBalanceById.executeQuery()) {
@@ -405,10 +417,16 @@ public class MySQLStorageProvider implements StorageProvider {
             try {
                 ensureHotStatements();
                 String id = BalanceModel.idFor(uuid, currency);
+                Double cached = getCached(cacheKey);
                 psWithdrawIfEnough.setDouble(1, amount);
                 psWithdrawIfEnough.setString(2, id);
                 psWithdrawIfEnough.setDouble(3, amount);
                 int rows = psWithdrawIfEnough.executeUpdate();
+                if (rows > 0 && cached != null && canUseLocalFastBalanceResponse()) {
+                    double updatedFast = cached.doubleValue() - amount;
+                    putCached(cacheKey, updatedFast);
+                    return EconomyMutationResult.success(updatedFast);
+                }
                 double current;
                 psSelectBalanceById.setString(1, id);
                 try (ResultSet rs = psSelectBalanceById.executeQuery()) {
@@ -483,7 +501,7 @@ public class MySQLStorageProvider implements StorageProvider {
         }
         String[] tokens = null;
         try {
-            tokens = lm.acquireOrdered(ordered, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+            tokens = lm.acquireOrdered(ordered, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
@@ -591,7 +609,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     try {
@@ -626,7 +644,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     try {
@@ -688,7 +706,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     try {
@@ -719,7 +737,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     try {
@@ -780,7 +798,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     try {
@@ -838,7 +856,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
@@ -879,7 +897,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
@@ -935,7 +953,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     try {
@@ -964,7 +982,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     try {
@@ -993,7 +1011,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     if (isBankMember(name, uuid)) return false;
@@ -1024,7 +1042,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     try {
@@ -1055,7 +1073,7 @@ public class MySQLStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     ensureBankTables();
                     Set<UUID> set = ConcurrentHashMap.newKeySet();
@@ -1258,3 +1276,4 @@ public class MySQLStorageProvider implements StorageProvider {
         return orphaned;
     }
 }
+

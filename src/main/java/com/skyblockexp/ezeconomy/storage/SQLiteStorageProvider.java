@@ -296,7 +296,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(uuid, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         java.util.Optional<PlayerModel> opt = playerRepo.find(uuid.toString());
@@ -349,7 +349,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(uuid, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         balanceRepo.save(BalanceModel.create(uuid, currency, amount));
@@ -489,7 +489,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (fromUuid.compareTo(toUuid) > 0) ordered = new UUID[]{toUuid, fromUuid};
         String[] tokens = null;
         try {
-            tokens = lm.acquireOrdered(ordered, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+            tokens = lm.acquireOrdered(ordered, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
@@ -587,7 +587,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         if (bankExists(name)) return false;
@@ -625,7 +625,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         java.util.List<BankModel> existing = bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build());
@@ -689,7 +689,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         bankRepo.save(BankModel.create(name, currency, amount));
@@ -718,7 +718,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
@@ -768,7 +768,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
@@ -813,7 +813,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
                     if (!bankOpt.isPresent()) return EconomyMutationResult.failure(0.0, "Bank does not exist");
@@ -852,7 +852,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
                     if (!bankOpt.isPresent()) return EconomyMutationResult.failure(0.0, "Bank does not exist");
@@ -907,7 +907,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         return bankMemberRepo.find(BankMemberModel.idFor(name, uuid)).map(BankMemberModel::isOwner).orElse(false);
@@ -935,7 +935,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         return bankMemberRepo.exists(BankMemberModel.idFor(name, uuid));
@@ -963,7 +963,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     if (isBankMember(name, uuid)) return false;
                     try {
@@ -993,7 +993,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         boolean existed = bankMemberRepo.exists(BankMemberModel.idFor(name, uuid));
@@ -1133,3 +1133,4 @@ public class SQLiteStorageProvider implements StorageProvider {
         return orphaned;
     }
 }
+

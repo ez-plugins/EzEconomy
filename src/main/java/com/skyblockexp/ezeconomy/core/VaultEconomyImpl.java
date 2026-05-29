@@ -3,13 +3,10 @@ package com.skyblockexp.ezeconomy.core;
 import com.skyblockexp.ezeconomy.api.EzEconomyAPI;
 import com.skyblockexp.ezeconomy.api.storage.EconomyMutationResult;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
-import com.skyblockexp.ezeconomy.storage.TransferLockManager;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.locks.ReentrantLock;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.OfflinePlayer;
@@ -154,17 +151,12 @@ public class VaultEconomyImpl implements Economy {
             return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Storage unavailable");
         }
         UUID uuid = player.getUniqueId();
-        LockedOperation lock = lockFor(uuid);
-        try {
-            EconomyMutationResult result = storage.withdrawAndGetBalance(uuid, currency, amount);
-            boolean success = result.isSuccess();
-            double balance = result.getBalance();
-            return success
-                    ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
-                    : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
-        } finally {
-            lock.close();
-        }
+        EconomyMutationResult result = storage.withdrawAndGetBalance(uuid, currency, amount);
+        boolean success = result.isSuccess();
+        double balance = result.getBalance();
+        return success
+                ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
+                : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
     }
 
     @Override
@@ -277,22 +269,16 @@ public class VaultEconomyImpl implements Economy {
             return notSupported();
         }
         String currency = plugin.getDefaultCurrency();
-        UUID bankLockKey = UUID.nameUUIDFromBytes(("bank:" + name + ":" + currency).getBytes(StandardCharsets.UTF_8));
-        LockedOperation lock = lockFor(bankLockKey);
-        try {
-            EconomyMutationResult result = storage.withdrawBankAndGetBalance(name, currency, amount);
-            boolean success = result.isSuccess();
-            double balance = result.getBalance();
-            if (!success && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
-                return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
-            }
-            if (!success) {
-                return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
-            }
-            return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
-        } finally {
-            lock.close();
+        EconomyMutationResult result = storage.withdrawBankAndGetBalance(name, currency, amount);
+        boolean success = result.isSuccess();
+        double balance = result.getBalance();
+        if (!success && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
+            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
         }
+        if (!success) {
+            return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
+        }
+        return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
     }
 
     @Override
@@ -429,67 +415,14 @@ public class VaultEconomyImpl implements Economy {
         if (storage == null) {
             return notSupported();
         }
-        UUID bankLockKey = UUID.nameUUIDFromBytes(("bank:" + name + ":" + currency).getBytes(StandardCharsets.UTF_8));
-        LockedOperation lock = lockFor(bankLockKey);
-        try {
-            EconomyMutationResult result = storage.withdrawBankAndGetBalance(name, currency, amount);
-            boolean success = result.isSuccess();
-            double balance = result.getBalance();
-            if (!success && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
-                return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
-            }
-            return success
-                    ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
-                    : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
-        } finally {
-            lock.close();
+        EconomyMutationResult result = storage.withdrawBankAndGetBalance(name, currency, amount);
+        boolean success = result.isSuccess();
+        double balance = result.getBalance();
+        if (!success && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
+            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
         }
-    }
-
-    private LockedOperation lockFor(UUID key) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            try {
-                String token = lm.acquire(
-                        key,
-                        plugin.getLockTtlMs(),
-                        plugin.getLockRetryMs(),
-                        plugin.getLockMaxAttempts()
-                );
-                if (token != null) {
-                    return new LockedOperation(lm, key, token, null);
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            }
-        }
-        ReentrantLock local = TransferLockManager.getLock(key);
-        local.lock();
-        return new LockedOperation(null, key, null, local);
-    }
-
-    private static final class LockedOperation implements AutoCloseable {
-        private final com.skyblockexp.ezeconomy.lock.LockManager manager;
-        private final UUID key;
-        private final String token;
-        private final ReentrantLock localLock;
-
-        private LockedOperation(com.skyblockexp.ezeconomy.lock.LockManager manager, UUID key, String token, ReentrantLock localLock) {
-            this.manager = manager;
-            this.key = key;
-            this.token = token;
-            this.localLock = localLock;
-        }
-
-        @Override
-        public void close() {
-            if (manager != null && token != null) {
-                manager.release(key, token);
-                return;
-            }
-            if (localLock != null) {
-                localLock.unlock();
-            }
-        }
+        return success
+                ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
+                : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
     }
 }
