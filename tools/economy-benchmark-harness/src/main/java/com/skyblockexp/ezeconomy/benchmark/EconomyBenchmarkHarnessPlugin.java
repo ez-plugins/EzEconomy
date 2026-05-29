@@ -26,6 +26,7 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
     }
 
     private void runBenchmarks() {
+        long runStartNanos = System.nanoTime();
         String pluginUnderTest = envOrDefault("BENCH_PLUGIN", "unknown");
         String pluginVersion = envOrDefault("BENCH_PLUGIN_VERSION", "unknown");
         String storageMode = envOrDefault("BENCH_STORAGE", "unknown");
@@ -55,9 +56,10 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
             BenchResult deposit = benchDeposit(economy, player, world, warmupIterations, measureIterations);
             BenchResult withdraw = benchWithdraw(economy, player, world, warmupIterations, measureIterations);
             BenchResult balance = benchBalanceAndHas(economy, player, world, warmupIterations, measureIterations);
+            long runDurationMs = (System.nanoTime() - runStartNanos) / 1_000_000L;
 
             writeOutputs(pluginUnderTest, pluginVersion, storageMode, redisMode, warmupIterations, measureIterations,
-                runId, runAttempt, activeProvider, deposit, withdraw, balance);
+                runId, runAttempt, activeProvider, deposit, withdraw, balance, runDurationMs);
         } catch (Exception ex) {
             writeFailure(pluginUnderTest, pluginVersion, storageMode, redisMode, warmupIterations, measureIterations,
                 "Benchmark failed: " + ex.getClass().getSimpleName() + ": " + ex.getMessage());
@@ -187,7 +189,7 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
 
     private void writeOutputs(String plugin, String pluginVersion, String storage, String redis,
                               int warmup, int iterations, String runId, String runAttempt, String provider,
-                              BenchResult deposit, BenchResult withdraw, BenchResult balanceHas) {
+                              BenchResult deposit, BenchResult withdraw, BenchResult balanceHas, long runtimeMs) {
         File outDir = new File(getDataFolder(), "results");
         if (!outDir.exists() && !outDir.mkdirs()) {
             getLogger().warning("Failed to create results directory: " + outDir.getAbsolutePath());
@@ -208,6 +210,7 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
             + "  \"redis\": \"" + escape(redis) + "\",\n"
             + "  \"warmupIterations\": " + warmup + ",\n"
             + "  \"measureIterations\": " + iterations + ",\n"
+            + "  \"runtimeMs\": " + runtimeMs + ",\n"
             + "  \"runId\": \"" + escape(runId) + "\",\n"
             + "  \"runAttempt\": \"" + escape(runAttempt) + "\",\n"
             + "  \"timestamp\": \"" + escape(now) + "\",\n"
@@ -333,6 +336,7 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
     private void runBankBenchmarks(Economy economy, String activeProvider,
             String pluginUnderTest, String pluginVersion, String storageMode, String redisMode,
             int warmupIterations, int measureIterations, String runId, String runAttempt) {
+        long runStartNanos = System.nanoTime();
         if (!economy.hasBankSupport()) {
             writeBankSkip(pluginUnderTest, pluginVersion, storageMode, redisMode,
                 "Vault bank API not supported by this economy provider");
@@ -350,9 +354,10 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
             BenchResult bankDeposit = benchBankDeposit(economy, bankName, warmupIterations, measureIterations);
             BenchResult bankWithdraw = benchBankWithdraw(economy, bankName, warmupIterations, measureIterations);
             BenchResult bankBalanceHas = benchBankBalanceHas(economy, bankName, warmupIterations, measureIterations);
+            long runDurationMs = (System.nanoTime() - runStartNanos) / 1_000_000L;
 
             writeBankOutputs(pluginUnderTest, pluginVersion, storageMode, redisMode, warmupIterations,
-                measureIterations, runId, runAttempt, activeProvider, bankDeposit, bankWithdraw, bankBalanceHas);
+                measureIterations, runId, runAttempt, activeProvider, bankDeposit, bankWithdraw, bankBalanceHas, runDurationMs);
         } catch (Exception ex) {
             writeBankFailure(pluginUnderTest, pluginVersion, storageMode, redisMode, warmupIterations,
                 measureIterations, "Bank benchmark failed: " + ex.getClass().getSimpleName() + ": " + ex.getMessage());
@@ -441,7 +446,7 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
 
     private void writeBankOutputs(String plugin, String pluginVersion, String storage, String redis,
                                   int warmup, int iterations, String runId, String runAttempt, String provider,
-                                  BenchResult bankDeposit, BenchResult bankWithdraw, BenchResult bankBalanceHas) {
+                                  BenchResult bankDeposit, BenchResult bankWithdraw, BenchResult bankBalanceHas, long runtimeMs) {
         File outDir = new File(getDataFolder(), "results");
         if (!outDir.exists() && !outDir.mkdirs()) {
             getLogger().warning("Failed to create results directory: " + outDir.getAbsolutePath());
@@ -462,6 +467,7 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
             + "  \"redis\": \"" + escape(redis) + "\",\n"
             + "  \"warmupIterations\": " + warmup + ",\n"
             + "  \"measureIterations\": " + iterations + ",\n"
+            + "  \"runtimeMs\": " + runtimeMs + ",\n"
             + "  \"runId\": \"" + escape(runId) + "\",\n"
             + "  \"runAttempt\": \"" + escape(runAttempt) + "\",\n"
             + "  \"timestamp\": \"" + escape(now) + "\",\n"

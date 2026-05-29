@@ -53,6 +53,14 @@ def fmt_mib(value):
     except Exception:
         return "N/A"
 
+def fmt_sec_from_ms(value):
+    if value is None:
+        return "N/A"
+    try:
+        return f"{(float(value) / 1000.0):.3f}"
+    except Exception:
+        return "N/A"
+
 
 def key(d):
     return (d.get("plugin", "unknown"), d.get("storage", "unknown"), d.get("redis", "unknown"))
@@ -65,14 +73,15 @@ def make_summary(rows):
             baseline[(r.get("storage"),)] = r
 
     lines = []
-    lines.append("| Plugin | Version | Storage | Redis | Status | Deposit avg (ms) | Withdraw avg (ms) | Balance/Has avg (ms) | RAM avg (MiB) | RAM peak (MiB) | ? vs EzEconomy baseline |")
-    lines.append("|---|---|---|---|---|---:|---:|---:|---:|---:|---:|")
+    lines.append("| Plugin | Version | Storage | Redis | Status | Run time (s) | Deposit avg (ms) | Withdraw avg (ms) | Balance/Has avg (ms) | RAM avg (MiB) | RAM peak (MiB) | ? vs EzEconomy baseline |")
+    lines.append("|---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|")
 
     for r in sorted(rows, key=key):
         status = r.get("status", "unknown")
         dep = metric(r, "deposit", "averageMs")
         wdr = metric(r, "withdraw", "averageMs")
         bal = metric(r, "balance_has", "averageMs")
+        runtime = r.get("runtimeMs")
         ram_avg = metric(r, "balance_has", "avgUsedRamMiB")
         ram_peak = metric(r, "balance_has", "peakUsedRamMiB")
 
@@ -96,7 +105,7 @@ def make_summary(rows):
             status = f"failed ({reason})"
 
         lines.append(
-            f"| {r.get('plugin','unknown')} | {r.get('pluginVersion','unknown')} | {r.get('storage','unknown')} | {r.get('redis','unknown')} | {status} | {fmt_ms(dep)} | {fmt_ms(wdr)} | {fmt_ms(bal)} | {fmt_mib(ram_avg)} | {fmt_mib(ram_peak)} | {delta} |"
+            f"| {r.get('plugin','unknown')} | {r.get('pluginVersion','unknown')} | {r.get('storage','unknown')} | {r.get('redis','unknown')} | {status} | {fmt_sec_from_ms(runtime)} | {fmt_ms(dep)} | {fmt_ms(wdr)} | {fmt_ms(bal)} | {fmt_mib(ram_avg)} | {fmt_mib(ram_peak)} | {delta} |"
         )
 
     return "\n".join(lines) + "\n"
@@ -104,14 +113,15 @@ def make_summary(rows):
 
 def make_bank_summary(rows):
     lines = []
-    lines.append("| Plugin | Version | Storage | Redis | Status | BankDeposit avg (ms) | BankWithdraw avg (ms) | BankBalance/Has avg (ms) | RAM avg (MiB) | RAM peak (MiB) |")
-    lines.append("|---|---|---|---|---|---:|---:|---:|---:|---:|")
+    lines.append("| Plugin | Version | Storage | Redis | Status | Run time (s) | BankDeposit avg (ms) | BankWithdraw avg (ms) | BankBalance/Has avg (ms) | RAM avg (MiB) | RAM peak (MiB) |")
+    lines.append("|---|---|---|---|---|---:|---:|---:|---:|---:|---:|")
 
     for r in sorted(rows, key=key):
         status = r.get("status", "unknown")
         dep = metric(r, "bank_deposit", "averageMs")
         wdr = metric(r, "bank_withdraw", "averageMs")
         bal = metric(r, "bank_balance_has", "averageMs")
+        runtime = r.get("runtimeMs")
         ram_avg = metric(r, "bank_balance_has", "avgUsedRamMiB")
         ram_peak = metric(r, "bank_balance_has", "peakUsedRamMiB")
 
@@ -123,7 +133,7 @@ def make_bank_summary(rows):
             status = f"failed ({reason})"
 
         lines.append(
-            f"| {r.get('plugin','unknown')} | {r.get('pluginVersion','unknown')} | {r.get('storage','unknown')} | {r.get('redis','unknown')} | {status} | {fmt_ms(dep)} | {fmt_ms(wdr)} | {fmt_ms(bal)} | {fmt_mib(ram_avg)} | {fmt_mib(ram_peak)} |"
+            f"| {r.get('plugin','unknown')} | {r.get('pluginVersion','unknown')} | {r.get('storage','unknown')} | {r.get('redis','unknown')} | {status} | {fmt_sec_from_ms(runtime)} | {fmt_ms(dep)} | {fmt_ms(wdr)} | {fmt_ms(bal)} | {fmt_mib(ram_avg)} | {fmt_mib(ram_peak)} |"
         )
 
     return "\n".join(lines) + "\n"

@@ -64,6 +64,9 @@ public class SQLiteStorageProvider implements StorageProvider {
     private ModelRepository<TransactionModel> transactionRepo;
     private final boolean balanceCacheEnabled;
     private final long balanceCacheTtlMs;
+    private PreparedStatement psDepositUpsert;
+    private PreparedStatement psWithdrawIfEnough;
+    private PreparedStatement psSelectBalanceById;
 
     // --- Constructors ---
     /**
@@ -396,23 +399,17 @@ public class SQLiteStorageProvider implements StorageProvider {
         String cacheKey = balanceCacheKey(uuid, currency);
         synchronized (lock) {
             try {
+                ensureHotStatements();
                 String id = BalanceModel.idFor(uuid, currency);
-                try (PreparedStatement upsert = connection.prepareStatement(
-                        "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) "
-                                + "ON CONFLICT(id) DO UPDATE SET balance = balance + excluded.balance")) {
-                    upsert.setString(1, id);
-                    upsert.setString(2, uuid.toString());
-                    upsert.setString(3, currency);
-                    upsert.setDouble(4, amount);
-                    upsert.executeUpdate();
-                }
+                psDepositUpsert.setString(1, id);
+                psDepositUpsert.setString(2, uuid.toString());
+                psDepositUpsert.setString(3, currency);
+                psDepositUpsert.setDouble(4, amount);
+                psDepositUpsert.executeUpdate();
                 double updated;
-                try (PreparedStatement select = connection.prepareStatement(
-                        "SELECT balance FROM " + table + " WHERE id = ?")) {
-                    select.setString(1, id);
-                    try (ResultSet rs = select.executeQuery()) {
-                        updated = rs.next() ? rs.getDouble(1) : amount;
-                    }
+                psSelectBalanceById.setString(1, id);
+                try (ResultSet rs = psSelectBalanceById.executeQuery()) {
+                    updated = rs.next() ? rs.getDouble(1) : amount;
                 }
                 putCached(cacheKey, updated);
                 return EconomyMutationResult.success(updated);
@@ -428,22 +425,16 @@ public class SQLiteStorageProvider implements StorageProvider {
         String cacheKey = balanceCacheKey(uuid, currency);
         synchronized (lock) {
             try {
+                ensureHotStatements();
                 String id = BalanceModel.idFor(uuid, currency);
-                int rows;
-                try (PreparedStatement withdraw = connection.prepareStatement(
-                        "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?")) {
-                    withdraw.setDouble(1, amount);
-                    withdraw.setString(2, id);
-                    withdraw.setDouble(3, amount);
-                    rows = withdraw.executeUpdate();
-                }
+                psWithdrawIfEnough.setDouble(1, amount);
+                psWithdrawIfEnough.setString(2, id);
+                psWithdrawIfEnough.setDouble(3, amount);
+                int rows = psWithdrawIfEnough.executeUpdate();
                 double current;
-                try (PreparedStatement select = connection.prepareStatement(
-                        "SELECT balance FROM " + table + " WHERE id = ?")) {
-                    select.setString(1, id);
-                    try (ResultSet rs = select.executeQuery()) {
-                        current = rs.next() ? rs.getDouble(1) : 0.0;
-                    }
+                psSelectBalanceById.setString(1, id);
+                try (ResultSet rs = psSelectBalanceById.executeQuery()) {
+                    current = rs.next() ? rs.getDouble(1) : 0.0;
                 }
                 if (rows <= 0) return EconomyMutationResult.failure(current, "Insufficient funds");
                 putCached(cacheKey, current);
@@ -558,7 +549,33 @@ public class SQLiteStorageProvider implements StorageProvider {
 
     @Override
     public void shutdown() {
+        closeHotStatements();
         try { if (connection != null) connection.close(); } catch (SQLException ignored) {}
+    }
+
+    private void ensureHotStatements() throws SQLException {
+        if (psDepositUpsert == null || psDepositUpsert.isClosed()) {
+            psDepositUpsert = connection.prepareStatement(
+                    "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) "
+                            + "ON CONFLICT(id) DO UPDATE SET balance = balance + excluded.balance");
+        }
+        if (psWithdrawIfEnough == null || psWithdrawIfEnough.isClosed()) {
+            psWithdrawIfEnough = connection.prepareStatement(
+                    "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?");
+        }
+        if (psSelectBalanceById == null || psSelectBalanceById.isClosed()) {
+            psSelectBalanceById = connection.prepareStatement(
+                    "SELECT balance FROM " + table + " WHERE id = ?");
+        }
+    }
+
+    private void closeHotStatements() {
+        try { if (psDepositUpsert != null) psDepositUpsert.close(); } catch (SQLException ignored) {}
+        try { if (psWithdrawIfEnough != null) psWithdrawIfEnough.close(); } catch (SQLException ignored) {}
+        try { if (psSelectBalanceById != null) psSelectBalanceById.close(); } catch (SQLException ignored) {}
+        psDepositUpsert = null;
+        psWithdrawIfEnough = null;
+        psSelectBalanceById = null;
     }
 
     // --- Bank support ---
