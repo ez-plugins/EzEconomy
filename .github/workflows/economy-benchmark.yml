@@ -111,6 +111,24 @@ jobs:
           name: bench-local-artifacts
           path: bench-local-artifacts
 
+      - name: Resolve built jar paths
+        id: jars
+        run: |
+          HARNESS_JAR=$(find bench-local-artifacts -type f -name "economy-benchmark-harness-*.jar" | head -n 1)
+          EZ_JAR=$(find bench-local-artifacts -type f -name "ezeconomy-bukkit-*.jar" | head -n 1)
+          EZ_REDIS_JAR=$(find bench-local-artifacts -type f -name "ezeconomy-redis-*.jar" | head -n 1)
+
+          if [[ -z "${HARNESS_JAR}" || -z "${EZ_JAR}" || -z "${EZ_REDIS_JAR}" ]]; then
+            echo "Failed to resolve one or more benchmark jars"
+            echo "bench-local-artifacts tree:"
+            find bench-local-artifacts -maxdepth 6 -type f | sort
+            exit 1
+          fi
+
+          echo "harness_jar=${HARNESS_JAR}" >> "$GITHUB_OUTPUT"
+          echo "ezeconomy_jar=${EZ_JAR}" >> "$GITHUB_OUTPUT"
+          echo "ezeconomy_redis_jar=${EZ_REDIS_JAR}" >> "$GITHUB_OUTPUT"
+
       - name: Resolve Paper build
         id: paper
         run: |
@@ -146,9 +164,9 @@ jobs:
         env:
           PAPER_JAR_PATH: downloads/${{ steps.paper.outputs.jar }}
           VAULT_JAR_PATH: downloads/Vault.jar
-          HARNESS_JAR_PATH: bench-local-artifacts/economy-benchmark-harness-1.0.0.jar
-          EZECONOMY_JAR_PATH: bench-local-artifacts/ezeconomy-bukkit-${{ needs.build-artifacts.outputs.ezeconomy_version }}.jar
-          EZECONOMY_REDIS_JAR_PATH: bench-local-artifacts/ezeconomy-redis-${{ needs.build-artifacts.outputs.ezeconomy_version }}.jar
+          HARNESS_JAR_PATH: ${{ steps.jars.outputs.harness_jar }}
+          EZECONOMY_JAR_PATH: ${{ steps.jars.outputs.ezeconomy_jar }}
+          EZECONOMY_REDIS_JAR_PATH: ${{ steps.jars.outputs.ezeconomy_redis_jar }}
           ESSENTIALSX_JAR_PATH: downloads/EssentialsX.jar
           CMI_JAR_PATH: downloads/CMI.jar
         run: |
