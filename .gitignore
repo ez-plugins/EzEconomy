@@ -1,39 +1,61 @@
-# Ignore Maven target directory
+# EzEconomy .gitignore
+# --------------------
+# Ignore build outputs
 /**/target/
+/.mvn/wrapper/maven-wrapper.jar
+/.gradle/
+/build/
 
-# Ignore compiled classes directories
-**/classes/
+# Maven/Gradle test and coverage
+jacoco.exec
+*.exec
+**/surefire-reports/
 
-# Ignore module build outputs
-ezeconomy-bukkit/target/
-ezeconomy-papi/target/
+# Local server, benchmark outputs and downloads (do not commit)
+/server/
+/downloads/
+/benchmark-output/
+bench-lane-output.txt
 
-# Ignore IDE files
+# Plugin runtime artifacts and worlds
+server/plugins/
+server/logs/
+server/world/
+server/world_nether/
+server/world_the_end/
+
+# Databases and runtime state
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE files
 /.idea/
+.vscode/
 *.iml
 *.ipr
 *.iws
 
-# Ignore Eclipse files
+# Eclipse
 .classpath
 .project
 .settings/
 
-# Ignore OS files
+# OS
 .DS_Store
 Thumbs.db
 
-# Ignore logs
+# Logs, swap, temp
 *.log
-
-# Ignore build tools
-/build/
-
-# Ignore other common files
+*.log.gz
 *.swp
 *.swo
 
-# Ignore Node files
-package-lock.json
-package.json
+# Node
 node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Misc
+*.class
