@@ -50,6 +50,15 @@ proxies:
     online-mode: false
 YAML
 
+# Benchmark lanes intentionally run many economy operations in tight loops.
+# Increase watchdog timeout so successful benchmark completion is not treated
+# as a server hang during shutdown or heavy synchronous backend calls.
+cat > "$SERVER_DIR/spigot.yml" <<'YAML'
+settings:
+  timeout-time: 300
+  restart-on-crash: false
+YAML
+
 mkdir -p "$SERVER_DIR/plugins/EconomyBenchmarkHarness"
 cat > "$SERVER_DIR/plugins/EconomyBenchmarkHarness/config.yml" <<'YAML'
 benchmark:

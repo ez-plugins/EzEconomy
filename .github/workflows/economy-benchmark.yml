@@ -80,8 +80,8 @@ jobs:
         storage: [sqlite, mysql]
         redis: [off, on]
     env:
-      BENCH_WARMUP: '250'
-      BENCH_ITERATIONS: '2500'
+      BENCH_WARMUP: '100'
+      BENCH_ITERATIONS: '1000'
       PAPER_MC_VERSION: '1.21.1'
       ESSENTIALSX_VERSION: '2.21.1'
       CMI_VERSION: '9.7.3.4'
