@@ -31,8 +31,8 @@ public final class EconomyBenchmarkHarnessPlugin extends JavaPlugin {
         String pluginVersion = envOrDefault("BENCH_PLUGIN_VERSION", "unknown");
         String storageMode = envOrDefault("BENCH_STORAGE", "unknown");
         String redisMode = envOrDefault("BENCH_REDIS", "unknown");
-        int warmupIterations = intEnv("BENCH_WARMUP", 200);
-        int measureIterations = intEnv("BENCH_ITERATIONS", 2000);
+        int warmupIterations = intEnv("BENCH_WARMUP", 1000);
+        int measureIterations = intEnv("BENCH_ITERATIONS", 10000);
         String runId = envOrDefault("GITHUB_RUN_ID", "local");
         String runAttempt = envOrDefault("GITHUB_RUN_ATTEMPT", "1");
 

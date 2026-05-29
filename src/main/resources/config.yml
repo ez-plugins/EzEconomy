@@ -95,14 +95,14 @@ performance:
     enabled: true
     ttl-ms: 2500
   mysql:
-    jdbc-params: "useSSL=false&serverTimezone=UTC&cachePrepStmts=true&prepStmtCacheSize=256&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true&elideSetAutoCommits=true&maintainTimeStats=false&useLocalSessionState=true&rewriteBatchedStatements=true&cacheResultSetMetadata=true&cacheServerConfiguration=true"
+    jdbc-params: "useSSL=false&serverTimezone=UTC&cachePrepStmts=true&prepStmtCacheSize=512&prepStmtCacheSqlLimit=4096&useServerPrepStmts=true&elideSetAutoCommits=true&maintainTimeStats=false&useLocalSessionState=true&rewriteBatchedStatements=true&cacheResultSetMetadata=true&cacheServerConfiguration=true&tcpKeepAlive=true&connectTimeout=10000&socketTimeout=30000"
     pool:
       enabled: true
-      maximum-pool-size: 16
-      minimum-idle: 4
+      maximum-pool-size: 24
+      minimum-idle: 8
       connection-timeout-ms: 10000
-      idle-timeout-ms: 120000
-      max-lifetime-ms: 900000
+      idle-timeout-ms: 300000
+      max-lifetime-ms: 1200000
 
 # Presentation settings for money formatting. These settings affect only
 # how amounts are shown to players and in integrations (placeholders, GUIs,
