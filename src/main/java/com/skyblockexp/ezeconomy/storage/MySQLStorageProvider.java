@@ -352,127 +352,37 @@ public class MySQLStorageProvider implements StorageProvider {
 
     @Override
     public boolean tryWithdraw(UUID uuid, String currency, double amount) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                        double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                        if (current < amount) return false;
-                        balanceRepo.save(BalanceModel.create(uuid, currency, current - amount));
-                        putCached(balanceCacheKey(uuid, currency), current - amount);
-                        return true;
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] MySQL tryWithdraw failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                        return false;
-                    } catch (Exception e) {
-                        plugin.getLogger().severe("[EzEconomy] Unexpected error in tryWithdraw for " + uuid + " (" + currency + "): " + e.getMessage());
-                        return false;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
-        synchronized (lock) {
-            try {
-                java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                if (current < amount) return false;
-                balanceRepo.save(BalanceModel.create(uuid, currency, current - amount));
-                putCached(balanceCacheKey(uuid, currency), current - amount);
-                return true;
-            } catch (StorageException e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL tryWithdraw failed for " + uuid + " (" + currency + "): " + e.getMessage());
-            } catch (Exception e) {
-                plugin.getLogger().severe("[EzEconomy] Unexpected error in tryWithdraw for " + uuid + " (" + currency + "): " + e.getMessage());
-            }
-            return false;
-        }
+        return withdrawAndGetBalance(uuid, currency, amount).isSuccess();
     }
 
     @Override
     public void deposit(UUID uuid, String currency, double amount) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                        double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                        balanceRepo.save(BalanceModel.create(uuid, currency, current + amount));
-                        putCached(balanceCacheKey(uuid, currency), current + amount);
-                        org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
-                        String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
-                        String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
-                        try { playerRepo.save(PlayerModel.create(uuid, name, display)); } catch (StorageException ignored) {}
-                        return;
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] MySQL deposit failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                        return;
-                    } catch (Exception e) {
-                        plugin.getLogger().severe("[EzEconomy] Unexpected error in deposit for " + uuid + " (" + currency + "): " + e.getMessage());
-                        return;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
-        synchronized (lock) {
-            try {
-                java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                balanceRepo.save(BalanceModel.create(uuid, currency, current + amount));
-                putCached(balanceCacheKey(uuid, currency), current + amount);
-                org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
-                String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
-                String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
-                try { playerRepo.save(PlayerModel.create(uuid, name, display)); } catch (StorageException ignored) {}
-            } catch (StorageException e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL deposit failed for " + uuid + " (" + currency + "): " + e.getMessage());
-            } catch (Exception e) {
-                plugin.getLogger().severe("[EzEconomy] Unexpected error in deposit for " + uuid + " (" + currency + "): " + e.getMessage());
-            }
-        }
+        depositAndGetBalance(uuid, currency, amount);
     }
 
     @Override
     public EconomyMutationResult depositAndGetBalance(UUID uuid, String currency, double amount) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
         String cacheKey = balanceCacheKey(uuid, currency);
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                    double updated = opt.map(BalanceModel::getBalance).orElse(0.0) + amount;
-                    balanceRepo.save(BalanceModel.create(uuid, currency, updated));
-                    putCached(cacheKey, updated);
-                    return EconomyMutationResult.success(updated);
-                }
-            } catch (Exception e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL depositAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                return EconomyMutationResult.failure(0.0, "Storage failure");
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
         synchronized (lock) {
             try {
-                java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                double updated = opt.map(BalanceModel::getBalance).orElse(0.0) + amount;
-                balanceRepo.save(BalanceModel.create(uuid, currency, updated));
+                String id = BalanceModel.idFor(uuid, currency);
+                try (PreparedStatement upsert = connection.prepareStatement(
+                        "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) "
+                                + "ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)")) {
+                    upsert.setString(1, id);
+                    upsert.setString(2, uuid.toString());
+                    upsert.setString(3, currency);
+                    upsert.setDouble(4, amount);
+                    upsert.executeUpdate();
+                }
+                double updated;
+                try (PreparedStatement select = connection.prepareStatement(
+                        "SELECT balance FROM " + table + " WHERE id = ?")) {
+                    select.setString(1, id);
+                    try (ResultSet rs = select.executeQuery()) {
+                        updated = rs.next() ? rs.getDouble(1) : amount;
+                    }
+                }
                 putCached(cacheKey, updated);
                 return EconomyMutationResult.success(updated);
             } catch (Exception e) {
@@ -484,37 +394,29 @@ public class MySQLStorageProvider implements StorageProvider {
 
     @Override
     public EconomyMutationResult withdrawAndGetBalance(UUID uuid, String currency, double amount) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
         String cacheKey = balanceCacheKey(uuid, currency);
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                    double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                    if (current < amount) return EconomyMutationResult.failure(current, "Insufficient funds");
-                    double updated = current - amount;
-                    balanceRepo.save(BalanceModel.create(uuid, currency, updated));
-                    putCached(cacheKey, updated);
-                    return EconomyMutationResult.success(updated);
-                }
-            } catch (Exception e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL withdrawAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                return EconomyMutationResult.failure(0.0, "Storage failure");
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
         synchronized (lock) {
             try {
-                java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                if (current < amount) return EconomyMutationResult.failure(current, "Insufficient funds");
-                double updated = current - amount;
-                balanceRepo.save(BalanceModel.create(uuid, currency, updated));
-                putCached(cacheKey, updated);
-                return EconomyMutationResult.success(updated);
+                String id = BalanceModel.idFor(uuid, currency);
+                int rows;
+                try (PreparedStatement withdraw = connection.prepareStatement(
+                        "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?")) {
+                    withdraw.setDouble(1, amount);
+                    withdraw.setString(2, id);
+                    withdraw.setDouble(3, amount);
+                    rows = withdraw.executeUpdate();
+                }
+                double current;
+                try (PreparedStatement select = connection.prepareStatement(
+                        "SELECT balance FROM " + table + " WHERE id = ?")) {
+                    select.setString(1, id);
+                    try (ResultSet rs = select.executeQuery()) {
+                        current = rs.next() ? rs.getDouble(1) : 0.0;
+                    }
+                }
+                if (rows <= 0) return EconomyMutationResult.failure(current, "Insufficient funds");
+                putCached(cacheKey, current);
+                return EconomyMutationResult.success(current);
             } catch (Exception e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL withdrawAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
                 return EconomyMutationResult.failure(0.0, "Storage failure");
