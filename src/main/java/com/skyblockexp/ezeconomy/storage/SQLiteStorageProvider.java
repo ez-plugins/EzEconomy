@@ -40,6 +40,7 @@ import com.skyblockexp.ezeconomy.storage.jaloquent.model.TransactionModel;
 import com.skyblockexp.ezeconomy.cache.CacheManager;
 import com.skyblockexp.ezeconomy.cache.CacheProvider;
 import com.skyblockexp.ezeconomy.cache.ExpiringCache;
+import com.skyblockexp.ezeconomy.storage.sqlite.SQLiteBackgroundPersistenceService;
 
 /**
  * SQLite implementation of the StorageProvider interface for EzEconomy.
@@ -67,6 +68,7 @@ public class SQLiteStorageProvider implements StorageProvider {
     private PreparedStatement psDepositUpsert;
     private PreparedStatement psWithdrawIfEnough;
     private PreparedStatement psSelectBalanceById;
+    private SQLiteBackgroundPersistenceService backgroundPersistence;
 
     // --- Constructors ---
     /**
@@ -127,6 +129,13 @@ public class SQLiteStorageProvider implements StorageProvider {
                     + "created_at INTEGER DEFAULT (strftime('%s','now'))"
                     + ")", noParams);
             initRepositories();
+            // start background persistence for deposits (batched)
+            try {
+                int qsize = dbConfig.getInt("sqlite.background-queue-size", 10000);
+                int batchSize = dbConfig.getInt("sqlite.background-batch-size", 256);
+                long flushMs = dbConfig.getLong("sqlite.background-flush-ms", 100L);
+                backgroundPersistence = new SQLiteBackgroundPersistenceService(plugin, file.getAbsolutePath(), this.table, qsize, batchSize, flushMs);
+            } catch (Exception ignored) {}
         } catch (Exception e) {
             plugin.getLogger().severe("SQLite connection failed: " + e.getMessage());
             throw new RuntimeException("Failed to initialize SQLiteStorageProvider", e);
@@ -399,8 +408,20 @@ public class SQLiteStorageProvider implements StorageProvider {
         String cacheKey = balanceCacheKey(uuid, currency);
         synchronized (lock) {
             try {
-                ensureHotStatements();
                 String id = BalanceModel.idFor(uuid, currency);
+                // If background persistence is enabled, enqueue the delta and update cache immediately.
+                if (backgroundPersistence != null) {
+                    // read base balance (prefer cache)
+                    Double cached = getCached(cacheKey);
+                    double base = cached != null ? cached.doubleValue() : balanceRepo.find(id).map(BalanceModel::getBalance).orElse(0.0);
+                    backgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, amount);
+                    double pending = backgroundPersistence.peekPendingSum(id);
+                    double updated = base + pending;
+                    putCached(cacheKey, updated);
+                    return EconomyMutationResult.success(updated);
+                }
+                // Fallback: synchronous update (legacy behavior)
+                ensureHotStatements();
                 psDepositUpsert.setString(1, id);
                 psDepositUpsert.setString(2, uuid.toString());
                 psDepositUpsert.setString(3, currency);
@@ -425,8 +446,12 @@ public class SQLiteStorageProvider implements StorageProvider {
         String cacheKey = balanceCacheKey(uuid, currency);
         synchronized (lock) {
             try {
-                ensureHotStatements();
                 String id = BalanceModel.idFor(uuid, currency);
+                // Ensure any pending deposits for this id are flushed before attempting atomic withdraw
+                try {
+                    if (backgroundPersistence != null) backgroundPersistence.flushIdSync(id);
+                } catch (Exception ignored) {}
+                ensureHotStatements();
                 psWithdrawIfEnough.setDouble(1, amount);
                 psWithdrawIfEnough.setString(2, id);
                 psWithdrawIfEnough.setDouble(3, amount);
@@ -550,6 +575,7 @@ public class SQLiteStorageProvider implements StorageProvider {
     @Override
     public void shutdown() {
         closeHotStatements();
+        try { if (backgroundPersistence != null) backgroundPersistence.shutdown(); } catch (Exception ignored) {}
         try { if (connection != null) connection.close(); } catch (SQLException ignored) {}
     }
 

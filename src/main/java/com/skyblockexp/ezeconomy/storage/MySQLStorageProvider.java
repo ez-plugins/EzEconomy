@@ -26,6 +26,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.math.BigDecimal;
 import java.util.stream.Collectors;
 import com.skyblockexp.ezeconomy.api.events.BankPreTransactionEvent;
@@ -37,6 +43,10 @@ import com.skyblockexp.ezeconomy.cache.CacheProvider;
 import com.skyblockexp.ezeconomy.cache.ExpiringCache;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import com.skyblockexp.ezeconomy.storage.mysql.BackgroundPersistenceService;
+import com.skyblockexp.ezeconomy.storage.mysql.StripedLockManager;
+import com.skyblockexp.ezeconomy.storage.mysql.MySQLConnectionManager;
+import com.skyblockexp.ezeconomy.storage.mysql.MySQLBalanceDao;
 
 /**
  * MySQL implementation of the StorageProvider interface for EzEconomy.
@@ -64,6 +74,24 @@ public class MySQLStorageProvider implements StorageProvider {
     private PreparedStatement psWithdrawIfEnough;
     private PreparedStatement psSelectBalanceById;
     private HikariDataSource hotPathDataSource;
+    // Striped locks to reduce global contention for per-balance operations
+    private final StripedLockManager stripedLockManager;
+
+    // Background persistence for non-critical writes (player metadata)
+    private BackgroundPersistenceService backgroundPersistence;
+    // Background persistence for balance deltas (batched upserts)
+    private com.skyblockexp.ezeconomy.storage.mysql.MySQLBalanceBackgroundPersistenceService balanceBackgroundPersistence;
+
+    // Connection manager and balance DAO (planned refactor)
+    private MySQLConnectionManager connectionManager;
+    private MySQLBalanceDao balanceDao;
+
+    // Lightweight instrumentation
+    private final AtomicLong depositCount = new AtomicLong(0);
+    private final AtomicLong depositTimeNs = new AtomicLong(0);
+    private final AtomicLong withdrawCount = new AtomicLong(0);
+    private final AtomicLong withdrawTimeNs = new AtomicLong(0);
+    private ScheduledExecutorService metricsScheduler;
 
     /**
      * Constructs a MySQLStorageProvider with the given plugin and configuration.
@@ -77,6 +105,8 @@ public class MySQLStorageProvider implements StorageProvider {
         this.table = dbConfig.getString("mysql.table", "balances");
         this.balanceCacheEnabled = plugin.getConfig().getBoolean("performance.balance-cache.enabled", true);
         this.balanceCacheTtlMs = plugin.getConfig().getLong("performance.balance-cache.ttl-ms", 2500L);
+        int stripes = Math.max(16, dbConfig.getInt("mysql.lock-stripes", 64));
+        this.stripedLockManager = new StripedLockManager(stripes);
     }
 
     @Override
@@ -135,20 +165,20 @@ public class MySQLStorageProvider implements StorageProvider {
 
     @Override
     public void load() throws StorageLoadException {
-        // Establish connection only
-        String host = dbConfig.getString("mysql.host");
-        int port = dbConfig.getInt("mysql.port");
-        String database = dbConfig.getString("mysql.database");
-        String username = dbConfig.getString("mysql.username");
-        String password = dbConfig.getString("mysql.password");
+        // Establish connections via ConnectionManager
         try {
             if (connection != null && !connection.isClosed()) {
-                connection.close();
+                try { connection.close(); } catch (Exception ignored) {}
+                connection = null;
             }
-            connection = DriverManager.getConnection(
-                buildJdbcUrl(host, port, database),
-                username, password);
-            initHotPathPool(buildJdbcUrl(host, port, database), username, password);
+            if (connectionManager != null) {
+                try { connectionManager.close(); } catch (Exception ignored) {}
+                connectionManager = null;
+            }
+            connectionManager = new MySQLConnectionManager(plugin, dbConfig);
+            connectionManager.init();
+            this.connection = connectionManager.getFallbackConnection();
+            this.hotPathDataSource = connectionManager.getHikariDataSource();
             initRepositories();
         } catch (SQLException e) {
             plugin.getLogger().warning("MySQL connection failed: " + e.getMessage());
@@ -174,6 +204,40 @@ public class MySQLStorageProvider implements StorageProvider {
         bankRepo        = new ModelRepository<>(jdbcStore, BankModel.PREFIX,       BankModel::new,       SqlDialect.MYSQL);
         bankMemberRepo  = new ModelRepository<>(jdbcStore, BankMemberModel.PREFIX, BankMemberModel::new, SqlDialect.MYSQL);
         transactionRepo = new ModelRepository<>(jdbcStore, TransactionModel.PREFIX,TransactionModel::new,SqlDialect.MYSQL);
+        // Start background persistence and metrics after repositories are available
+        try {
+            backgroundPersistence = new BackgroundPersistenceService(plugin, hotPathDataSource, dbConfig.getInt("mysql.background-queue-size", 10000));
+        } catch (Exception ignored) {}
+        try {
+            // balance background persistence configuration
+            int balQueue = dbConfig.getInt("mysql.balance-background-queue-size", 10000);
+            int balBatch = dbConfig.getInt("mysql.balance-background-batch-size", 128);
+            long balFlush = dbConfig.getLong("mysql.balance-background-flush-interval-ms", 200L);
+            if (hotPathDataSource != null) {
+                balanceBackgroundPersistence = new com.skyblockexp.ezeconomy.storage.mysql.MySQLBalanceBackgroundPersistenceService(plugin, hotPathDataSource, table, balQueue, balBatch, balFlush);
+            }
+        } catch (Exception ignored) {}
+        metricsScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "EzEconomy-MySQL-Metrics");
+            t.setDaemon(true);
+            return t;
+        });
+        metricsScheduler.scheduleAtFixedRate(() -> {
+            try {
+                long dc = depositCount.get();
+                if (dc > 0) plugin.getLogger().info("[EzEconomy] Deposit avg latency: " + (depositTimeNs.get() / (double) dc / 1_000_000.0) + " ms over " + dc + " ops");
+                long wc = withdrawCount.get();
+                if (wc > 0) plugin.getLogger().info("[EzEconomy] Withdraw avg latency: " + (withdrawTimeNs.get() / (double) wc / 1_000_000.0) + " ms over " + wc + " ops");
+            } catch (Throwable t) {
+                // swallow
+            }
+        }, 60, 60, TimeUnit.SECONDS);
+
+        // Wire balance DAO to encapsulate hot-path + fallback SQL logic
+        try {
+            balanceDao = new MySQLBalanceDao(plugin, table, hotPathDataSource, connection, stripedLockManager,
+                key -> getCached(key), (key, val) -> putCached(key, val), () -> canUseLocalFastBalanceResponse(), balanceBackgroundPersistence);
+        } catch (Exception ignored) {}
     }
 
     @Override
@@ -360,7 +424,11 @@ public class MySQLStorageProvider implements StorageProvider {
                         org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
                         String pname = of != null && of.getName() != null ? of.getName() : uuid.toString();
                         String pdisplay = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : pname;
-                        playerRepo.save(PlayerModel.create(uuid, pname, pdisplay));
+                        if (backgroundPersistence != null) {
+                            backgroundPersistence.submitPlayerSave(uuid, pname, pdisplay);
+                        } else {
+                            playerRepo.save(PlayerModel.create(uuid, pname, pdisplay));
+                        }
                         return;
                     } catch (StorageException e) {
                         plugin.getLogger().severe("[EzEconomy] MySQL setBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
@@ -380,7 +448,11 @@ public class MySQLStorageProvider implements StorageProvider {
                 org.bukkit.OfflinePlayer of = org.bukkit.Bukkit.getOfflinePlayer(uuid);
                 String pname = of != null && of.getName() != null ? of.getName() : uuid.toString();
                 String pdisplay = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : pname;
-                playerRepo.save(PlayerModel.create(uuid, pname, pdisplay));
+                if (backgroundPersistence != null) {
+                    backgroundPersistence.submitPlayerSave(uuid, pname, pdisplay);
+                } else {
+                    playerRepo.save(PlayerModel.create(uuid, pname, pdisplay));
+                }
             } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL setBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
             }
@@ -399,122 +471,25 @@ public class MySQLStorageProvider implements StorageProvider {
 
     @Override
     public EconomyMutationResult depositAndGetBalance(UUID uuid, String currency, double amount) {
-        String cacheKey = balanceCacheKey(uuid, currency);
-        if (hasHotPathPool()) {
-            String id = BalanceModel.idFor(uuid, currency);
-            Double cached = getCached(cacheKey);
-            try (Connection conn = hotPathDataSource.getConnection();
-                 PreparedStatement upsert = conn.prepareStatement(
-                         "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) "
-                                 + "ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)");
-                 PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
-                upsert.setString(1, id);
-                upsert.setString(2, uuid.toString());
-                upsert.setString(3, currency);
-                upsert.setDouble(4, amount);
-                upsert.executeUpdate();
-                if (cached != null && canUseLocalFastBalanceResponse()) {
-                    double updatedFast = cached.doubleValue() + amount;
-                    putCached(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
-                select.setString(1, id);
-                try (ResultSet rs = select.executeQuery()) {
-                    double updated = rs.next() ? rs.getDouble(1) : amount;
-                    putCached(cacheKey, updated);
-                    return EconomyMutationResult.success(updated);
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL depositAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                return EconomyMutationResult.failure(0.0, "Storage failure");
-            }
-        }
-        synchronized (lock) {
-            try {
-                ensureHotStatements();
-                String id = BalanceModel.idFor(uuid, currency);
-                Double cached = getCached(cacheKey);
-                psDepositUpsert.setString(1, id);
-                psDepositUpsert.setString(2, uuid.toString());
-                psDepositUpsert.setString(3, currency);
-                psDepositUpsert.setDouble(4, amount);
-                psDepositUpsert.executeUpdate();
-                if (cached != null && canUseLocalFastBalanceResponse()) {
-                    double updatedFast = cached.doubleValue() + amount;
-                    putCached(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
-                double updated;
-                psSelectBalanceById.setString(1, id);
-                try (ResultSet rs = psSelectBalanceById.executeQuery()) {
-                    updated = rs.next() ? rs.getDouble(1) : amount;
-                }
-                putCached(cacheKey, updated);
-                return EconomyMutationResult.success(updated);
-            } catch (Exception e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL depositAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                return EconomyMutationResult.failure(0.0, "Storage failure");
-            }
+        long startNs = System.nanoTime();
+        try {
+            if (balanceDao != null) return balanceDao.depositAndGetBalance(uuid, currency, amount);
+            plugin.getLogger().severe("[EzEconomy] Balance DAO not initialized for deposit");
+            return EconomyMutationResult.failure(0.0, "Storage failure");
+        } finally {
+            recordDeposit(System.nanoTime() - startNs);
         }
     }
 
     @Override
     public EconomyMutationResult withdrawAndGetBalance(UUID uuid, String currency, double amount) {
-        String cacheKey = balanceCacheKey(uuid, currency);
-        if (hasHotPathPool()) {
-            String id = BalanceModel.idFor(uuid, currency);
-            Double cached = getCached(cacheKey);
-            try (Connection conn = hotPathDataSource.getConnection();
-                 PreparedStatement withdraw = conn.prepareStatement(
-                         "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?");
-                 PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
-                withdraw.setDouble(1, amount);
-                withdraw.setString(2, id);
-                withdraw.setDouble(3, amount);
-                int rows = withdraw.executeUpdate();
-                if (rows > 0 && cached != null && canUseLocalFastBalanceResponse()) {
-                    double updatedFast = cached.doubleValue() - amount;
-                    putCached(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
-                select.setString(1, id);
-                try (ResultSet rs = select.executeQuery()) {
-                    double current = rs.next() ? rs.getDouble(1) : 0.0;
-                    if (rows <= 0) return EconomyMutationResult.failure(current, "Insufficient funds");
-                    putCached(cacheKey, current);
-                    return EconomyMutationResult.success(current);
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL withdrawAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                return EconomyMutationResult.failure(0.0, "Storage failure");
-            }
-        }
-        synchronized (lock) {
-            try {
-                ensureHotStatements();
-                String id = BalanceModel.idFor(uuid, currency);
-                Double cached = getCached(cacheKey);
-                psWithdrawIfEnough.setDouble(1, amount);
-                psWithdrawIfEnough.setString(2, id);
-                psWithdrawIfEnough.setDouble(3, amount);
-                int rows = psWithdrawIfEnough.executeUpdate();
-                if (rows > 0 && cached != null && canUseLocalFastBalanceResponse()) {
-                    double updatedFast = cached.doubleValue() - amount;
-                    putCached(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
-                double current;
-                psSelectBalanceById.setString(1, id);
-                try (ResultSet rs = psSelectBalanceById.executeQuery()) {
-                    current = rs.next() ? rs.getDouble(1) : 0.0;
-                }
-                if (rows <= 0) return EconomyMutationResult.failure(current, "Insufficient funds");
-                putCached(cacheKey, current);
-                return EconomyMutationResult.success(current);
-            } catch (Exception e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL withdrawAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                return EconomyMutationResult.failure(0.0, "Storage failure");
-            }
+        long startNs = System.nanoTime();
+        try {
+            if (balanceDao != null) return balanceDao.withdrawAndGetBalance(uuid, currency, amount);
+            plugin.getLogger().severe("[EzEconomy] Balance DAO not initialized for withdraw");
+            return EconomyMutationResult.failure(0.0, "Storage failure");
+        } finally {
+            recordWithdraw(System.nanoTime() - startNs);
         }
     }
 
@@ -522,16 +497,33 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             try {
                 closeHotStatements();
-                if (hotPathDataSource != null) {
-                    hotPathDataSource.close();
+                if (connectionManager != null) {
+                    try { connectionManager.close(); } catch (Exception ignored) {}
+                    connectionManager = null;
                     hotPathDataSource = null;
+                    connection = null;
+                } else {
+                    if (hotPathDataSource != null) {
+                        hotPathDataSource.close();
+                        hotPathDataSource = null;
+                    }
+                    if (connection != null && !connection.isClosed()) connection.close();
                 }
-                if (connection != null && !connection.isClosed()) connection.close();
             } catch (SQLException e) {
                 plugin.getLogger().severe("[EzEconomy] MySQL shutdown failed: " + e.getMessage());
             } catch (Exception e) {
                 plugin.getLogger().severe("[EzEconomy] Unexpected error on shutdown: " + e.getMessage());
             }
+            // Stop background services
+            try {
+                if (backgroundPersistence != null) backgroundPersistence.shutdown();
+            } catch (Throwable ignored) {}
+            try {
+                if (balanceBackgroundPersistence != null) balanceBackgroundPersistence.shutdown();
+            } catch (Throwable ignored) {}
+            try {
+                if (metricsScheduler != null) metricsScheduler.shutdownNow();
+            } catch (Throwable ignored) {}
         }
     }
     public Map<UUID, Double> getAllBalances(String currency) {
@@ -686,6 +678,18 @@ public class MySQLStorageProvider implements StorageProvider {
 
     private boolean hasHotPathPool() {
         return hotPathDataSource != null;
+    }
+
+    // lockForKey removed — use StripedLockManager instead
+
+    private void recordDeposit(long nanos) {
+        depositCount.incrementAndGet();
+        depositTimeNs.addAndGet(nanos);
+    }
+
+    private void recordWithdraw(long nanos) {
+        withdrawCount.incrementAndGet();
+        withdrawTimeNs.addAndGet(nanos);
     }
 
     private void ensureHotStatements() throws SQLException {

@@ -61,6 +61,14 @@ public class EzEconomyPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         INSTANCE = this;
+        // Silence noisy logs from the shaded Jaloquent library used by the plugin.
+        // These logs spam the server during tight benchmark loops and can cause
+        // excessive I/O to the console. Reduce to WARNING/SEVERE only.
+        try {
+            java.util.logging.Logger.getLogger("com.skyblockexp.ezeconomy.shaded.jaloquent").setLevel(java.util.logging.Level.WARNING);
+            java.util.logging.Logger.getLogger("com.skyblockexp.ezeconomy.shaded.jaloquent.model.ModelRepository").setLevel(java.util.logging.Level.SEVERE);
+        } catch (SecurityException ignored) {
+        }
         this.bootstrap = new com.skyblockexp.ezeconomy.bootstrap.Bootstrap(this);
         try {
             if (!RegistryCompat.hasBukkitRegistry()) {
