@@ -12,7 +12,7 @@ jobs:
     name: Build EzEconomy + Harness
     runs-on: ubuntu-latest
     env:
-      MAVEN_REPO_LOCAL: ${{ runner.temp }}/m2-benchmark
+      MAVEN_REPO_LOCAL: ${{ github.workspace }}/.m2-benchmark
     outputs:
       ezeconomy_version: ${{ steps.meta.outputs.ezeconomy_version }}
     steps:
