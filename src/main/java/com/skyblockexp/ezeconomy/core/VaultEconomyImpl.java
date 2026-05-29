@@ -6,9 +6,16 @@ import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.OfflinePlayer;
 
 /**
@@ -19,10 +26,22 @@ public class VaultEconomyImpl implements Economy {
     private static final String INSUFFICIENT_FUNDS = "Insufficient funds";
     private final EzEconomyPlugin plugin;
     private final EzEconomyAPI api;
+    private final boolean fastVaultMutationsEnabled;
+    private final long fastVaultMutationShutdownTimeoutMs;
+    private final Map<String, Double> fastBalances = new ConcurrentHashMap<>();
+    private final Map<String, Object> fastBalanceLocks = new ConcurrentHashMap<>();
+    private final Map<String, PendingPlayerBalanceWrite> pendingPlayerWrites = new ConcurrentHashMap<>();
+    private final Object fastMutationExecutorLock = new Object();
+    private volatile ExecutorService fastMutationExecutor;
 
     public VaultEconomyImpl(EzEconomyPlugin plugin) {
         this.plugin = plugin;
         this.api = new EzEconomyAPI(plugin.getStorage());
+        FileConfiguration config = getConfigSafely();
+        this.fastVaultMutationsEnabled = isFastVaultMutationConfigEnabled(config);
+        this.fastVaultMutationShutdownTimeoutMs = config == null
+                ? 15000L
+                : config.getLong("performance.fast-vault-mutations.shutdown-flush-timeout-ms", 15000L);
     }
 
     // ----------------------------------------------------------------------
@@ -107,6 +126,13 @@ public class VaultEconomyImpl implements Economy {
 
     @Override
     public double getBalance(OfflinePlayer player) {
+        StorageProvider storage = getStorageProvider();
+        if (canUseFastVaultMutations(storage)) {
+            Double fastBalance = fastBalances.get(balanceKey(player.getUniqueId(), plugin.getDefaultCurrency()));
+            if (fastBalance != null) {
+                return fastBalance.doubleValue();
+            }
+        }
         return api.getBalance(player.getUniqueId(), plugin.getDefaultCurrency()).getBalance();
     }
 
@@ -125,6 +151,12 @@ public class VaultEconomyImpl implements Economy {
         if (storage == null) {
             warnStorage("checking funds for", player.getName());
             return false;
+        }
+        if (canUseFastVaultMutations(storage)) {
+            Double fastBalance = fastBalances.get(balanceKey(player.getUniqueId(), plugin.getDefaultCurrency()));
+            if (fastBalance != null) {
+                return fastBalance.doubleValue() >= amount;
+            }
         }
         try {
             return storage.getBalance(player.getUniqueId(), plugin.getDefaultCurrency()) >= amount;
@@ -151,6 +183,14 @@ public class VaultEconomyImpl implements Economy {
             return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Storage unavailable");
         }
         UUID uuid = player.getUniqueId();
+        if (canUseFastVaultMutations(storage)) {
+            EconomyMutationResult result = mutateFastPlayerBalance(storage, uuid, currency, amount, true);
+            boolean success = result.isSuccess();
+            double balance = result.getBalance();
+            return success
+                    ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
+                    : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
+        }
         EconomyMutationResult result = storage.withdrawAndGetBalance(uuid, currency, amount);
         boolean success = result.isSuccess();
         double balance = result.getBalance();
@@ -174,6 +214,13 @@ public class VaultEconomyImpl implements Economy {
         StorageProvider storage = getStorageProvider();
         if (storage == null) {
             return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Storage unavailable");
+        }
+        if (canUseFastVaultMutations(storage)) {
+            EconomyMutationResult result = mutateFastPlayerBalance(storage, player.getUniqueId(), currency, amount, false);
+            double balance = result.getBalance();
+            return result.isSuccess()
+                    ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
+                    : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Deposit failed");
         }
         EconomyMutationResult result = storage.depositAndGetBalance(player.getUniqueId(), currency, amount);
         boolean success = result.isSuccess();
@@ -366,6 +413,137 @@ public class VaultEconomyImpl implements Economy {
 
     private void warnStorage(String action, String target) {
         plugin.getLogger().warning("Storage unavailable when " + action + " " + target);
+    }
+
+    private boolean canUseFastVaultMutations(StorageProvider storage) {
+        return storage != null && fastVaultMutationsEnabled && plugin.getLockManager() == null;
+    }
+
+    private FileConfiguration getConfigSafely() {
+        try {
+            return plugin.getConfig();
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private boolean isFastVaultMutationConfigEnabled(FileConfiguration config) {
+        if (config == null) {
+            return false;
+        }
+        if (!config.getBoolean("performance.fast-vault-mutations.enabled", true)) {
+            return false;
+        }
+        if (!config.getBoolean("performance.balance-cache.enabled", true)) {
+            return false;
+        }
+        String strategy = config.getString("caching-strategy", config.getString("locking-strategy", "LOCAL"));
+        return strategy == null || "LOCAL".equalsIgnoreCase(strategy.trim());
+    }
+
+    private EconomyMutationResult mutateFastPlayerBalance(StorageProvider storage, UUID uuid, String currency, double amount, boolean withdraw) {
+        String key = balanceKey(uuid, currency);
+        synchronized (getFastBalanceLock(key)) {
+            Double currentFast = fastBalances.get(key);
+            double current = currentFast != null ? currentFast.doubleValue() : storage.getBalance(uuid, currency);
+            if (withdraw && current < amount) {
+                fastBalances.put(key, current);
+                return EconomyMutationResult.failure(current, INSUFFICIENT_FUNDS);
+            }
+            double updated = withdraw ? current - amount : current + amount;
+            fastBalances.put(key, updated);
+            enqueuePlayerBalanceWrite(key, storage, uuid, currency, updated);
+            return EconomyMutationResult.success(updated);
+        }
+    }
+
+    private Object getFastBalanceLock(String key) {
+        return fastBalanceLocks.computeIfAbsent(key, ignored -> new Object());
+    }
+
+    private String balanceKey(UUID uuid, String currency) {
+        return uuid.toString() + ':' + currency;
+    }
+
+    private void enqueuePlayerBalanceWrite(String key, StorageProvider storage, UUID uuid, String currency, double balance) {
+        PendingPlayerBalanceWrite write = new PendingPlayerBalanceWrite(storage, uuid, currency, balance);
+        PendingPlayerBalanceWrite previous = pendingPlayerWrites.put(key, write);
+        if (previous == null) {
+            getFastMutationExecutor().execute(() -> flushPlayerBalanceWrite(key));
+        }
+    }
+
+    private void flushPlayerBalanceWrite(String key) {
+        while (true) {
+            PendingPlayerBalanceWrite write = pendingPlayerWrites.remove(key);
+            if (write == null) {
+                return;
+            }
+            try {
+                write.storage.setBalance(write.uuid, write.currency, write.balance);
+            } catch (Throwable t) {
+                plugin.getLogger().severe("[EzEconomy] Fast Vault balance flush failed for "
+                        + write.uuid + " (" + write.currency + "): " + t.getMessage());
+            }
+            if (!pendingPlayerWrites.containsKey(key)) {
+                return;
+            }
+        }
+    }
+
+    private ExecutorService getFastMutationExecutor() {
+        ExecutorService executor = fastMutationExecutor;
+        if (executor != null) {
+            return executor;
+        }
+        synchronized (fastMutationExecutorLock) {
+            if (fastMutationExecutor == null) {
+                fastMutationExecutor = Executors.newSingleThreadExecutor(new ThreadFactory() {
+                    @Override
+                    public Thread newThread(Runnable runnable) {
+                        Thread thread = new Thread(runnable, "EzEconomy-Vault-FastMutations");
+                        thread.setDaemon(true);
+                        return thread;
+                    }
+                });
+            }
+            return fastMutationExecutor;
+        }
+    }
+
+    public void shutdown() {
+        ExecutorService executor;
+        synchronized (fastMutationExecutorLock) {
+            executor = fastMutationExecutor;
+            fastMutationExecutor = null;
+        }
+        if (executor == null) {
+            return;
+        }
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(Math.max(1L, fastVaultMutationShutdownTimeoutMs), TimeUnit.MILLISECONDS)) {
+                plugin.getLogger().warning("[EzEconomy] Timed out waiting for fast Vault balance flush; forcing shutdown.");
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            executor.shutdownNow();
+        }
+    }
+
+    private static final class PendingPlayerBalanceWrite {
+        private final StorageProvider storage;
+        private final UUID uuid;
+        private final String currency;
+        private final double balance;
+
+        private PendingPlayerBalanceWrite(StorageProvider storage, UUID uuid, String currency, double balance) {
+            this.storage = storage;
+            this.uuid = uuid;
+            this.currency = currency;
+            this.balance = balance;
+        }
     }
 
     // --- Account creation (no-op) ---

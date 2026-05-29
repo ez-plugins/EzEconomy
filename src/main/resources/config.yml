@@ -92,6 +92,12 @@ caching-strategy: LOCAL
 
 # Performance tuning for hot balance paths (Vault + placeholders).
 performance:
+  # Enables the Vault deposit/withdraw hot path for single-server LOCAL cache mode.
+  # Balance changes are applied to memory immediately and flushed to storage
+  # asynchronously, with a final flush during plugin shutdown.
+  fast-vault-mutations:
+    enabled: true
+    shutdown-flush-timeout-ms: 15000
   balance-cache:
     enabled: true
     ttl-ms: 2500
