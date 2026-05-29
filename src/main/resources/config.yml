@@ -89,6 +89,20 @@ cross-server:
 # If not present, the plugin will fall back to `locking-strategy` for backward compatibility.
 caching-strategy: LOCAL
 
+# Performance tuning for hot balance paths (Vault + placeholders).
+performance:
+  balance-cache:
+    enabled: true
+    ttl-ms: 2500
+  mysql:
+    pool:
+      enabled: false
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout-ms: 30000
+      idle-timeout-ms: 600000
+      max-lifetime-ms: 1800000
+
 # Presentation settings for money formatting. These settings affect only
 # how amounts are shown to players and in integrations (placeholders, GUIs,
 # chat). Monetary storage and arithmetic remain unchanged.

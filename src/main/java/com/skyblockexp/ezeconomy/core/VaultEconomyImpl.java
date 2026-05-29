@@ -1,6 +1,7 @@
 package com.skyblockexp.ezeconomy.core;
 
 import com.skyblockexp.ezeconomy.api.EzEconomyAPI;
+import com.skyblockexp.ezeconomy.api.storage.EconomyMutationResult;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.storage.TransferLockManager;
 import java.nio.charset.StandardCharsets;
@@ -155,8 +156,9 @@ public class VaultEconomyImpl implements Economy {
         UUID uuid = player.getUniqueId();
         LockedOperation lock = lockFor(uuid);
         try {
-            boolean success = storage.tryWithdraw(uuid, currency, amount);
-            double balance = storage.getBalance(uuid, currency);
+            EconomyMutationResult result = storage.withdrawAndGetBalance(uuid, currency, amount);
+            boolean success = result.isSuccess();
+            double balance = result.getBalance();
             return success
                     ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
                     : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
@@ -177,8 +179,13 @@ public class VaultEconomyImpl implements Economy {
     }
 
     public EconomyResponse depositPlayer(OfflinePlayer player, double amount, String currency) {
-        boolean success = api.deposit(player.getUniqueId(), currency, amount);
-        double balance = api.getBalance(player.getUniqueId(), currency).getBalance();
+        StorageProvider storage = getStorageProvider();
+        if (storage == null) {
+            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Storage unavailable");
+        }
+        EconomyMutationResult result = storage.depositAndGetBalance(player.getUniqueId(), currency, amount);
+        boolean success = result.isSuccess();
+        double balance = result.getBalance();
         return success
                 ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
                 : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Deposit failed");
@@ -269,15 +276,16 @@ public class VaultEconomyImpl implements Economy {
         if (storage == null) {
             return notSupported();
         }
-        if (!storage.bankExists(name)) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
-        }
         String currency = plugin.getDefaultCurrency();
         UUID bankLockKey = UUID.nameUUIDFromBytes(("bank:" + name + ":" + currency).getBytes(StandardCharsets.UTF_8));
         LockedOperation lock = lockFor(bankLockKey);
         try {
-            boolean success = storage.tryWithdrawBank(name, currency, amount);
-            double balance = storage.getBankBalance(name, currency);
+            EconomyMutationResult result = storage.withdrawBankAndGetBalance(name, currency, amount);
+            boolean success = result.isSuccess();
+            double balance = result.getBalance();
+            if (!success && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
+                return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            }
             if (!success) {
                 return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
             }
@@ -295,12 +303,12 @@ public class VaultEconomyImpl implements Economy {
         if (storage == null) {
             return notSupported();
         }
-        if (!storage.bankExists(name)) {
+        String currency = plugin.getDefaultCurrency();
+        EconomyMutationResult result = storage.depositBankAndGetBalance(name, currency, amount);
+        if (!result.isSuccess() && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
             return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
         }
-        String currency = plugin.getDefaultCurrency();
-        storage.depositBank(name, currency, amount);
-        double balance = storage.getBankBalance(name, currency);
+        double balance = result.getBalance();
         return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
     }
 
@@ -408,11 +416,11 @@ public class VaultEconomyImpl implements Economy {
         if (storage == null) {
             return notSupported();
         }
-        if (!storage.bankExists(name)) {
+        EconomyMutationResult result = storage.depositBankAndGetBalance(name, currency, amount);
+        if (!result.isSuccess() && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
             return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
         }
-        storage.depositBank(name, currency, amount);
-        double balance = storage.getBankBalance(name, currency);
+        double balance = result.getBalance();
         return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
     }
 
@@ -421,14 +429,15 @@ public class VaultEconomyImpl implements Economy {
         if (storage == null) {
             return notSupported();
         }
-        if (!storage.bankExists(name)) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
-        }
         UUID bankLockKey = UUID.nameUUIDFromBytes(("bank:" + name + ":" + currency).getBytes(StandardCharsets.UTF_8));
         LockedOperation lock = lockFor(bankLockKey);
         try {
-            boolean success = storage.tryWithdrawBank(name, currency, amount);
-            double balance = storage.getBankBalance(name, currency);
+            EconomyMutationResult result = storage.withdrawBankAndGetBalance(name, currency, amount);
+            boolean success = result.isSuccess();
+            double balance = result.getBalance();
+            if (!success && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
+                return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            }
             return success
                     ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
                     : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);

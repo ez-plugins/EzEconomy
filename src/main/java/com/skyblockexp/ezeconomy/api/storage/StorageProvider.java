@@ -95,6 +95,27 @@ public interface StorageProvider {
     void deposit(UUID uuid, String currency, double amount);
 
     /**
+     * Deposits and returns the post-mutation balance in one call.
+     * Implementations should override this for atomic fast-paths.
+     */
+    default EconomyMutationResult depositAndGetBalance(UUID uuid, String currency, double amount) {
+        deposit(uuid, currency, amount);
+        return EconomyMutationResult.success(getBalance(uuid, currency));
+    }
+
+    /**
+     * Withdraws and returns the post-mutation balance in one call.
+     * Implementations should override this for atomic fast-paths.
+     */
+    default EconomyMutationResult withdrawAndGetBalance(UUID uuid, String currency, double amount) {
+        boolean success = tryWithdraw(uuid, currency, amount);
+        double balance = getBalance(uuid, currency);
+        return success
+            ? EconomyMutationResult.success(balance)
+            : EconomyMutationResult.failure(balance, "Insufficient funds");
+    }
+
+    /**
      * Gets all player balances for a currency.
      * @param currency Currency identifier
      * @return Map of UUID to balance
@@ -376,6 +397,27 @@ public interface StorageProvider {
      * @param amount Amount to deposit
      */
     void depositBank(String name, String currency, double amount);
+
+    /**
+     * Deposits to a bank and returns the post-mutation bank balance in one call.
+     * Implementations should override this for atomic fast-paths.
+     */
+    default EconomyMutationResult depositBankAndGetBalance(String name, String currency, double amount) {
+        depositBank(name, currency, amount);
+        return EconomyMutationResult.success(getBankBalance(name, currency));
+    }
+
+    /**
+     * Withdraws from a bank and returns the post-mutation bank balance in one call.
+     * Implementations should override this for atomic fast-paths.
+     */
+    default EconomyMutationResult withdrawBankAndGetBalance(String name, String currency, double amount) {
+        boolean success = tryWithdrawBank(name, currency, amount);
+        double balance = getBankBalance(name, currency);
+        return success
+            ? EconomyMutationResult.success(balance)
+            : EconomyMutationResult.failure(balance, "Insufficient funds");
+    }
 
     /**
      * Gets all bank names.

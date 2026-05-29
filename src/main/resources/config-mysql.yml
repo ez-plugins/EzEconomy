@@ -6,3 +6,10 @@ mysql:
   username: root
   password: password
   table: balances
+  pool:
+    enabled: false
+    maximum-pool-size: 10
+    minimum-idle: 2
+    connection-timeout-ms: 30000
+    idle-timeout-ms: 600000
+    max-lifetime-ms: 1800000
