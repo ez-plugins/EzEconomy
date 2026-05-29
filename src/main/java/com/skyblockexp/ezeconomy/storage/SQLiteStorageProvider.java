@@ -447,7 +447,41 @@ public class SQLiteStorageProvider implements StorageProvider {
         synchronized (lock) {
             try {
                 String id = BalanceModel.idFor(uuid, currency);
-                // Ensure any pending deposits for this id are flushed before attempting atomic withdraw
+                // Fast-path: if background persistence is available, attempt a
+                // non-blocking reserve by submitting a negative pending delta
+                // rather than flushing and performing a synchronous update.
+                if (backgroundPersistence != null) {
+                    Double cached = getCached(cacheKey);
+                    double pending = backgroundPersistence.peekPendingSum(id);
+                    try {
+                        if (cached != null) {
+                            double available = cached.doubleValue() + pending;
+                            if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
+                            backgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
+                            double updated = available - amount;
+                            putCached(cacheKey, updated);
+                            return EconomyMutationResult.success(updated);
+                        }
+                    } catch (Throwable ignored) {
+                        // fall through to DB-assisted path
+                    }
+
+                    // No safe cache available: read stored balance and combine with pending
+                    try {
+                        double dbBal = balanceRepo.find(id).map(BalanceModel::getBalance).orElse(0.0);
+                        double available = dbBal + pending;
+                        if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
+                        backgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
+                        double updated = available - amount;
+                        putCached(cacheKey, updated);
+                        return EconomyMutationResult.success(updated);
+                    } catch (StorageException se) {
+                        plugin.getLogger().severe("[EzEconomy] SQLite withdraw fast-path failed (db read): " + se.getMessage());
+                        // fall through to legacy flush-and-update path
+                    }
+                }
+
+                // Legacy safe path: flush pending deposits and perform atomic update
                 try {
                     if (backgroundPersistence != null) backgroundPersistence.flushIdSync(id);
                 } catch (Exception ignored) {}
