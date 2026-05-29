@@ -75,6 +75,10 @@ public class MySQLBalanceDao {
                         double dbBal = rs.next() ? rs.getDouble(1) : 0.0;
                         double pending = balanceBackgroundPersistence.peekPendingSum(id);
                         double updated = dbBal + pending;
+                        // If both DB and pending appear empty, account might be new — account for our own submitted delta
+                        if (dbBal == 0.0 && pending == 0.0) {
+                            updated = amount;
+                        }
                         cachePut.accept(cacheKey, updated);
                         return EconomyMutationResult.success(updated);
                     }

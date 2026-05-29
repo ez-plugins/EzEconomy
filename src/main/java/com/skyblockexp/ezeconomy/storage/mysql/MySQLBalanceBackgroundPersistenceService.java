@@ -61,6 +61,7 @@ public class MySQLBalanceBackgroundPersistenceService {
             return v;
         });
         queue.offer(id);
+        // intentionally no logging here to avoid noisy output during normal operation
     }
 
     public double peekPendingSum(String id) {
