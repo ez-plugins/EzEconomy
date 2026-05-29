@@ -31,13 +31,16 @@ while [[ $ELAPSED -lt $TIMEOUT ]]; do
     echo "Server process exited"
     break
   fi
-
 done
 
 sleep 3
-kill "$SERVER_PID" 2>/dev/null || true
+if kill -0 "$SERVER_PID" 2>/dev/null; then
+  kill "$SERVER_PID" 2>/dev/null || true
+fi
 sleep 1
-kill -9 "$SERVER_PID" 2>/dev/null || true
+if kill -0 "$SERVER_PID" 2>/dev/null; then
+  kill -9 "$SERVER_PID" 2>/dev/null || true
+fi
 
 if [[ -f plugins/EconomyBenchmarkHarness/results/result.json ]]; then
   cp plugins/EconomyBenchmarkHarness/results/result.json "../$RESULT_DIR/result.json"
