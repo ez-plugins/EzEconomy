@@ -183,7 +183,7 @@ public class MySQLStorageProvider implements StorageProvider {
 
     private String buildJdbcUrl(String host, int port, String database) {
         String params = dbConfig.getString("mysql.jdbc-params",
-                "useSSL=false&serverTimezone=UTC&cachePrepStmts=true&prepStmtCacheSize=256&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true&elideSetAutoCommits=true&maintainTimeStats=false&useLocalSessionState=true&rewriteBatchedStatements=true&cacheResultSetMetadata=true&cacheServerConfiguration=true");
+                "useSSL=false&serverTimezone=UTC&cachePrepStmts=true&prepStmtCacheSize=1024&prepStmtCacheSqlLimit=4096&useServerPrepStmts=true&elideSetAutoCommits=true&maintainTimeStats=false&useLocalSessionState=true&rewriteBatchedStatements=true&cacheResultSetMetadata=true&cacheServerConfiguration=true&tcpKeepAlive=true&connectTimeout=8000&socketTimeout=30000");
         if (params == null || params.trim().isEmpty()) {
             return "jdbc:mysql://" + host + ":" + port + "/" + database;
         }
