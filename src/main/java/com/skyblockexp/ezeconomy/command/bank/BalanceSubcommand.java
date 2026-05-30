@@ -20,7 +20,7 @@ public class BalanceSubcommand implements Subcommand {
 
     @Override
     public boolean execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("ezeconomy.bank.balance") && !sender.hasPermission("ezeconomy.bank.admin")) {
+        if (!(sender.hasPermission("ezeconomy.user.bank.balance") || sender.hasPermission("ezeconomy.bank.balance")) && !sender.hasPermission("ezeconomy.bank.admin")) {
             com.skyblockexp.ezeconomy.util.MessageUtils.send(sender, plugin, "no_permission");
             return true;
         }

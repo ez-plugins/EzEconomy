@@ -51,7 +51,10 @@ public class LockingComponent implements BootstrapComponent {
         }
         FileConfiguration bungeeCfg = YamlConfiguration.loadConfiguration(bungeeFile);
 
-        if ("BUNGEECORD".equals(strategy) && bungeeCfg.getBoolean("enabled", false)) {
+        if ("NONE".equals(strategy) || "OFF".equals(strategy) || "DISABLED".equals(strategy)) {
+            this.manager = null;
+            plugin.getLogger().info("Locking strategy disabled by configuration.");
+        } else if ("BUNGEECORD".equals(strategy) && bungeeCfg.getBoolean("enabled", false)) {
             boolean fallback = bungeeCfg.getBoolean("fallback-to-local", true);
             try {
                 // 1) Try ServiceLoader using current classloader (useful for development/classpath-loaded providers)

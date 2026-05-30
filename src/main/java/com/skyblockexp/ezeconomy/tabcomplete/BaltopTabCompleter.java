@@ -19,7 +19,7 @@ public class BaltopTabCompleter implements TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission("ezeconomy.baltop")) return Collections.emptyList();
+        if (!(sender.hasPermission("ezeconomy.user.baltop") || sender.hasPermission("ezeconomy.baltop"))) return Collections.emptyList();
         // /baltop [top|page <num>] [currency]
         if (args.length == 1) {
             String partial = args[0].toLowerCase();

@@ -1,6 +1,7 @@
 package com.skyblockexp.ezeconomy.core;
 
-import com.skyblockexp.ezeconomy.storage.StorageProvider;
+import com.skyblockexp.ezeconomy.api.storage.EconomyMutationResult;
+import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -33,16 +34,13 @@ class VaultEconomyImplTest {
         org.mockito.Mockito.when(server.getOfflinePlayer(org.mockito.Mockito.anyString())).thenReturn(offline);
         org.mockito.Mockito.when(plugin.getDefaultCurrency()).thenReturn("dollar");
 
-        // Ensure storage.deposit is invoked and getBalance returns expected value
-        org.mockito.Mockito.doAnswer(invocation -> {
-            // no-op
-            return null;
-        }).when(storage).deposit(org.mockito.Mockito.eq(id), org.mockito.Mockito.eq("dollar"), org.mockito.Mockito.eq(25.0));
-        org.mockito.Mockito.when(storage.getBalance(org.mockito.Mockito.eq(id), org.mockito.Mockito.eq("dollar"))).thenReturn(25.0);
+        org.mockito.Mockito.when(storage.depositAndGetBalance(org.mockito.Mockito.eq(id), org.mockito.Mockito.eq("dollar"), org.mockito.Mockito.eq(25.0)))
+                .thenReturn(EconomyMutationResult.success(25.0));
 
         var res = vault.depositPlayer(offline, 25.0);
         assertEquals(net.milkbowl.vault.economy.EconomyResponse.ResponseType.SUCCESS, res.type);
-        org.mockito.Mockito.verify(storage).deposit(id, "dollar", 25.0);
+        org.mockito.Mockito.verify(storage).depositAndGetBalance(id, "dollar", 25.0);
+        org.mockito.Mockito.verify(storage, never()).getBalance(id, "dollar");
     }
 
     @Test
@@ -56,11 +54,27 @@ class VaultEconomyImplTest {
         org.mockito.Mockito.when(server.getOfflinePlayer(org.mockito.Mockito.anyString())).thenReturn(offline);
         org.mockito.Mockito.when(plugin.getDefaultCurrency()).thenReturn("dollar");
 
-        org.mockito.Mockito.when(storage.tryWithdraw(org.mockito.Mockito.eq(id), org.mockito.Mockito.eq("dollar"), org.mockito.Mockito.eq(100.0))).thenReturn(false);
-        org.mockito.Mockito.when(storage.getBalance(org.mockito.Mockito.eq(id), org.mockito.Mockito.eq("dollar"))).thenReturn(10.0);
+        org.mockito.Mockito.when(storage.withdrawAndGetBalance(org.mockito.Mockito.eq(id), org.mockito.Mockito.eq("dollar"), org.mockito.Mockito.eq(100.0)))
+                .thenReturn(EconomyMutationResult.failure(10.0, "Insufficient funds"));
 
         var res = vault.withdrawPlayer(offline, 100.0);
         assertEquals(net.milkbowl.vault.economy.EconomyResponse.ResponseType.FAILURE, res.type);
         assertEquals("Insufficient funds", res.errorMessage);
+        org.mockito.Mockito.verify(storage).withdrawAndGetBalance(id, "dollar", 100.0);
+        org.mockito.Mockito.verify(storage, never()).getBalance(id, "dollar");
+    }
+
+    @Test
+    void testBankDeposit_usesMutationFastPath() {
+        org.mockito.Mockito.when(plugin.getDefaultCurrency()).thenReturn("dollar");
+        org.mockito.Mockito.when(plugin.getConfig()).thenReturn(new org.bukkit.configuration.file.YamlConfiguration());
+        org.mockito.Mockito.when(storage.depositBankAndGetBalance("guild", "dollar", 5.0))
+                .thenReturn(EconomyMutationResult.success(105.0));
+
+        var res = vault.bankDeposit("guild", 5.0);
+        assertEquals(net.milkbowl.vault.economy.EconomyResponse.ResponseType.SUCCESS, res.type);
+        org.mockito.Mockito.verify(storage).depositBankAndGetBalance("guild", "dollar", 5.0);
+        org.mockito.Mockito.verify(storage, never()).bankExists("guild");
+        org.mockito.Mockito.verify(storage, never()).getBankBalance("guild", "dollar");
     }
 }

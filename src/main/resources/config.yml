@@ -65,11 +65,12 @@ multi-currency:
       dollar: 100
       euro: 80
 
-# Locking strategy used for balance updates. Options: LOCAL, REDIS, BUNGEECORD
+# Locking strategy used for balance updates. Options: NONE, LOCAL, REDIS, BUNGEECORD
+# NONE: disable locking (recommended for single-server setups for maximum performance).
 # LOCAL: plugin uses in-process locks only.
 # REDIS: uses a distributed Redis lock (requires ezeconomy-redis extension and redis.yml).
 # BUNGEECORD: use a proxy-backed lock transport via plugin messaging (requires bungeecord proxy component and bungeecord.yml).
-locking-strategy: LOCAL
+locking-strategy: NONE
 
 # Locking timing configuration (applies to all strategies)
 locking:
@@ -88,6 +89,34 @@ cross-server:
 #   DATABASE  - use the configured SQL storage as a cache backend
 # If not present, the plugin will fall back to `locking-strategy` for backward compatibility.
 caching-strategy: LOCAL
+
+# Performance tuning for hot balance paths (Vault + placeholders).
+performance:
+  # Enables the Vault deposit/withdraw hot path for single-server LOCAL cache mode.
+  # Balance changes are applied to memory immediately and flushed to storage
+  # asynchronously, with a final flush during plugin shutdown.
+  fast-vault-mutations:
+    enabled: true
+    shutdown-flush-timeout-ms: 15000
+  balance-cache:
+    enabled: true
+    ttl-ms: 2500
+  mysql:
+    jdbc-params: "useSSL=false&serverTimezone=UTC&cachePrepStmts=true&prepStmtCacheSize=1024&prepStmtCacheSqlLimit=4096&useServerPrepStmts=true&elideSetAutoCommits=true&maintainTimeStats=false&useLocalSessionState=true&rewriteBatchedStatements=true&cacheResultSetMetadata=true&cacheServerConfiguration=true&tcpKeepAlive=true&connectTimeout=8000&socketTimeout=30000"
+    pool:
+      enabled: true
+      maximum-pool-size: 32
+      minimum-idle: 8
+      connection-timeout-ms: 8000
+      idle-timeout-ms: 240000
+      max-lifetime-ms: 1200000
+    # MySQL performance tuning defaults (optional overrides; keys mirror config-mysql.yml)
+    background-queue-size: 10000
+    balance-background-queue-size: 10000
+    balance-background-batch-size: 128
+    balance-background-flush-interval-ms: 200
+
+# Note: MySQL performance tuning defaults have been moved under `performance.mysql` above.
 
 # Presentation settings for money formatting. These settings affect only
 # how amounts are shown to players and in integrations (placeholders, GUIs,

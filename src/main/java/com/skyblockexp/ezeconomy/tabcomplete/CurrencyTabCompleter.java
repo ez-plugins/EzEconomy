@@ -19,7 +19,7 @@ public class CurrencyTabCompleter implements TabCompleter {
     }
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission("ezeconomy.currency")) return Collections.emptyList();
+        if (!(sender.hasPermission("ezeconomy.user.currency") || sender.hasPermission("ezeconomy.currency"))) return Collections.emptyList();
         if (args.length == 1) {
             // subcommands: set, convert, view
             List<String> subs = List.of("set", "convert", "view");

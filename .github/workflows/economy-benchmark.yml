@@ -1,0 +1,240 @@
+name: Economy Benchmark
+
+on:
+  pull_request:
+    branches: [ main, master, v3.x ]
+  workflow_dispatch:
+
+jobs:
+  build-artifacts:
+    name: Build EzEconomy + Harness
+    runs-on: ubuntu-latest
+    env:
+      MAVEN_REPO_LOCAL: ${{ github.workspace }}/.m2-benchmark
+    outputs:
+      ezeconomy_version: ${{ steps.meta.outputs.ezeconomy_version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Resolve project metadata
+        id: meta
+        run: |
+          echo "ezeconomy_version=$(mvn -q -DforceStdout -Dmaven.repo.local=${MAVEN_REPO_LOCAL} help:evaluate -Dexpression=project.version | tail -n 1)" >> "$GITHUB_OUTPUT"
+
+      - name: Build EzEconomy Bukkit + Redis extension
+        run: |
+          mvn -B -ntp -U -Dmaven.repo.local=${MAVEN_REPO_LOCAL} -Dmaven.test.skip=true -pl ezeconomy-bukkit,ezeconomy-redis -am package
+
+      - name: Build benchmark harness
+        run: |
+          mvn -B -ntp -U -Dmaven.repo.local=${MAVEN_REPO_LOCAL} -f tools/economy-benchmark-harness/pom.xml package
+
+      - name: Upload local artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-local-artifacts
+          path: |
+            ezeconomy-bukkit/target/ezeconomy-bukkit-*.jar
+            ezeconomy-redis/target/*ezeconomy-redis*.jar
+            tools/economy-benchmark-harness/target/economy-benchmark-harness-*.jar
+          retention-days: 3
+
+  benchmark:
+    name: Bench ${{ matrix.plugin }} / ${{ matrix.storage }} / redis-${{ matrix.redis }}
+    needs: build-artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ezeconomy
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+    strategy:
+      fail-fast: false
+      matrix:
+        # EzEconomy supports all storage × redis combinations.
+        plugin: [ezeconomy]
+        storage: [sqlite, mysql]
+        redis: [off, on]
+        include:
+          # EssentialsX is file-based; only one valid benchmark lane.
+          - plugin: essentialsx
+            storage: file
+            redis: off
+          # XConomy supports mysql and sqlite; no redis economy mode.
+          - plugin: xconomy
+            storage: mysql
+            redis: off
+          - plugin: xconomy
+            storage: sqlite
+            redis: off
+    env:
+      BENCH_WARMUP: '100'
+      BENCH_ITERATIONS: '1000'
+      PAPER_MC_VERSION: '1.21.1'
+      ESSENTIALSX_VERSION: '2.21.1'
+      XCONOMY_VERSION: '2.26.3'
+      BENCH_PLUGIN: ${{ matrix.plugin }}
+      BENCH_STORAGE: ${{ matrix.storage }}
+      BENCH_REDIS: ${{ matrix.redis }}
+      BENCH_PLUGIN_VERSION: ${{ matrix.plugin == 'ezeconomy' && needs.build-artifacts.outputs.ezeconomy_version || (matrix.plugin == 'essentialsx' && '2.21.1' || '2.26.3') }}
+      MYSQL_PORT: '3306'
+      REDIS_PORT: '6379'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Make benchmark scripts executable
+        run: chmod +x .github/benchmark/*.sh
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Download local artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: bench-local-artifacts
+          path: bench-local-artifacts
+
+      - name: Resolve built jar paths
+        id: jars
+        run: |
+          HARNESS_JAR=$(find bench-local-artifacts -type f -name "economy-benchmark-harness-*.jar" | head -n 1)
+          EZ_JAR=$(find bench-local-artifacts -type f -name "ezeconomy-bukkit-*.jar" | head -n 1)
+          EZ_REDIS_JAR=$(find bench-local-artifacts -type f -name "ezeconomy-redis-*.jar" | head -n 1)
+
+          if [[ -z "${HARNESS_JAR}" || -z "${EZ_JAR}" || -z "${EZ_REDIS_JAR}" ]]; then
+            echo "Failed to resolve one or more benchmark jars"
+            echo "bench-local-artifacts tree:"
+            find bench-local-artifacts -maxdepth 6 -type f | sort
+            exit 1
+          fi
+
+          echo "harness_jar=${HARNESS_JAR}" >> "$GITHUB_OUTPUT"
+          echo "ezeconomy_jar=${EZ_JAR}" >> "$GITHUB_OUTPUT"
+          echo "ezeconomy_redis_jar=${EZ_REDIS_JAR}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve Paper build
+        id: paper
+        run: |
+          DATA=$(curl -sSf "https://api.papermc.io/v2/projects/paper/versions/${PAPER_MC_VERSION}/builds")
+          BUILD=$(echo "$DATA" | jq '([.builds[] | select(.channel == "default")] | last | .build) // (.builds | last | .build)')
+          JAR="paper-${PAPER_MC_VERSION}-${BUILD}.jar"
+          URL="https://api.papermc.io/v2/projects/paper/versions/${PAPER_MC_VERSION}/builds/${BUILD}/downloads/${JAR}"
+          echo "jar=$JAR" >> "$GITHUB_OUTPUT"
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Download Paper + Vault + competitor plugins
+        run: |
+          mkdir -p downloads
+          curl -sSfL -o "downloads/${{ steps.paper.outputs.jar }}" "${{ steps.paper.outputs.url }}"
+          curl -sSfL -o downloads/Vault.jar "https://cdn.modrinth.com/data/ayRaM8J7/versions/ypDodbNn/VaultUnlocked-2.19.1.jar"
+
+          if [[ "${BENCH_PLUGIN}" == "essentialsx" ]]; then
+            curl -sSfL -o downloads/EssentialsX.jar "https://github.com/EssentialsX/Essentials/releases/download/${ESSENTIALSX_VERSION}/EssentialsX-${ESSENTIALSX_VERSION}.jar"
+          fi
+
+          if [[ "${BENCH_PLUGIN}" == "xconomy" ]]; then
+            curl -sSfL -o downloads/XConomy.jar "https://github.com/YiC200333/XConomy/releases/download/${XCONOMY_VERSION}/XConomy-Paper-${XCONOMY_VERSION}.jar"
+          fi
+
+      - name: Prepare lane
+        id: lane
+        run: |
+          mkdir -p benchmark-output
+          ./.github/benchmark/prepare-lane.sh benchmark-output
+
+      - name: Setup benchmark server
+        if: steps.lane.outputs.skip_reason == ''
+        env:
+          PAPER_JAR_PATH: downloads/${{ steps.paper.outputs.jar }}
+          VAULT_JAR_PATH: downloads/Vault.jar
+          HARNESS_JAR_PATH: ${{ steps.jars.outputs.harness_jar }}
+          EZECONOMY_JAR_PATH: ${{ steps.jars.outputs.ezeconomy_jar }}
+          EZECONOMY_REDIS_JAR_PATH: ${{ steps.jars.outputs.ezeconomy_redis_jar }}
+          ESSENTIALSX_JAR_PATH: downloads/EssentialsX.jar
+          XCONOMY_JAR_PATH: downloads/XConomy.jar
+        run: |
+          ./.github/benchmark/setup-server.sh server
+
+      - name: Run benchmark harness
+        if: steps.lane.outputs.skip_reason == ''
+        run: |
+          ./.github/benchmark/run-benchmark.sh server benchmark-output
+
+      - name: Upload lane results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: economy-bench-${{ matrix.plugin }}-${{ matrix.storage }}-redis-${{ matrix.redis }}
+          path: benchmark-output/
+          retention-days: 7
+
+  aggregate:
+    name: Aggregate benchmark report
+    needs: benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.x'
+
+      - name: Download benchmark artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: economy-bench-*
+          merge-multiple: false
+          path: artifacts
+
+      - name: Aggregate + validate benchmark outputs
+        run: |
+          python3 .github/benchmark/aggregate.py \
+            --input artifacts \
+            --out-json benchmark-summary/summary.json \
+            --out-csv benchmark-summary/summary.csv \
+            --out-md benchmark-summary/summary.md \
+            --out-bank-json benchmark-summary/summary-bank.json \
+            --out-bank-csv benchmark-summary/summary-bank.csv
+
+      - name: Upload aggregate summary
+        uses: actions/upload-artifact@v7
+        with:
+          name: economy-benchmark-summary
+          path: benchmark-summary/
+          retention-days: 14
+
+      - name: Publish summary to job log
+        run: |
+          echo "Benchmark summary generated at benchmark-summary/summary.md"
+          cat benchmark-summary/summary.md

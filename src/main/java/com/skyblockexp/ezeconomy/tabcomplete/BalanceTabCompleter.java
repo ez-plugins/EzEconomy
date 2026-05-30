@@ -22,12 +22,12 @@ public class BalanceTabCompleter implements TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission("ezeconomy.balance")) return Collections.emptyList();
+        if (!(sender.hasPermission("ezeconomy.user.balance") || sender.hasPermission("ezeconomy.balance"))) return Collections.emptyList();
         // /balance [player|currency] [currency]
         if (args.length == 1) {
             String partial = args[0].toLowerCase();
             List<String> res = new ArrayList<>();
-            boolean canLookupOthers = sender.hasPermission("ezeconomy.balance.others");
+            boolean canLookupOthers = sender.hasPermission("ezeconomy.user.balance.others") || sender.hasPermission("ezeconomy.balance.others");
             if (canLookupOthers) {
                 LinkedHashSet<String> names = new LinkedHashSet<>();
                 for (org.bukkit.entity.Player p : Bukkit.getOnlinePlayers()) {
@@ -56,7 +56,7 @@ public class BalanceTabCompleter implements TabCompleter {
             return res;
         }
         if (args.length == 2) {
-            if (!sender.hasPermission("ezeconomy.balance.others")) return Collections.emptyList();
+            if (!(sender.hasPermission("ezeconomy.user.balance.others") || sender.hasPermission("ezeconomy.balance.others"))) return Collections.emptyList();
             String partial = args[1].toLowerCase();
             var cfg = plugin.getConfig();
             if (cfg.isConfigurationSection("multi-currency.currencies")) {

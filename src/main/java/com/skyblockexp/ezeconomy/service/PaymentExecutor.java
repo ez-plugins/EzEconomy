@@ -17,6 +17,11 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public class PaymentExecutor {
+    private static void debug(EzEconomyPlugin plugin, String message) {
+        if (plugin != null && plugin.getConfig().getBoolean("debug", false)) {
+            plugin.getLogger().info(message);
+        }
+    }
     /**
      * Execute a payment between players. Returns true if the operation completed (success or handled failure).
      */
@@ -29,7 +34,7 @@ public class PaymentExecutor {
         double netAmount = amountDecimal.doubleValue();
         StorageProvider storage = plugin.getStorageOrWarn();
         if (storage == null) return true;
-        plugin.getLogger().info("PaymentExecutor: start execute from=" + from.getName() + " toName=" + toName + " amount=" + netAmount + " currency=" + currency + " knownOffline=" + knownOffline);
+        debug(plugin, "PaymentExecutor: start execute from=" + from.getName() + " toName=" + toName + " amount=" + netAmount + " currency=" + currency + " knownOffline=" + knownOffline);
 
         Player online = Bukkit.getPlayerExact(toName);
         OfflinePlayer toOffline = online != null ? online : null;
@@ -62,12 +67,12 @@ public class PaymentExecutor {
             }
 
             if (toOffline == null) {
-                plugin.getLogger().info("PaymentExecutor: recipient not found, aborting");
+                debug(plugin, "PaymentExecutor: recipient not found, aborting");
                 MessageUtils.send(from, plugin, "player_not_found");
                 return true;
             }
         }
-        plugin.getLogger().info("PaymentExecutor: executing transfer from=" + from.getName() + " to=" + toName + " online=" + (online!=null));
+        debug(plugin, "PaymentExecutor: executing transfer from=" + from.getName() + " to=" + toName + " online=" + (online!=null));
 
         if (toOffline.getUniqueId().equals(fromUuid)) {
             MessageUtils.send(from, plugin, "cannot_pay_self");
@@ -108,16 +113,16 @@ public class PaymentExecutor {
                 if (tokens != null) {
                     try {
                         double fromBalance = storage.getBalance(fromUuid, currency);
-                        plugin.getLogger().info("PaymentExecutor: currency-preference path fromBalance=" + fromBalance + " netAmount=" + netAmount);
+                        debug(plugin, "PaymentExecutor: currency-preference path fromBalance=" + fromBalance + " netAmount=" + netAmount);
                         if (fromBalance < netAmount) {
-                            plugin.getLogger().info("PaymentExecutor: not enough money (balance < amount)");
+                            debug(plugin, "PaymentExecutor: not enough money (balance < amount)");
                             MessageUtils.send(from, plugin, "not_enough_money");
                             return true;
                         }
                         boolean withdrew = storage.tryWithdraw(fromUuid, currency, netAmount);
-                        plugin.getLogger().info("PaymentExecutor: tryWithdraw result=" + withdrew);
+                        debug(plugin, "PaymentExecutor: tryWithdraw result=" + withdrew);
                         if (!withdrew) {
-                            plugin.getLogger().info("PaymentExecutor: withdrawFailed, aborting");
+                            debug(plugin, "PaymentExecutor: withdrawFailed, aborting");
                             MessageUtils.send(from, plugin, "not_enough_money");
                             return true;
                         }
@@ -127,7 +132,7 @@ public class PaymentExecutor {
                             MessageUtils.send(from, plugin, "unknown_currency", java.util.Map.of("currency", recipientCurrency));
                             return true;
                         }
-                        plugin.getLogger().info("PaymentExecutor: depositing " + creditAmount + " " + recipientCurrency + " to " + toOffline.getUniqueId());
+                        debug(plugin, "PaymentExecutor: depositing " + creditAmount + " " + recipientCurrency + " to " + toOffline.getUniqueId());
                         storage.deposit(toOffline.getUniqueId(), recipientCurrency, creditAmount);
 
                         String payerDisplay = plugin.getCurrencyFormatter().formatPriceForMessage(netAmount, currency);
@@ -176,16 +181,16 @@ public class PaymentExecutor {
             if (!firstLocal.equals(secondLocal)) secondLock.lock();
             try {
                 double fromBalance = storage.getBalance(fromUuid, currency);
-                plugin.getLogger().info("PaymentExecutor: currency-preference path fromBalance=" + fromBalance + " netAmount=" + netAmount);
+                debug(plugin, "PaymentExecutor: currency-preference path fromBalance=" + fromBalance + " netAmount=" + netAmount);
                 if (fromBalance < netAmount) {
-                    plugin.getLogger().info("PaymentExecutor: not enough money (balance < amount)");
+                    debug(plugin, "PaymentExecutor: not enough money (balance < amount)");
                     MessageUtils.send(from, plugin, "not_enough_money");
                     return true;
                 }
                 boolean withdrew = storage.tryWithdraw(fromUuid, currency, netAmount);
-                plugin.getLogger().info("PaymentExecutor: tryWithdraw result=" + withdrew);
+                debug(plugin, "PaymentExecutor: tryWithdraw result=" + withdrew);
                 if (!withdrew) {
-                    plugin.getLogger().info("PaymentExecutor: withdraw failed, aborting");
+                    debug(plugin, "PaymentExecutor: withdraw failed, aborting");
                     MessageUtils.send(from, plugin, "not_enough_money");
                     return true;
                 }
@@ -195,7 +200,7 @@ public class PaymentExecutor {
                     MessageUtils.send(from, plugin, "unknown_currency", java.util.Map.of("currency", recipientCurrency));
                     return true;
                 }
-                plugin.getLogger().info("PaymentExecutor: depositing " + creditAmount + " " + recipientCurrency + " to " + toOffline.getUniqueId());
+                debug(plugin, "PaymentExecutor: depositing " + creditAmount + " " + recipientCurrency + " to " + toOffline.getUniqueId());
                 storage.deposit(toOffline.getUniqueId(), recipientCurrency, creditAmount);
 
                 String payerDisplay = plugin.getCurrencyFormatter().formatPriceForMessage(netAmount, currency);
@@ -235,14 +240,14 @@ public class PaymentExecutor {
         }
 
         // Simple transfer
-        plugin.getLogger().info("PaymentExecutor: performing simple transfer via storage.transfer");
+        debug(plugin, "PaymentExecutor: performing simple transfer via storage.transfer");
         TransferResult transfer = storage.transfer(fromUuid, toOffline.getUniqueId(), currency, netAmount);
         plugin.getLogger().info("PaymentExecutor: transfer result success=" + transfer.isSuccess()
                 + " debit=" + netAmount + " " + currency
                 + " fromBalancePost=" + transfer.getFromBalance()
                 + " toBalancePost=" + transfer.getToBalance());
         if (!transfer.isSuccess()) {
-            plugin.getLogger().info("PaymentExecutor: transfer failed, sending not_enough_money");
+            debug(plugin, "PaymentExecutor: transfer failed, sending not_enough_money");
             MessageUtils.send(from, plugin, "not_enough_money");
             return true;
         }
@@ -275,6 +280,6 @@ public class PaymentExecutor {
         com.skyblockexp.ezeconomy.messaging.MessagingService ms = plugin.getMessagingService();
         if (ms == null) return;
         ms.sendPaymentNotification(recipientUuid, recipientName, senderName, amount, currency);
-        plugin.getLogger().info("PaymentExecutor: sent cross-server notification for " + recipientName);
+        debug(plugin, "PaymentExecutor: sent cross-server notification for " + recipientName);
     }
 }

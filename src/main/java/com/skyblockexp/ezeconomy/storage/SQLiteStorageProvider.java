@@ -1,6 +1,7 @@
 package com.skyblockexp.ezeconomy.storage;
 
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
+import com.skyblockexp.ezeconomy.api.storage.EconomyMutationResult;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageInitException;
 import com.skyblockexp.ezeconomy.api.storage.exceptions.StorageLoadException;
@@ -36,6 +37,10 @@ import com.skyblockexp.ezeconomy.storage.jaloquent.model.BankMemberModel;
 import com.skyblockexp.ezeconomy.storage.jaloquent.model.BankModel;
 import com.skyblockexp.ezeconomy.storage.jaloquent.model.PlayerModel;
 import com.skyblockexp.ezeconomy.storage.jaloquent.model.TransactionModel;
+import com.skyblockexp.ezeconomy.cache.CacheManager;
+import com.skyblockexp.ezeconomy.cache.CacheProvider;
+import com.skyblockexp.ezeconomy.cache.ExpiringCache;
+import com.skyblockexp.ezeconomy.storage.sqlite.SQLiteBackgroundPersistenceService;
 
 /**
  * SQLite implementation of the StorageProvider interface for EzEconomy.
@@ -58,6 +63,12 @@ public class SQLiteStorageProvider implements StorageProvider {
     private ModelRepository<BankModel>        bankRepo;
     private ModelRepository<BankMemberModel>  bankMemberRepo;
     private ModelRepository<TransactionModel> transactionRepo;
+    private final boolean balanceCacheEnabled;
+    private final long balanceCacheTtlMs;
+    private PreparedStatement psDepositUpsert;
+    private PreparedStatement psWithdrawIfEnough;
+    private PreparedStatement psSelectBalanceById;
+    private SQLiteBackgroundPersistenceService backgroundPersistence;
 
     // --- Constructors ---
     /**
@@ -68,6 +79,8 @@ public class SQLiteStorageProvider implements StorageProvider {
         this.dbConfig = null;
         this.fileName = "economy.db";
         this.table = "balances";
+        this.balanceCacheEnabled = plugin.getConfig().getBoolean("performance.balance-cache.enabled", true);
+        this.balanceCacheTtlMs = plugin.getConfig().getLong("performance.balance-cache.ttl-ms", 2500L);
     }
 
     /**
@@ -79,6 +92,8 @@ public class SQLiteStorageProvider implements StorageProvider {
     public SQLiteStorageProvider(EzEconomyPlugin plugin, YamlConfiguration dbConfig) {
         this.plugin = plugin;
         this.dbConfig = dbConfig;
+        this.balanceCacheEnabled = plugin.getConfig().getBoolean("performance.balance-cache.enabled", true);
+        this.balanceCacheTtlMs = plugin.getConfig().getLong("performance.balance-cache.ttl-ms", 2500L);
         if (dbConfig == null) throw new IllegalArgumentException("SQLite config is missing!");
         this.fileName = dbConfig.getString("sqlite.file", "ezeconomy.db");
         this.table = dbConfig.getString("sqlite.table", "balances");
@@ -114,9 +129,46 @@ public class SQLiteStorageProvider implements StorageProvider {
                     + "created_at INTEGER DEFAULT (strftime('%s','now'))"
                     + ")", noParams);
             initRepositories();
+            // start background persistence for deposits (batched)
+            try {
+                int qsize = dbConfig.getInt("sqlite.background-queue-size", 10000);
+                int batchSize = dbConfig.getInt("sqlite.background-batch-size", 256);
+                long flushMs = dbConfig.getLong("sqlite.background-flush-ms", 100L);
+                backgroundPersistence = new SQLiteBackgroundPersistenceService(plugin, file.getAbsolutePath(), this.table, qsize, batchSize, flushMs);
+            } catch (Exception ignored) {}
         } catch (Exception e) {
             plugin.getLogger().severe("SQLite connection failed: " + e.getMessage());
             throw new RuntimeException("Failed to initialize SQLiteStorageProvider", e);
+        }
+    }
+
+    private String balanceCacheKey(UUID uuid, String currency) {
+        return "bal:" + uuid + ":" + currency;
+    }
+
+    private String bankBalanceCacheKey(String name, String currency) {
+        return "bank:" + name + ":" + currency;
+    }
+
+    private Double getCached(String key) {
+        if (!balanceCacheEnabled) return null;
+        try {
+            CacheProvider<String, Double> cache = CacheManager.getProvider();
+            ExpiringCache.Entry<Double> entry = cache.getEntry(key);
+            if (entry == null || entry.value == null) return null;
+            if (entry.expiresAt < System.currentTimeMillis()) return null;
+            return entry.value;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private void putCached(String key, double value) {
+        if (!balanceCacheEnabled) return;
+        try {
+            CacheProvider<String, Double> cache = CacheManager.getProvider();
+            cache.put(key, value, balanceCacheTtlMs);
+        } catch (Throwable ignored) {
         }
     }
 
@@ -227,28 +279,13 @@ public class SQLiteStorageProvider implements StorageProvider {
 
     @Override
     public double getBalance(UUID uuid, String currency) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        return balanceRepo.find(BalanceModel.idFor(uuid, currency)).map(BalanceModel::getBalance).orElse(0.0);
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] SQLite getBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                    }
-                    return 0.0;
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
+        Double cached = getCached(balanceCacheKey(uuid, currency));
+        if (cached != null) return cached.doubleValue();
         synchronized (lock) {
             try {
-                return balanceRepo.find(BalanceModel.idFor(uuid, currency)).map(BalanceModel::getBalance).orElse(0.0);
+                double value = balanceRepo.find(BalanceModel.idFor(uuid, currency)).map(BalanceModel::getBalance).orElse(0.0);
+                putCached(balanceCacheKey(uuid, currency), value);
+                return value;
             } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] SQLite getBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
             }
@@ -268,7 +305,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(uuid, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         java.util.Optional<PlayerModel> opt = playerRepo.find(uuid.toString());
@@ -305,25 +342,6 @@ public class SQLiteStorageProvider implements StorageProvider {
 
     @Override
     public boolean playerExists(UUID uuid) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        return !balanceRepo.query(BalanceModel.queryBuilder().whereEquals("uuid", uuid.toString()).limit(1).build()).isEmpty();
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] SQLite playerExists failed for " + uuid + ": " + e.getMessage());
-                        return false;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
         synchronized (lock) {
             try {
                 return !balanceRepo.query(BalanceModel.queryBuilder().whereEquals("uuid", uuid.toString()).limit(1).build()).isEmpty();
@@ -340,10 +358,11 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(uuid, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         balanceRepo.save(BalanceModel.create(uuid, currency, amount));
+                        putCached(balanceCacheKey(uuid, currency), amount);
                         org.bukkit.OfflinePlayer of = plugin.getServer().getOfflinePlayer(uuid);
                         String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
                         String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
@@ -363,6 +382,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         synchronized (lock) {
             try {
                 balanceRepo.save(BalanceModel.create(uuid, currency, amount));
+                putCached(balanceCacheKey(uuid, currency), amount);
                 org.bukkit.OfflinePlayer of = plugin.getServer().getOfflinePlayer(uuid);
                 String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
                 String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
@@ -375,82 +395,112 @@ public class SQLiteStorageProvider implements StorageProvider {
 
     @Override
     public boolean tryWithdraw(UUID uuid, String currency, double amount) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                        double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                        if (current < amount) return false;
-                        balanceRepo.save(BalanceModel.create(uuid, currency, current - amount));
-                        return true;
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] SQLite tryWithdraw failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                        return false;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
+        return withdrawAndGetBalance(uuid, currency, amount).isSuccess();
+    }
+
+    @Override
+    public void deposit(UUID uuid, String currency, double amount) {
+        depositAndGetBalance(uuid, currency, amount);
+    }
+
+    @Override
+    public EconomyMutationResult depositAndGetBalance(UUID uuid, String currency, double amount) {
+        String cacheKey = balanceCacheKey(uuid, currency);
         synchronized (lock) {
             try {
-                java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                if (current < amount) return false;
-                balanceRepo.save(BalanceModel.create(uuid, currency, current - amount));
-                return true;
-            } catch (StorageException e) {
-                plugin.getLogger().severe("[EzEconomy] SQLite tryWithdraw failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                return false;
+                String id = BalanceModel.idFor(uuid, currency);
+                // If background persistence is enabled, enqueue the delta and update cache immediately.
+                if (backgroundPersistence != null) {
+                    // read base balance (prefer cache)
+                    Double cached = getCached(cacheKey);
+                    double base = cached != null ? cached.doubleValue() : balanceRepo.find(id).map(BalanceModel::getBalance).orElse(0.0);
+                    backgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, amount);
+                    double pending = backgroundPersistence.peekPendingSum(id);
+                    double updated = base + pending;
+                    putCached(cacheKey, updated);
+                    return EconomyMutationResult.success(updated);
+                }
+                // Fallback: synchronous update (legacy behavior)
+                ensureHotStatements();
+                psDepositUpsert.setString(1, id);
+                psDepositUpsert.setString(2, uuid.toString());
+                psDepositUpsert.setString(3, currency);
+                psDepositUpsert.setDouble(4, amount);
+                psDepositUpsert.executeUpdate();
+                double updated;
+                psSelectBalanceById.setString(1, id);
+                try (ResultSet rs = psSelectBalanceById.executeQuery()) {
+                    updated = rs.next() ? rs.getDouble(1) : amount;
+                }
+                putCached(cacheKey, updated);
+                return EconomyMutationResult.success(updated);
+            } catch (Exception e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite depositAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
             }
         }
     }
 
     @Override
-    public void deposit(UUID uuid, String currency, double amount) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(uuid, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                        double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                        balanceRepo.save(BalanceModel.create(uuid, currency, current + amount));
-                        org.bukkit.OfflinePlayer of = plugin.getServer().getOfflinePlayer(uuid);
-                        String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
-                        String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
-                        try { playerRepo.save(PlayerModel.create(uuid, name, display)); } catch (StorageException ignored) {}
-                        return;
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] SQLite deposit failed for " + uuid + " (" + currency + "): " + e.getMessage());
-                        return;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(uuid, token);
-            }
-        }
+    public EconomyMutationResult withdrawAndGetBalance(UUID uuid, String currency, double amount) {
+        String cacheKey = balanceCacheKey(uuid, currency);
         synchronized (lock) {
             try {
-                java.util.Optional<BalanceModel> opt = balanceRepo.find(BalanceModel.idFor(uuid, currency));
-                double current = opt.map(BalanceModel::getBalance).orElse(0.0);
-                balanceRepo.save(BalanceModel.create(uuid, currency, current + amount));
-                org.bukkit.OfflinePlayer of = plugin.getServer().getOfflinePlayer(uuid);
-                String name = of != null && of.getName() != null ? of.getName() : uuid.toString();
-                String display = (of instanceof org.bukkit.entity.Player) ? ((org.bukkit.entity.Player) of).getDisplayName() : name;
-                try { playerRepo.save(PlayerModel.create(uuid, name, display)); } catch (StorageException ignored) {}
-            } catch (StorageException e) {
-                plugin.getLogger().severe("[EzEconomy] SQLite deposit failed for " + uuid + " (" + currency + "): " + e.getMessage());
+                String id = BalanceModel.idFor(uuid, currency);
+                // Fast-path: if background persistence is available, attempt a
+                // non-blocking reserve by submitting a negative pending delta
+                // rather than flushing and performing a synchronous update.
+                if (backgroundPersistence != null) {
+                    Double cached = getCached(cacheKey);
+                    double pending = backgroundPersistence.peekPendingSum(id);
+                    try {
+                        if (cached != null) {
+                            double available = cached.doubleValue() + pending;
+                            if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
+                            backgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
+                            double updated = available - amount;
+                            putCached(cacheKey, updated);
+                            return EconomyMutationResult.success(updated);
+                        }
+                    } catch (Throwable ignored) {
+                        // fall through to DB-assisted path
+                    }
+
+                    // No safe cache available: read stored balance and combine with pending
+                    try {
+                        double dbBal = balanceRepo.find(id).map(BalanceModel::getBalance).orElse(0.0);
+                        double available = dbBal + pending;
+                        if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
+                        backgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
+                        double updated = available - amount;
+                        putCached(cacheKey, updated);
+                        return EconomyMutationResult.success(updated);
+                    } catch (StorageException se) {
+                        plugin.getLogger().severe("[EzEconomy] SQLite withdraw fast-path failed (db read): " + se.getMessage());
+                        // fall through to legacy flush-and-update path
+                    }
+                }
+
+                // Legacy safe path: flush pending deposits and perform atomic update
+                try {
+                    if (backgroundPersistence != null) backgroundPersistence.flushIdSync(id);
+                } catch (Exception ignored) {}
+                ensureHotStatements();
+                psWithdrawIfEnough.setDouble(1, amount);
+                psWithdrawIfEnough.setString(2, id);
+                psWithdrawIfEnough.setDouble(3, amount);
+                int rows = psWithdrawIfEnough.executeUpdate();
+                double current;
+                psSelectBalanceById.setString(1, id);
+                try (ResultSet rs = psSelectBalanceById.executeQuery()) {
+                    current = rs.next() ? rs.getDouble(1) : 0.0;
+                }
+                if (rows <= 0) return EconomyMutationResult.failure(current, "Insufficient funds");
+                putCached(cacheKey, current);
+                return EconomyMutationResult.success(current);
+            } catch (Exception e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite withdrawAndGetBalance failed for " + uuid + " (" + currency + "): " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
             }
         }
     }
@@ -498,7 +548,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (fromUuid.compareTo(toUuid) > 0) ordered = new UUID[]{toUuid, fromUuid};
         String[] tokens = null;
         try {
-            tokens = lm.acquireOrdered(ordered, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+            tokens = lm.acquireOrdered(ordered, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
         }
@@ -558,7 +608,34 @@ public class SQLiteStorageProvider implements StorageProvider {
 
     @Override
     public void shutdown() {
+        closeHotStatements();
+        try { if (backgroundPersistence != null) backgroundPersistence.shutdown(); } catch (Exception ignored) {}
         try { if (connection != null) connection.close(); } catch (SQLException ignored) {}
+    }
+
+    private void ensureHotStatements() throws SQLException {
+        if (psDepositUpsert == null || psDepositUpsert.isClosed()) {
+            psDepositUpsert = connection.prepareStatement(
+                    "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) "
+                            + "ON CONFLICT(id) DO UPDATE SET balance = balance + excluded.balance");
+        }
+        if (psWithdrawIfEnough == null || psWithdrawIfEnough.isClosed()) {
+            psWithdrawIfEnough = connection.prepareStatement(
+                    "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?");
+        }
+        if (psSelectBalanceById == null || psSelectBalanceById.isClosed()) {
+            psSelectBalanceById = connection.prepareStatement(
+                    "SELECT balance FROM " + table + " WHERE id = ?");
+        }
+    }
+
+    private void closeHotStatements() {
+        try { if (psDepositUpsert != null) psDepositUpsert.close(); } catch (SQLException ignored) {}
+        try { if (psWithdrawIfEnough != null) psWithdrawIfEnough.close(); } catch (SQLException ignored) {}
+        try { if (psSelectBalanceById != null) psSelectBalanceById.close(); } catch (SQLException ignored) {}
+        psDepositUpsert = null;
+        psWithdrawIfEnough = null;
+        psSelectBalanceById = null;
     }
 
     // --- Bank support ---
@@ -570,7 +647,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         if (bankExists(name)) return false;
@@ -608,7 +685,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         java.util.List<BankModel> existing = bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build());
@@ -641,26 +718,6 @@ public class SQLiteStorageProvider implements StorageProvider {
 
     @Override
     public boolean bankExists(String name) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        return !bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build()).isEmpty();
-                    } catch (StorageException e) {
-                        plugin.getLogger().severe("[EzEconomy] SQLite bankExists failed: " + e.getMessage());
-                        return false;
-                    }
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(bankId, token);
-            }
-        }
         synchronized (lock) {
             try {
                 return !bankRepo.query(BankModel.queryBuilder().whereEquals("name", name).build()).isEmpty();
@@ -673,27 +730,13 @@ public class SQLiteStorageProvider implements StorageProvider {
 
     @Override
     public double getBankBalance(String name, String currency) {
-        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
-        UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
-        if (lm != null) {
-            String token = null;
-            try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
-                if (token != null) {
-                    try {
-                        return bankRepo.find(BankModel.idFor(name, currency)).map(BankModel::getBalance).orElse(0.0);
-                    } catch (StorageException e) {}
-                    return 0.0;
-                }
-            } catch (InterruptedException ex) {
-                Thread.currentThread().interrupt();
-            } finally {
-                if (token != null) lm.release(bankId, token);
-            }
-        }
+        Double cached = getCached(bankBalanceCacheKey(name, currency));
+        if (cached != null) return cached.doubleValue();
         synchronized (lock) {
             try {
-                return bankRepo.find(BankModel.idFor(name, currency)).map(BankModel::getBalance).orElse(0.0);
+                double value = bankRepo.find(BankModel.idFor(name, currency)).map(BankModel::getBalance).orElse(0.0);
+                putCached(bankBalanceCacheKey(name, currency), value);
+                return value;
             } catch (StorageException e) {}
             return 0.0;
         }
@@ -706,10 +749,11 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         bankRepo.save(BankModel.create(name, currency, amount));
+                        putCached(bankBalanceCacheKey(name, currency), amount);
                         return;
                     } catch (StorageException e) {}
                 }
@@ -722,6 +766,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         synchronized (lock) {
             try {
                 bankRepo.save(BankModel.create(name, currency, amount));
+                putCached(bankBalanceCacheKey(name, currency), amount);
             } catch (StorageException e) {}
         }
     }
@@ -733,7 +778,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
@@ -743,6 +788,7 @@ public class SQLiteStorageProvider implements StorageProvider {
                         if (!EventDispatcher.fireSyncAndAllow(plugin, pre)) return false;
                         if (current < amount) return false;
                         bankRepo.save(BankModel.create(name, currency, current - amount));
+                        putCached(bankBalanceCacheKey(name, currency), current - amount);
                         EventDispatcher.fireSync(plugin, new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount)));
                         return true;
                     } catch (StorageException e) {
@@ -765,6 +811,7 @@ public class SQLiteStorageProvider implements StorageProvider {
                 if (!EventDispatcher.fireSyncAndAllow(plugin, pre)) return false;
                 if (current < amount) return false;
                 bankRepo.save(BankModel.create(name, currency, current - amount));
+                putCached(bankBalanceCacheKey(name, currency), current - amount);
                 EventDispatcher.fireSync(plugin, new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_WITHDRAW, true, BigDecimal.valueOf(current), BigDecimal.valueOf(current - amount)));
                 return true;
             } catch (StorageException e) {
@@ -781,7 +828,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
@@ -789,6 +836,7 @@ public class SQLiteStorageProvider implements StorageProvider {
                         BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT);
                         if (!EventDispatcher.fireSyncAndAllow(plugin, pre)) return;
                         bankRepo.save(BankModel.create(name, currency, before + amount));
+                        putCached(bankBalanceCacheKey(name, currency), before + amount);
                         EventDispatcher.fireSync(plugin, new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(before), BigDecimal.valueOf(before + amount)));
                         return;
                     } catch (StorageException e) {
@@ -809,9 +857,92 @@ public class SQLiteStorageProvider implements StorageProvider {
                 BankPreTransactionEvent pre = new BankPreTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT);
                 if (!EventDispatcher.fireSyncAndAllow(plugin, pre)) return;
                 bankRepo.save(BankModel.create(name, currency, before + amount));
+                putCached(bankBalanceCacheKey(name, currency), before + amount);
                 EventDispatcher.fireSync(plugin, new BankPostTransactionEvent(name, null, BigDecimal.valueOf(amount), TransactionType.BANK_DEPOSIT, true, BigDecimal.valueOf(before), BigDecimal.valueOf(before + amount)));
             } catch (StorageException e) {
                 plugin.getLogger().severe("[EzEconomy] SQLite depositBank failed: " + e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public EconomyMutationResult depositBankAndGetBalance(String name, String currency, double amount) {
+        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
+        UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
+        String cacheKey = bankBalanceCacheKey(name, currency);
+        if (lm != null) {
+            String token = null;
+            try {
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
+                if (token != null) {
+                    java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
+                    if (!bankOpt.isPresent()) return EconomyMutationResult.failure(0.0, "Bank does not exist");
+                    double updated = bankOpt.get().getBalance() + amount;
+                    bankRepo.save(BankModel.create(name, currency, updated));
+                    putCached(cacheKey, updated);
+                    return EconomyMutationResult.success(updated);
+                }
+            } catch (Exception e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite depositBankAndGetBalance failed: " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
+            } finally {
+                if (token != null) lm.release(bankId, token);
+            }
+        }
+        synchronized (lock) {
+            try {
+                java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
+                if (!bankOpt.isPresent()) return EconomyMutationResult.failure(0.0, "Bank does not exist");
+                double updated = bankOpt.get().getBalance() + amount;
+                bankRepo.save(BankModel.create(name, currency, updated));
+                putCached(cacheKey, updated);
+                return EconomyMutationResult.success(updated);
+            } catch (Exception e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite depositBankAndGetBalance failed: " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
+            }
+        }
+    }
+
+    @Override
+    public EconomyMutationResult withdrawBankAndGetBalance(String name, String currency, double amount) {
+        com.skyblockexp.ezeconomy.lock.LockManager lm = plugin.getLockManager();
+        UUID bankId = UUID.nameUUIDFromBytes(name.getBytes());
+        String cacheKey = bankBalanceCacheKey(name, currency);
+        if (lm != null) {
+            String token = null;
+            try {
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
+                if (token != null) {
+                    java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
+                    if (!bankOpt.isPresent()) return EconomyMutationResult.failure(0.0, "Bank does not exist");
+                    double current = bankOpt.get().getBalance();
+                    if (current < amount) return EconomyMutationResult.failure(current, "Insufficient funds");
+                    double updated = current - amount;
+                    bankRepo.save(BankModel.create(name, currency, updated));
+                    putCached(cacheKey, updated);
+                    return EconomyMutationResult.success(updated);
+                }
+            } catch (Exception e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite withdrawBankAndGetBalance failed: " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
+            } finally {
+                if (token != null) lm.release(bankId, token);
+            }
+        }
+        synchronized (lock) {
+            try {
+                java.util.Optional<BankModel> bankOpt = bankRepo.find(BankModel.idFor(name, currency));
+                if (!bankOpt.isPresent()) return EconomyMutationResult.failure(0.0, "Bank does not exist");
+                double current = bankOpt.get().getBalance();
+                if (current < amount) return EconomyMutationResult.failure(current, "Insufficient funds");
+                double updated = current - amount;
+                bankRepo.save(BankModel.create(name, currency, updated));
+                putCached(cacheKey, updated);
+                return EconomyMutationResult.success(updated);
+            } catch (Exception e) {
+                plugin.getLogger().severe("[EzEconomy] SQLite withdrawBankAndGetBalance failed: " + e.getMessage());
+                return EconomyMutationResult.failure(0.0, "Storage failure");
             }
         }
     }
@@ -836,7 +967,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         return bankMemberRepo.find(BankMemberModel.idFor(name, uuid)).map(BankMemberModel::isOwner).orElse(false);
@@ -864,7 +995,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         return bankMemberRepo.exists(BankMemberModel.idFor(name, uuid));
@@ -892,7 +1023,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     if (isBankMember(name, uuid)) return false;
                     try {
@@ -922,7 +1053,7 @@ public class SQLiteStorageProvider implements StorageProvider {
         if (lm != null) {
             String token = null;
             try {
-                token = lm.acquire(bankId, plugin.getConfig().getLong("redis.ttl-ms", 5000), plugin.getConfig().getLong("redis.retry-ms", 50), plugin.getConfig().getInt("redis.max-attempts", 100));
+                token = lm.acquire(bankId, plugin.getLockTtlMs(), plugin.getLockRetryMs(), plugin.getLockMaxAttempts());
                 if (token != null) {
                     try {
                         boolean existed = bankMemberRepo.exists(BankMemberModel.idFor(name, uuid));
@@ -1062,3 +1193,4 @@ public class SQLiteStorageProvider implements StorageProvider {
         return orphaned;
     }
 }
+

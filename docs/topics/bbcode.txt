@@ -34,8 +34,10 @@ Missing your plugin here? [URL='https://discord.gg/yWP95XfmBS']Message me throug
 [LIST]
 [*][B]/balance[/B]: View your balance
 [*][B]/balance <player>[/B]: View another player's balance (ezeconomy.balance.others)
-[*][B]/eco <give|take|set> <player> <amount>[/B]: Administrative balance controls (ezeconomy.eco)
-[*][B]/eco gui[/B]: Show balance GUI
+[*][B]/eco give <player> <amount> [currency][/B]: Administrative balance controls (ezeconomy.eco.give or ezeconomy.eco)
+[*][B]/eco take <player> <amount> [currency][/B]: Administrative balance controls (ezeconomy.eco.take or ezeconomy.eco)
+[*][B]/eco set <player> <amount> [currency][/B]: Administrative balance controls (ezeconomy.eco.set or ezeconomy.eco)
+[*][B]/eco gui[/B]: Show balance GUI (ezeconomy.eco.gui or ezeconomy.eco)
 [*][B]/baltop [amount][/B]: Show top balances
 [*][B]/bank <create|delete|balance|deposit|withdraw|addmember|removemember|info> ...[/B]: Bank management (ezeconomy.bank.*)
 [*][B]/pay <player> <amount>[/B]: Send funds to another player (ezeconomy.pay)
@@ -53,7 +55,11 @@ Missing your plugin here? [URL='https://discord.gg/yWP95XfmBS']Message me throug
 [B][COLOR=#0099ff] Permissions[/COLOR][/B]
 [LIST]
 [*]ezeconomy.balance.others: View other players' balances
-[*]ezeconomy.eco: Use /eco admin command
+[*]ezeconomy.eco: Legacy umbrella admin permission (still supported)
+[*]ezeconomy.eco.give: Use /eco give
+[*]ezeconomy.eco.take: Use /eco take
+[*]ezeconomy.eco.set: Use /eco set
+[*]ezeconomy.eco.gui: Permission to open /eco GUI (default: allowed for everyone)
 [*]ezeconomy.pay: Use /pay command
 [*]ezeconomy.currency: Use /currency command
 [*]ezeconomy.admin: Use /ezeconomy admin commands (cleanup, reload, database, daily reset)

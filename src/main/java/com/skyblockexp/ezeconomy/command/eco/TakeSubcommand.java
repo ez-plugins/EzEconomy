@@ -8,6 +8,7 @@ import com.skyblockexp.ezeconomy.core.Money;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
 
 import java.util.Map;
 
@@ -23,6 +24,10 @@ public class TakeSubcommand implements Subcommand {
 
     @Override
     public boolean execute(CommandSender sender, String[] args) {
+        if (!(sender instanceof ConsoleCommandSender) && !(sender.hasPermission("ezeconomy.user.eco.take") || sender.hasPermission("ezeconomy.eco.take"))) {
+            MessageUtils.send(sender, plugin, "no_permission");
+            return true;
+        }
         if (args.length < 2 || args.length > 3) {
             MessageUtils.send(sender, plugin, "usage_eco");
             return true;

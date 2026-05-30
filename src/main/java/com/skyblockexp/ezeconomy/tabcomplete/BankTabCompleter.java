@@ -19,7 +19,7 @@ public class BankTabCompleter implements TabCompleter {
     }
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission("ezeconomy.bank")) return Collections.emptyList();
+        if (!(sender.hasPermission("ezeconomy.user.bank") || sender.hasPermission("ezeconomy.bank"))) return Collections.emptyList();
         // /bank <sub> <bank> <amount> <currency>
         if (args.length == 1) {
             // Suggest subcommands

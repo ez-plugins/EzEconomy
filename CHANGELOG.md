@@ -17,6 +17,29 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
+## [3.1.2] - 2026-05-30
+
+### Added
+- Performance and reliability improvements to balance fast-path caching and background persistence.
+
+### Changed
+- Reduced DB contention and improved fast-path caching semantics for balances to provide more consistent immediate responses under load.
+- Withdraw fast-path: added per-key striped locking to prevent concurrent over-reservations.
+- Shutdown ordering: background persistence flush now runs before closing JDBC pools to guarantee pending deltas are persisted.
+
+![EzEconomy benchmark](https://i.ibb.co/9HnrVq30/image.png)
+
+- Configuration: moved MySQL tuning keys into `performance.mysql` in the main `config.yml`. The plugin now prefers `performance.mysql.*` with fallbacks to `mysql.*` in `config-mysql.yml`; documentation and default configs were updated.
+
+- Added MySQL tuning options and safer defaults: background persistence batching/queueing settings and additional Hikari pool tuning keys (`leak-detection-threshold-ms`, `validation-timeout-ms`, `initialization-fail-timeout-ms`, `auto-commit`). JDBC params now include UTF-8 encoding by default.
+- Security: `/eco` command permissions tightened. New granular permission nodes added: `ezeconomy.eco.give`, `ezeconomy.eco.take`, `ezeconomy.eco.set`, `ezeconomy.eco.gui` (GUI opens require `ezeconomy.eco.gui`), and `ezeconomy.eco` remains the umbrella admin node. Console execution still allowed.
+
+### Fixed
+- Race conditions where multiple concurrent withdraws could exceed the persisted balance.
+- Background flush failures during shutdown caused by closed connections.
+
+---
+
 ## [3.1.1] - 2026-05-28
 
 ### Added

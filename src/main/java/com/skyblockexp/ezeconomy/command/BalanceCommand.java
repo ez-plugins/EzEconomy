@@ -65,7 +65,7 @@ public class BalanceCommand implements CommandExecutor {
             }
 
             // /balance <player>
-            if (!sender.hasPermission("ezeconomy.balance.others")) {
+            if (!(sender.hasPermission("ezeconomy.user.balance.others") || sender.hasPermission("ezeconomy.balance.others"))) {
                 MessageUtils.send(sender, plugin, "no_permission_others_balance");
                 return true;
             }
@@ -77,7 +77,7 @@ public class BalanceCommand implements CommandExecutor {
             return true;
         } else if (args.length == 2) {
             // /balance <player> <currency>
-            if (!sender.hasPermission("ezeconomy.balance.others")) {
+            if (!(sender.hasPermission("ezeconomy.user.balance.others") || sender.hasPermission("ezeconomy.balance.others"))) {
                 MessageUtils.send(sender, plugin, "no_permission_others_balance");
                 return true;
             }

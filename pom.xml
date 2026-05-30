@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.ez-plugins</groupId>
     <artifactId>ezeconomy-parent</artifactId>
-    <version>3.1.1</version>
+    <version>3.1.2</version>
     <packaging>pom</packaging>
     <name>EzEconomy</name>
     <description>Vault-compatible economy provider with YML and MySQL support</description>
@@ -75,6 +75,7 @@
                                     <include>com.github.EzFramework:Jaloquent</include>
                                     <include>com.github.EzFramework:JavaQueryBuilder</include>
                                     <include>io.micrometer:micrometer-core</include>
+                                    <include>com.zaxxer:HikariCP</include>
                                 </includes>
                             </artifactSet>
                             <relocations>
@@ -97,6 +98,10 @@
                                 <relocation>
                                     <pattern>io.micrometer</pattern>
                                     <shadedPattern>com.skyblockexp.ezeconomy.shaded.micrometer</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.zaxxer.hikari</pattern>
+                                    <shadedPattern>com.skyblockexp.ezeconomy.shaded.hikari</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
@@ -307,6 +312,11 @@
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <version>8.0.33</version>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>4.0.3</version>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>

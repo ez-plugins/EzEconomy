@@ -28,8 +28,10 @@ EzEconomy is built for performance, flexibility, and ease of use. Highlights inc
 
 - **/balance**: View your balance
 - **/balance <player>**: View another player's balance (`ezeconomy.balance.others`)
-- **/eco <give|take|set> <player> <amount>**: Admin control (`ezeconomy.eco`)
-- **/eco gui**: Show balance GUI
+- **/eco give <player> <amount> [currency]**: Add funds to a player (`ezeconomy.eco.give` or `ezeconomy.eco`). Optional currency (multi-currency).
+- **/eco take <player> <amount> [currency]**: Remove funds from a player (`ezeconomy.eco.take` or `ezeconomy.eco`). Optional currency (multi-currency).
+- **/eco set <player> <amount> [currency]**: Set a player's balance (`ezeconomy.eco.set` or `ezeconomy.eco`). Optional currency (multi-currency).
+- **/eco gui**: Show balance GUI (`ezeconomy.eco.gui` or `ezeconomy.eco`)
 - **/baltop [amount]**: Show top balances
 - **/bank <create|delete|balance|deposit|withdraw|addmember|removemember|info> ...**: Bank management (`ezeconomy.bank.*`)
 - **/pay <player> <amount>**: Pay another player (`ezeconomy.pay`)
@@ -48,7 +50,11 @@ EzEconomy is built for performance, flexibility, and ease of use. Highlights inc
 ## 🛡️ Permissions
 
 - `ezeconomy.balance.others`: View other players' balances
-- `ezeconomy.eco`: Use /eco admin command
+- `ezeconomy.eco`: Legacy umbrella admin permission (still supported)
+- `ezeconomy.eco.give`: Use `/eco give`
+- `ezeconomy.eco.take`: Use `/eco take`
+- `ezeconomy.eco.set`: Use `/eco set`
+- `ezeconomy.eco.gui`: Use `/eco gui` (or allow with the legacy umbrella `ezeconomy.eco`)
 - `ezeconomy.pay`: Use /pay command
 - `ezeconomy.currency`: Use /currency command
 - `ezeconomy.admin`: Use /ezeconomy admin commands (cleanup, reload, database, daily reset)

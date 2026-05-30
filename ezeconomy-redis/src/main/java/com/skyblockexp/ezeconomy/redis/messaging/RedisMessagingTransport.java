@@ -6,6 +6,7 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
+import io.lettuce.core.api.async.RedisAsyncCommands;
 import io.lettuce.core.pubsub.RedisPubSubAdapter;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import org.bukkit.Bukkit;
@@ -90,7 +91,19 @@ public class RedisMessagingTransport implements AutoCloseable {
             out.writeUTF(senderName);
             out.writeUTF(amount);
             out.writeUTF(currency);
-            publishCommands.publish(channel, Base64.getEncoder().encodeToString(bos.toByteArray()));
+            String payload = Base64.getEncoder().encodeToString(bos.toByteArray());
+            boolean primaryThread = false;
+            try { primaryThread = Bukkit.getServer() != null && Bukkit.isPrimaryThread(); } catch (Throwable ignored) {}
+            if (primaryThread) {
+                try {
+                    RedisAsyncCommands<String, String> async = publishConnection.async();
+                    async.publish(channel, payload);
+                } catch (Throwable t) {
+                    logger.warning("Failed to publish notification via Redis (async): " + t.getMessage());
+                }
+            } else {
+                publishCommands.publish(channel, payload);
+            }
         } catch (IOException e) {
             logger.warning("Failed to publish notification via Redis: " + e.getMessage());
         }
@@ -109,7 +122,19 @@ public class RedisMessagingTransport implements AutoCloseable {
                 out.writeUTF(p.getUniqueId().toString());
                 out.writeUTF(p.getName());
             }
-            publishCommands.publish(channel, Base64.getEncoder().encodeToString(bos.toByteArray()));
+            String payload = Base64.getEncoder().encodeToString(bos.toByteArray());
+            boolean primaryThread = false;
+            try { primaryThread = Bukkit.getServer() != null && Bukkit.isPrimaryThread(); } catch (Throwable ignored) {}
+            if (primaryThread) {
+                try {
+                    RedisAsyncCommands<String, String> async = publishConnection.async();
+                    async.publish(channel, payload);
+                } catch (Throwable t) {
+                    logger.warning("Failed to publish player list via Redis (async): " + t.getMessage());
+                }
+            } else {
+                publishCommands.publish(channel, payload);
+            }
         } catch (IOException e) {
             logger.warning("Failed to broadcast player list via Redis: " + e.getMessage());
         }
@@ -145,12 +170,20 @@ public class RedisMessagingTransport implements AutoCloseable {
                     String amount = in.readUTF();
                     String currency = in.readUTF();
 
-                    Player recipient = Bukkit.getPlayer(UUID.fromString(recipientUuidStr));
-                    if (recipient != null && recipient.isOnline()) {
-                        String msg = plugin.getMessageProvider().get("received",
-                                Map.of("player", senderName, "amount", amount));
-                        Bukkit.getScheduler().runTask(plugin, () -> recipient.sendMessage(msg));
-                    }
+                    // Schedule delivery on the main server thread to avoid
+                    // calling Bukkit API from the Lettuce listener thread.
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        try {
+                            Player recipient = Bukkit.getPlayer(UUID.fromString(recipientUuidStr));
+                            if (recipient != null && recipient.isOnline()) {
+                                String msg = plugin.getMessageProvider().get("received",
+                                        Map.of("player", senderName, "amount", amount));
+                                recipient.sendMessage(msg);
+                            }
+                        } catch (Throwable t) {
+                            logger.warning("Failed to deliver Redis notify on main thread: " + t.getMessage());
+                        }
+                    });
                 } else if ("PLAYER_LIST".equals(type) && messagingService != null) {
                     int count = in.readInt();
                     Set<String> names = ConcurrentHashMap.newKeySet();

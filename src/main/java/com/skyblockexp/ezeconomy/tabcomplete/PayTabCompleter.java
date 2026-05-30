@@ -20,7 +20,7 @@ public class PayTabCompleter implements TabCompleter {
     }
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (!sender.hasPermission("ezeconomy.pay")) return Collections.emptyList();
+        if (!(sender.hasPermission("ezeconomy.user.pay") || sender.hasPermission("ezeconomy.pay"))) return Collections.emptyList();
         // For /payall the first argument is the amount, not a player name.
         if (args.length == 1) {
             String partial = args[0].toLowerCase();

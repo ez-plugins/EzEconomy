@@ -17,9 +17,10 @@ Permissions shown in parentheses are required to run the command. Commands witho
 | `/pay <player\|*> <amount>` | Send money to another player or all players (`*`). | `ezeconomy.pay` (all: `ezeconomy.payall` if enabled) |
 | `/currency [currency]` | View or set your preferred currency. | `ezeconomy.currency` |
 | `/currency convert <from> <to> <amount>` | Use  to convert between currencies. | `ezeconomy.currency` |
-| `/eco give <player> <amount>` | Add funds to a player. | `ezeconomy.eco` |
-| `/eco take <player> <amount>` | Remove funds from a player. | `ezeconomy.eco` |
-| `/eco set <player> <amount>` | Set a player's balance. | `ezeconomy.eco` |
+| `/eco give <player> <amount> [currency]` | Add funds to a player. Optional currency (multi-currency). | `ezeconomy.eco.give` (or `ezeconomy.eco`) |
+| `/eco take <player> <amount> [currency]` | Remove funds from a player. Optional currency (multi-currency). | `ezeconomy.eco.take` (or `ezeconomy.eco`) |
+| `/eco set <player> <amount> [currency]` | Set a player's balance. Optional currency (multi-currency). | `ezeconomy.eco.set` (or `ezeconomy.eco`) |
+| `/eco gui` | Open the administrative economy GUI (if enabled). | `ezeconomy.eco.gui` (or `ezeconomy.eco`) |
 
 ## Bank Commands
 
@@ -27,12 +28,12 @@ Permissions shown in parentheses are required to run the command. Commands witho
 | --- | --- | --- |
 | `/bank create <name>` | Create a new bank. | `ezeconomy.bank.create` |
 | `/bank delete <name>` | Delete a bank. | `ezeconomy.bank.delete` |
-| `/bank balance <name>` | View bank balance. | `ezeconomy.bank.balance` |
-| `/bank deposit <name> <amount>` | Deposit to a bank. | `ezeconomy.bank.deposit` |
-| `/bank withdraw <name> <amount>` | Withdraw from a bank. | `ezeconomy.bank.withdraw` |
+| `/bank balance <name> [currency]` | View bank balance (optional currency). | `ezeconomy.bank.balance` |
+| `/bank deposit <name> <amount> [currency]` | Deposit to a bank (players may also run `/bank deposit <amount>` to deposit into their own bank). | `ezeconomy.bank.deposit` |
+| `/bank withdraw <name> <amount> [currency]` | Withdraw from a bank. | `ezeconomy.bank.withdraw` |
 | `/bank addmember <name> <player>` | Add a bank member. | `ezeconomy.bank.addmember` |
 | `/bank removemember <name> <player>` | Remove a bank member. | `ezeconomy.bank.removemember` |
-| `/bank info <name>` | View bank details. | `ezeconomy.bank.info` |
+| `/bank info <name> [currency]` | View bank details (optional currency). | `ezeconomy.bank.info` |
 
 ## /ezeconomy Admin Command
 

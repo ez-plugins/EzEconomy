@@ -24,6 +24,9 @@ public class EconomyComponent implements BootstrapComponent {
         try {
             Economy e = plugin.getVaultEconomy();
             if (e != null) {
+                if (e instanceof com.skyblockexp.ezeconomy.core.VaultEconomyImpl) {
+                    ((com.skyblockexp.ezeconomy.core.VaultEconomyImpl) e).shutdown();
+                }
                 Bukkit.getServicesManager().unregister(Economy.class, e);
             }
         } catch (Exception ignored) {}
