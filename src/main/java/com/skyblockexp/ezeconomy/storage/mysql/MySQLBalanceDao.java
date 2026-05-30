@@ -64,6 +64,8 @@ public class MySQLBalanceDao {
                 if (cached != null && canUseLocalFastBalanceResponse.get()) {
                     double pending = balanceBackgroundPersistence.peekPendingSum(id);
                     double updatedFast = cached.doubleValue() + pending;
+                    // Cache the fast computed value (includes pending) so subsequent
+                    // local operations read a consistent fast view.
                     cachePut.accept(cacheKey, updatedFast);
                     return EconomyMutationResult.success(updatedFast);
                 }
@@ -79,6 +81,8 @@ public class MySQLBalanceDao {
                         if (dbBal == 0.0 && pending == 0.0) {
                             updated = amount;
                         }
+                        // Cache the fast computed value (includes pending) so subsequent
+                        // local operations read a consistent fast view.
                         cachePut.accept(cacheKey, updated);
                         return EconomyMutationResult.success(updated);
                     }
@@ -100,6 +104,7 @@ public class MySQLBalanceDao {
                 upsert.executeUpdate();
                 if (cached != null && canUseLocalFastBalanceResponse.get()) {
                     double updatedFast = cached.doubleValue() + amount;
+                    // Cache the fast value (includes this delta) for local fast responses.
                     cachePut.accept(cacheKey, updatedFast);
                     return EconomyMutationResult.success(updatedFast);
                 }
@@ -160,40 +165,47 @@ public class MySQLBalanceDao {
             // flushing pending deltas synchronously by reserving funds via the
             // pending queue. This reduces withdraw latency under heavy load.
             if (balanceBackgroundPersistence != null) {
-                Double cached = cacheGet.apply(cacheKey);
-                double pending = balanceBackgroundPersistence.peekPendingSum(id);
-                // Try to use cached balance if available and safe
-                try {
-                    if (cached != null && canUseLocalFastBalanceResponse.get()) {
-                        double available = cached.doubleValue() + pending;
-                        if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
-                        // Reserve by enqueueing a negative delta; background worker will persist this later
-                        balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
-                        double updatedFast = available - amount;
-                        cachePut.accept(cacheKey, updatedFast);
-                        return EconomyMutationResult.success(updatedFast);
+                Object keyLock = lockManager.lockFor(id);
+                synchronized (keyLock) {
+                    Double cached = cacheGet.apply(cacheKey);
+                    double pending = balanceBackgroundPersistence.peekPendingSum(id);
+                    // Try to use cached balance if available and safe
+                    try {
+                        if (cached != null && canUseLocalFastBalanceResponse.get()) {
+                            // Treat cache as authoritative fast view (it already includes local pending deltas).
+                            double available = cached.doubleValue();
+                            if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
+                            // Reserve by enqueueing a negative delta; background worker will persist this later
+                            balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
+                            double updatedFast = available - amount;
+                            // Update cache with new fast view after reservation
+                            cachePut.accept(cacheKey, updatedFast);
+                            return EconomyMutationResult.success(updatedFast);
+                        }
+                    } catch (Throwable ignored) {
+                        // fall through to DB-assisted path below
                     }
-                } catch (Throwable ignored) {
-                    // fall through to DB-assisted path below
-                }
 
-                // No suitable cache available or cache not safe — read DB and combine with pending
-                try (Connection conn = pool.getConnection();
-                     PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
-                    select.setString(1, id);
-                    try (ResultSet rs = select.executeQuery()) {
-                        double dbBal = rs.next() ? rs.getDouble(1) : 0.0;
-                        double available = dbBal + pending;
-                        if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
-                        // Reserve by enqueueing a negative delta rather than flushing
-                        balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
-                        double updated = available - amount;
-                        cachePut.accept(cacheKey, updated);
-                        return EconomyMutationResult.success(updated);
+                    // No suitable cache available or cache not safe — read DB and combine with pending
+                    try (Connection conn = pool.getConnection();
+                         PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
+                        select.setString(1, id);
+                        try (ResultSet rs = select.executeQuery()) {
+                            double dbBal = rs.next() ? rs.getDouble(1) : 0.0;
+                            double available = dbBal + pending;
+                            if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
+                            // Reserve by enqueueing a negative delta rather than flushing
+                            balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
+                            double updated = available - amount;
+                            // Cache the fast computed value (includes pending) so subsequent
+                            // local operations read a consistent fast view.
+                            cachePut.accept(cacheKey, updated);
+                            return EconomyMutationResult.success(updated);
+                        }
+                    } catch (SQLException e) {
+                        plugin.getLogger().severe("[EzEconomy] MySQL withdraw fast-path failed (db read): " + e.getMessage());
+                        // Fall through to legacy flush-and-apply path below
                     }
-                } catch (SQLException e) {
-                    plugin.getLogger().severe("[EzEconomy] MySQL withdraw fast-path failed (db read): " + e.getMessage());
-                    // Fall through to legacy flush-and-apply path below
                 }
             }
 

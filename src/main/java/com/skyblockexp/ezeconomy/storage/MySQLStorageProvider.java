@@ -497,29 +497,30 @@ public class MySQLStorageProvider implements StorageProvider {
         synchronized (lock) {
             try {
                 closeHotStatements();
-                if (connectionManager != null) {
-                    try { connectionManager.close(); } catch (Exception ignored) {}
-                    connectionManager = null;
-                    hotPathDataSource = null;
-                    connection = null;
-                } else {
-                    if (hotPathDataSource != null) {
-                        hotPathDataSource.close();
-                        hotPathDataSource = null;
-                    }
-                    if (connection != null && !connection.isClosed()) connection.close();
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL shutdown failed: " + e.getMessage());
             } catch (Exception e) {
                 plugin.getLogger().severe("[EzEconomy] Unexpected error on shutdown: " + e.getMessage());
             }
             // Stop background services
+            // Shut down background persistence BEFORE closing pools/connections so
+            // they can flush pending work using the Hikari pool.
             try {
                 if (backgroundPersistence != null) backgroundPersistence.shutdown();
             } catch (Throwable ignored) {}
             try {
                 if (balanceBackgroundPersistence != null) balanceBackgroundPersistence.shutdown();
+            } catch (Throwable ignored) {}
+            // Now close JDBC resources if still open (some may have been closed above)
+            try {
+                if (connectionManager != null) {
+                    try { connectionManager.close(); } catch (Exception ignored) {}
+                    connectionManager = null;
+                } else {
+                    if (hotPathDataSource != null) {
+                        try { hotPathDataSource.close(); } catch (Throwable ignored) {}
+                        hotPathDataSource = null;
+                    }
+                    try { if (connection != null && !connection.isClosed()) connection.close(); } catch (Throwable ignored) {}
+                }
             } catch (Throwable ignored) {}
             try {
                 if (metricsScheduler != null) metricsScheduler.shutdownNow();
