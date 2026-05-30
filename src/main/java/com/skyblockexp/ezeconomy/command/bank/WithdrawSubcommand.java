@@ -19,7 +19,7 @@ public class WithdrawSubcommand implements Subcommand {
 
     @Override
     public boolean execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("ezeconomy.bank.withdraw") && !sender.hasPermission("ezeconomy.bank.admin")) {
+        if (!(sender.hasPermission("ezeconomy.user.bank.withdraw") || sender.hasPermission("ezeconomy.bank.withdraw")) && !sender.hasPermission("ezeconomy.bank.admin")) {
             com.skyblockexp.ezeconomy.util.MessageUtils.send(sender, plugin, "no_permission");
             return true;
         }

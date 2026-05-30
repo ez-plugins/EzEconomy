@@ -141,6 +141,28 @@ mysql:
 
 **Recommended for**: shared hosting, large servers, and cross-server networks.
 
+Additional recommended MySQL tuning options (also present in `config.yml` under `performance.mysql`):
+
+```yaml
+mysql:
+  jdbc-params: "..."
+  pool:
+    enabled: true
+    maximum-pool-size: 32
+    minimum-idle: 8
+    connection-timeout-ms: 8000
+    idle-timeout-ms: 240000
+    max-lifetime-ms: 1200000
+  balance-background-queue-size: 10000
+  balance-background-batch-size: 128
+  balance-background-flush-interval-ms: 200
+```
+
+Notes:
+- `balance-background-flush-interval-ms` controls how frequently aggregated balance deltas are flushed to the database; lower values increase persistence frequency at the cost of extra DB activity.
+- `balance-background-batch-size` controls how many deltas are grouped per upsert batch. Increase on busy servers to amortize DB writes.
+- Hikari pool tuning values should be adjusted to match your server's connection capacity and the database server's limits.
+
 ## SQLite Storage
 
 `config-sqlite.yml`

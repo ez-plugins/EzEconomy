@@ -110,6 +110,13 @@ performance:
       connection-timeout-ms: 8000
       idle-timeout-ms: 240000
       max-lifetime-ms: 1200000
+    # MySQL performance tuning defaults (optional overrides; keys mirror config-mysql.yml)
+    background-queue-size: 10000
+    balance-background-queue-size: 10000
+    balance-background-batch-size: 128
+    balance-background-flush-interval-ms: 200
+
+# Note: MySQL performance tuning defaults have been moved under `performance.mysql` above.
 
 # Presentation settings for money formatting. These settings affect only
 # how amounts are shown to players and in integrations (placeholders, GUIs,

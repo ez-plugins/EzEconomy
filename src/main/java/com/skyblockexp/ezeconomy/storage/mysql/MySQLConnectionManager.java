@@ -44,7 +44,7 @@ public class MySQLConnectionManager {
     }
 
     private void initPool(String jdbcUrl, String username, String password) {
-        boolean enabled = dbConfig.getBoolean("mysql.pool.enabled", true);
+        boolean enabled = plugin.getConfig().getBoolean("performance.mysql.pool.enabled", dbConfig.getBoolean("mysql.pool.enabled", true));
         if (!enabled) {
             if (dataSource != null) dataSource.close();
             dataSource = null;
@@ -56,18 +56,26 @@ public class MySQLConnectionManager {
         cfg.setJdbcUrl(jdbcUrl);
         cfg.setUsername(username);
         cfg.setPassword(password);
-        cfg.setMaximumPoolSize(Math.max(2, dbConfig.getInt("mysql.pool.maximum-pool-size", 32)));
-        cfg.setMinimumIdle(Math.max(1, dbConfig.getInt("mysql.pool.minimum-idle", 8)));
-        cfg.setConnectionTimeout(Math.max(1000L, dbConfig.getLong("mysql.pool.connection-timeout-ms", 8000L)));
-        cfg.setIdleTimeout(Math.max(30000L, dbConfig.getLong("mysql.pool.idle-timeout-ms", 240000L)));
-        cfg.setMaxLifetime(Math.max(60000L, dbConfig.getLong("mysql.pool.max-lifetime-ms", 1200000L)));
-        cfg.setAutoCommit(true);
+        cfg.setMaximumPoolSize(Math.max(2, plugin.getConfig().getInt("performance.mysql.pool.maximum-pool-size", dbConfig.getInt("mysql.pool.maximum-pool-size", 32))));
+        cfg.setMinimumIdle(Math.max(1, plugin.getConfig().getInt("performance.mysql.pool.minimum-idle", dbConfig.getInt("mysql.pool.minimum-idle", 8))));
+        cfg.setConnectionTimeout(Math.max(1000L, plugin.getConfig().getLong("performance.mysql.pool.connection-timeout-ms", dbConfig.getLong("mysql.pool.connection-timeout-ms", 8000L))));
+        cfg.setIdleTimeout(Math.max(30000L, plugin.getConfig().getLong("performance.mysql.pool.idle-timeout-ms", dbConfig.getLong("mysql.pool.idle-timeout-ms", 240000L))));
+        cfg.setMaxLifetime(Math.max(60000L, plugin.getConfig().getLong("performance.mysql.pool.max-lifetime-ms", dbConfig.getLong("mysql.pool.max-lifetime-ms", 1200000L))));
+        cfg.setAutoCommit(plugin.getConfig().getBoolean("performance.mysql.pool.auto-commit", dbConfig.getBoolean("mysql.pool.auto-commit", true)));
+        // Optional Hikari tuning parameters
+        long leakMs = plugin.getConfig().getLong("performance.mysql.pool.leak-detection-threshold-ms", dbConfig.getLong("mysql.pool.leak-detection-threshold-ms", 0L));
+        if (leakMs > 0) cfg.setLeakDetectionThreshold(leakMs);
+        long validationTimeout = plugin.getConfig().getLong("performance.mysql.pool.validation-timeout-ms", dbConfig.getLong("mysql.pool.validation-timeout-ms", 500L));
+        if (validationTimeout > 0) cfg.setValidationTimeout(validationTimeout);
+        long initFail = plugin.getConfig().getLong("performance.mysql.pool.initialization-fail-timeout-ms", dbConfig.getLong("mysql.pool.initialization-fail-timeout-ms", 1L));
+        cfg.setInitializationFailTimeout(initFail);
         dataSource = new HikariDataSource(cfg);
     }
 
     private String buildJdbcUrl(String host, int port, String database) {
-        String params = dbConfig.getString("mysql.jdbc-params",
-                "useSSL=false&serverTimezone=UTC&cachePrepStmts=true&prepStmtCacheSize=1024&prepStmtCacheSqlLimit=4096&useServerPrepStmts=true&elideSetAutoCommits=true&maintainTimeStats=false&useLocalSessionState=true&rewriteBatchedStatements=true&cacheResultSetMetadata=true&cacheServerConfiguration=true&tcpKeepAlive=true&connectTimeout=8000&socketTimeout=30000");
+        String params = plugin.getConfig().getString("performance.mysql.jdbc-params",
+                dbConfig.getString("mysql.jdbc-params",
+                "useSSL=false&serverTimezone=UTC&cachePrepStmts=true&prepStmtCacheSize=1024&prepStmtCacheSqlLimit=4096&useServerPrepStmts=true&elideSetAutoCommits=true&maintainTimeStats=false&useLocalSessionState=true&rewriteBatchedStatements=true&cacheResultSetMetadata=true&cacheServerConfiguration=true&tcpKeepAlive=true&connectTimeout=8000&socketTimeout=30000"));
         if (params == null || params.trim().isEmpty()) {
             return "jdbc:mysql://" + host + ":" + port + "/" + database;
         }

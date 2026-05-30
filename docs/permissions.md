@@ -9,6 +9,9 @@ Assign permissions through your permissions plugin (LuckPerms, PermissionsEx, Gr
 
 ## Player Permissions
 
+Note: New installs should prefer the `ezeconomy.user.*` namespace (for example `ezeconomy.user.pay`). Legacy `ezeconomy.*` nodes remain supported for backwards compatibility.
+
+
 | Permission | Description | Default |
 | --- | --- | --- |
 | `ezeconomy.balance` | View own balance with `/balance`. | everyone |
@@ -22,7 +25,11 @@ Assign permissions through your permissions plugin (LuckPerms, PermissionsEx, Gr
 
 | Permission | Description | Default |
 | --- | --- | --- |
-| `ezeconomy.eco` | Use `/eco give`, `/eco take`, `/eco set` to manage balances. | op |
+| `ezeconomy.eco` | Umbrella admin permission for economy operations (legacy). Prefer granting granular sub-permissions below. | op |
+| `ezeconomy.eco.give` | Allows `/eco give <player> <amount>`. | op |
+| `ezeconomy.eco.take` | Allows `/eco take <player> <amount>`. | op |
+| `ezeconomy.eco.set` | Allows `/eco set <player> <amount>`. | op |
+| `ezeconomy.eco.gui` | Allows opening the `/eco` GUI and using `/eco` to open user GUI when enabled. | everyone |
 | `ezeconomy.admin` | Run all `/ezeconomy` subcommands (reload, cleanup, database). | op |
 | `ezeconomy.payall.bypasswithdraw` | Use `/pay *` without funds being withdrawn from the sender. | op |
 
@@ -46,7 +53,7 @@ Assign permissions through your permissions plugin (LuckPerms, PermissionsEx, Gr
 | --- | --- |
 | **Player** | `ezeconomy.pay`, `ezeconomy.currency`, `ezeconomy.baltop`, `ezeconomy.bank.balance`, `ezeconomy.bank.deposit`, `ezeconomy.bank.withdraw`, `ezeconomy.bank.info` |
 | **Moderator** | All player permissions + `ezeconomy.balance.others` |
-| **Admin** | All moderator permissions + `ezeconomy.eco`, `ezeconomy.admin`, `ezeconomy.bank.admin`, `ezeconomy.payall` |
+| **Admin** | All moderator permissions + granular admin permissions (`ezeconomy.eco.give`, `ezeconomy.eco.take`, `ezeconomy.eco.set`) or the legacy `ezeconomy.eco` umbrella, `ezeconomy.admin`, `ezeconomy.bank.admin`, `ezeconomy.payall` |
 
 ## LuckPerms Example
 

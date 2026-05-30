@@ -72,12 +72,12 @@ A player appearing at the top unexpectedly may indicate duplication, an exploit,
 Server admins with `ezeconomy.bank.admin` can inspect and modify any bank:
 
 ```text
-/bank info <name>              # View members, owner, and balance
-/bank balance <name>           # Quick balance check
-/bank deposit <name> <amount>  # Add funds to a bank
-/bank withdraw <name> <amount> # Remove funds from a bank
-/bank delete <name>            # Delete an empty or abandoned bank
-/bank removemember <name> <player>  # Remove a player from a bank
+/bank info <name> [currency]              # View members, owner, and balance
+/bank balance <name> [currency]           # Quick balance check
+/bank deposit <name> <amount> [currency]  # Add funds to a bank (or `/bank deposit <amount>` to deposit to your own bank)
+/bank withdraw <name> <amount> [currency] # Remove funds from a bank
+/bank delete <name>                        # Delete an empty or abandoned bank
+/bank removemember <name> <player>         # Remove a player from a bank
 ```
 
 ---

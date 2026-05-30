@@ -44,3 +44,65 @@ permissions:
   ezeconomy.payall.bypasswithdraw:
     description: Allows paying all without withdrawing from sender balance
     default: op
+  ezeconomy.eco:
+    description: Allows using the /eco admin command (umbrella permission)
+    default: op
+  ezeconomy.eco.give:
+    description: Allows /eco give <player> <amount>
+    default: op
+  ezeconomy.eco.take:
+    description: Allows /eco take <player> <amount>
+    default: op
+  ezeconomy.eco.set:
+    description: Allows /eco set <player> <amount>
+    default: op
+  ezeconomy.eco.gui:
+    description: Allows opening the /eco GUI or using /eco to open the user GUI
+    default: true
+  # New user-scoped permissions (preferred). Legacy ezeconomy.* nodes still supported for backwards compatibility.
+  ezeconomy.user.pay:
+    description: Send money to another player with `/pay` (preferred user node)
+    default: true
+  ezeconomy.user.payall:
+    description: Allows using /pay * to pay all players
+    default: op
+  ezeconomy.user.payall.bypasswithdraw:
+    description: Allows paying all without withdrawing from sender balance
+    default: op
+  ezeconomy.user.currency:
+    description: View or change your preferred currency with `/currency`
+    default: true
+  ezeconomy.user.baltop:
+    description: View the top-balance list with `/baltop`
+    default: true
+  ezeconomy.user.balance.others:
+    description: View another player's balance
+    default: op
+  ezeconomy.user.eco.gui:
+    description: Allows opening the /eco GUI or using /eco to open the user GUI
+    default: true
+  # Bank-related user permissions
+  ezeconomy.user.bank.create:
+    description: Create a bank account
+    default: true
+  ezeconomy.user.bank.delete:
+    description: Delete a bank account
+    default: op
+  ezeconomy.user.bank.balance:
+    description: View a bank's balance
+    default: true
+  ezeconomy.user.bank.deposit:
+    description: Deposit into a bank
+    default: true
+  ezeconomy.user.bank.withdraw:
+    description: Withdraw from a bank
+    default: true
+  ezeconomy.user.bank.addmember:
+    description: Add a member to a bank
+    default: op
+  ezeconomy.user.bank.removemember:
+    description: Remove a member from a bank
+    default: op
+  ezeconomy.user.bank.info:
+    description: View a bank's member list and details
+    default: true

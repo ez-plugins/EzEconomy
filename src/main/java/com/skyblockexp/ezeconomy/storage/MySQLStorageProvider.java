@@ -105,7 +105,7 @@ public class MySQLStorageProvider implements StorageProvider {
         this.table = dbConfig.getString("mysql.table", "balances");
         this.balanceCacheEnabled = plugin.getConfig().getBoolean("performance.balance-cache.enabled", true);
         this.balanceCacheTtlMs = plugin.getConfig().getLong("performance.balance-cache.ttl-ms", 2500L);
-        int stripes = Math.max(16, dbConfig.getInt("mysql.lock-stripes", 64));
+        int stripes = Math.max(16, plugin.getConfig().getInt("performance.mysql.lock-stripes", dbConfig.getInt("mysql.lock-stripes", 64)));
         this.stripedLockManager = new StripedLockManager(stripes);
     }
 
@@ -206,13 +206,14 @@ public class MySQLStorageProvider implements StorageProvider {
         transactionRepo = new ModelRepository<>(jdbcStore, TransactionModel.PREFIX,TransactionModel::new,SqlDialect.MYSQL);
         // Start background persistence and metrics after repositories are available
         try {
-            backgroundPersistence = new BackgroundPersistenceService(plugin, hotPathDataSource, dbConfig.getInt("mysql.background-queue-size", 10000));
+            int bgQueue = plugin.getConfig().getInt("performance.mysql.background-queue-size", dbConfig.getInt("mysql.background-queue-size", 10000));
+            backgroundPersistence = new BackgroundPersistenceService(plugin, hotPathDataSource, bgQueue);
         } catch (Exception ignored) {}
         try {
             // balance background persistence configuration
-            int balQueue = dbConfig.getInt("mysql.balance-background-queue-size", 10000);
-            int balBatch = dbConfig.getInt("mysql.balance-background-batch-size", 128);
-            long balFlush = dbConfig.getLong("mysql.balance-background-flush-interval-ms", 200L);
+            int balQueue = plugin.getConfig().getInt("performance.mysql.balance-background-queue-size", dbConfig.getInt("mysql.balance-background-queue-size", 10000));
+            int balBatch = plugin.getConfig().getInt("performance.mysql.balance-background-batch-size", dbConfig.getInt("mysql.balance-background-batch-size", 128));
+            long balFlush = plugin.getConfig().getLong("performance.mysql.balance-background-flush-interval-ms", dbConfig.getLong("mysql.balance-background-flush-interval-ms", 200L));
             if (hotPathDataSource != null) {
                 balanceBackgroundPersistence = new com.skyblockexp.ezeconomy.storage.mysql.MySQLBalanceBackgroundPersistenceService(plugin, hotPathDataSource, table, balQueue, balBatch, balFlush);
             }
@@ -250,8 +251,9 @@ public class MySQLStorageProvider implements StorageProvider {
     }
 
     private String buildJdbcUrl(String host, int port, String database) {
-        String params = dbConfig.getString("mysql.jdbc-params",
-                "useSSL=false&serverTimezone=UTC&cachePrepStmts=true&prepStmtCacheSize=1024&prepStmtCacheSqlLimit=4096&useServerPrepStmts=true&elideSetAutoCommits=true&maintainTimeStats=false&useLocalSessionState=true&rewriteBatchedStatements=true&cacheResultSetMetadata=true&cacheServerConfiguration=true&tcpKeepAlive=true&connectTimeout=8000&socketTimeout=30000");
+        String params = plugin.getConfig().getString("performance.mysql.jdbc-params",
+                dbConfig.getString("mysql.jdbc-params",
+                "useSSL=false&serverTimezone=UTC&cachePrepStmts=true&prepStmtCacheSize=1024&prepStmtCacheSqlLimit=4096&useServerPrepStmts=true&elideSetAutoCommits=true&maintainTimeStats=false&useLocalSessionState=true&rewriteBatchedStatements=true&cacheResultSetMetadata=true&cacheServerConfiguration=true&tcpKeepAlive=true&connectTimeout=8000&socketTimeout=30000"));
         if (params == null || params.trim().isEmpty()) {
             return "jdbc:mysql://" + host + ":" + port + "/" + database;
         }
@@ -652,7 +654,7 @@ public class MySQLStorageProvider implements StorageProvider {
     }
 
     private void initHotPathPool(String jdbcUrl, String username, String password) {
-        boolean enabled = dbConfig.getBoolean("mysql.pool.enabled", true);
+        boolean enabled = plugin.getConfig().getBoolean("performance.mysql.pool.enabled", dbConfig.getBoolean("mysql.pool.enabled", true));
         if (!enabled) {
             if (hotPathDataSource != null) {
                 hotPathDataSource.close();
@@ -668,12 +670,21 @@ public class MySQLStorageProvider implements StorageProvider {
         cfg.setJdbcUrl(jdbcUrl);
         cfg.setUsername(username);
         cfg.setPassword(password);
-        cfg.setMaximumPoolSize(Math.max(2, dbConfig.getInt("mysql.pool.maximum-pool-size", 32)));
-        cfg.setMinimumIdle(Math.max(1, dbConfig.getInt("mysql.pool.minimum-idle", 8)));
-        cfg.setConnectionTimeout(Math.max(1000L, dbConfig.getLong("mysql.pool.connection-timeout-ms", 8000L)));
-        cfg.setIdleTimeout(Math.max(30000L, dbConfig.getLong("mysql.pool.idle-timeout-ms", 240000L)));
-        cfg.setMaxLifetime(Math.max(60000L, dbConfig.getLong("mysql.pool.max-lifetime-ms", 1200000L)));
-        cfg.setAutoCommit(true);
+        cfg.setMaximumPoolSize(Math.max(2, plugin.getConfig().getInt("performance.mysql.pool.maximum-pool-size", dbConfig.getInt("mysql.pool.maximum-pool-size", 32))));
+        cfg.setMinimumIdle(Math.max(1, plugin.getConfig().getInt("performance.mysql.pool.minimum-idle", dbConfig.getInt("mysql.pool.minimum-idle", 8))));
+        cfg.setConnectionTimeout(Math.max(1000L, plugin.getConfig().getLong("performance.mysql.pool.connection-timeout-ms", dbConfig.getLong("mysql.pool.connection-timeout-ms", 8000L))));
+        cfg.setIdleTimeout(Math.max(30000L, plugin.getConfig().getLong("performance.mysql.pool.idle-timeout-ms", dbConfig.getLong("mysql.pool.idle-timeout-ms", 240000L))));
+        cfg.setMaxLifetime(Math.max(60000L, plugin.getConfig().getLong("performance.mysql.pool.max-lifetime-ms", dbConfig.getLong("mysql.pool.max-lifetime-ms", 1200000L))));
+        // Respect optional auto-commit override (default true)
+        cfg.setAutoCommit(plugin.getConfig().getBoolean("performance.mysql.pool.auto-commit", dbConfig.getBoolean("mysql.pool.auto-commit", true)));
+        // Optional Hikari tuning values
+        long leakDetection = plugin.getConfig().getLong("performance.mysql.pool.leak-detection-threshold-ms", dbConfig.getLong("mysql.pool.leak-detection-threshold-ms", 0L));
+        if (leakDetection > 0L) cfg.setLeakDetectionThreshold(leakDetection);
+        long validationTimeout = plugin.getConfig().getLong("performance.mysql.pool.validation-timeout-ms", dbConfig.getLong("mysql.pool.validation-timeout-ms", 500L));
+        cfg.setValidationTimeout(Math.max(250L, validationTimeout));
+        long initFail = plugin.getConfig().getLong("performance.mysql.pool.initialization-fail-timeout-ms", dbConfig.getLong("mysql.pool.initialization-fail-timeout-ms", 1L));
+        cfg.setInitializationFailTimeout(initFail);
+
         hotPathDataSource = new HikariDataSource(cfg);
     }
 

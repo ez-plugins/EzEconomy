@@ -36,7 +36,7 @@ public class PayCommand implements CommandExecutor {
             MessageUtils.send(sender, plugin, "only_players");
             return true;
         }
-        if (!sender.hasPermission("ezeconomy.pay")) {
+        if (!(sender.hasPermission("ezeconomy.user.pay") || sender.hasPermission("ezeconomy.pay"))) {
             MessageUtils.send(sender, plugin, "no_permission");
             return true;
         }
@@ -140,12 +140,12 @@ public class PayCommand implements CommandExecutor {
                 return true;
             }
             boolean requirePerm = plugin.getConfig().getBoolean("pay.pay_all.require_permission", true);
-            if (requirePerm && !sender.hasPermission("ezeconomy.payall")) {
+            if (requirePerm && !(sender.hasPermission("ezeconomy.user.payall") || sender.hasPermission("ezeconomy.payall"))) {
                 MessageUtils.send(sender, plugin, "no_permission");
                 return true;
             }
 
-            boolean bypassWithdraw = sender.hasPermission("ezeconomy.payall.bypasswithdraw");
+            boolean bypassWithdraw = sender.hasPermission("ezeconomy.user.payall.bypasswithdraw") || sender.hasPermission("ezeconomy.payall.bypasswithdraw");
 
             boolean includeOffline = plugin.getConfig().getBoolean("pay.pay_all.include_offline", false);
             UUID fromUuid = ((Player) sender).getUniqueId();

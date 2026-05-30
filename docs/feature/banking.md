@@ -19,9 +19,9 @@ Key concepts
 Commands
 
 - `/bank create <name>` — Create a new bank with the given name.
-- `/bank deposit <name> <amount>` — Deposit from your personal account into the bank.
-- `/bank withdraw <name> <amount>` — Withdraw from the bank to your personal account (permission gated).
-- `/bank balance <name>` — View bank balance(s) in configured currencies.
+- `/bank deposit <name> <amount> [currency]` — Deposit from your personal account into the bank. Players may also run `/bank deposit <amount>` to deposit into their own bank using the default currency.
+- `/bank withdraw <name> <amount> [currency]` — Withdraw from the bank to your personal account (permission gated).
+- `/bank balance <name> [currency]` — View bank balance(s) in the specified currency (optional) or all configured currencies when omitted.
 - `/bank addmanager <name> <player>` — Grant manager role to a player.
 - `/bank removemanager <name> <player>` — Revoke manager role.
 

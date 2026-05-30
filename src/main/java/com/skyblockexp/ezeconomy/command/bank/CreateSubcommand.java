@@ -21,7 +21,7 @@ public class CreateSubcommand implements Subcommand {
 
     @Override
     public boolean execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("ezeconomy.bank.create") && !sender.hasPermission("ezeconomy.bank.admin")) {
+        if (!(sender.hasPermission("ezeconomy.user.bank.create") || sender.hasPermission("ezeconomy.bank.create")) && !sender.hasPermission("ezeconomy.bank.admin")) {
             MessageUtils.send(sender, plugin, "no_permission");
             return true;
         }

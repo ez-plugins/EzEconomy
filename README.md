@@ -60,7 +60,10 @@ EzEconomy is designed for performance, reliability, and operational clarity. Hig
 
 - **/balance**: View your balance
 - **/balance <player>**: View another player's balance (`ezeconomy.balance.others`)
-- **/eco <give|take|set> <player> <amount>**: Administrative balance controls (`ezeconomy.eco`)
+- **/eco gui**: Open the `/eco` administrative GUI (if enabled). Permission: `ezeconomy.eco.gui` (default: allowed for everyone).
+- **/eco give <player> <amount> [currency]**: Add funds to a player. Optional currency (multi-currency). Permission: `ezeconomy.eco.give` (or the umbrella `ezeconomy.eco`).
+- **/eco take <player> <amount> [currency]**: Remove funds from a player. Optional currency (multi-currency). Permission: `ezeconomy.eco.take` (or the umbrella `ezeconomy.eco`).
+- **/eco set <player> <amount> [currency]**: Set a player's balance. Optional currency (multi-currency). Permission: `ezeconomy.eco.set` (or the umbrella `ezeconomy.eco`).
 - **/baltop [amount]**: Show top balances
 - **/bank <create|delete|balance|deposit|withdraw|addmember|removemember|info> ...**: Bank management (`ezeconomy.bank`)
 - **/pay <player> <amount>**: Send funds to another player (`ezeconomy.pay`)
@@ -75,6 +78,13 @@ EzEconomy is designed for performance, reliability, and operational clarity. Hig
 - `ezeconomy.eco`: Use /eco admin command
 - `ezeconomy.pay`: Use /pay command
 - `ezeconomy.currency`: Use /currency command
+ - `ezeconomy.eco`: Legacy umbrella admin permission (still supported)
+ - `ezeconomy.eco.give`: Permission for `/eco give`
+ - `ezeconomy.eco.take`: Permission for `/eco take`
+ - `ezeconomy.eco.set`: Permission for `/eco set`
+ - `ezeconomy.eco.gui`: Permission to open the `/eco` GUI (default: allowed for everyone)
+ - `ezeconomy.pay`: Use /pay command
+ - `ezeconomy.currency`: Use /currency command
 - **Bank Permissions**:
   - `ezeconomy.bank.create`: Create a new bank
   - `ezeconomy.bank.delete`: Delete a bank

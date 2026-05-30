@@ -8,6 +8,7 @@ import com.skyblockexp.ezeconomy.util.MessageUtils;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.ConsoleCommandSender;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,6 +28,10 @@ public class GuiSubcommand implements Subcommand {
     public boolean execute(CommandSender sender, String[] args) {
         if (!(sender instanceof Player)) {
             MessageUtils.send(sender, plugin, "only_players");
+            return true;
+        }
+        if (!(sender instanceof ConsoleCommandSender) && !(((Player) sender).hasPermission("ezeconomy.user.eco.gui") || ((Player) sender).hasPermission("ezeconomy.eco.gui"))) {
+            MessageUtils.send(sender, plugin, "no_permission");
             return true;
         }
         Player player = (Player) sender;

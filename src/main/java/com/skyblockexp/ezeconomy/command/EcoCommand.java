@@ -13,6 +13,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.command.ConsoleCommandSender;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,16 +33,16 @@ public class EcoCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!sender.hasPermission("ezeconomy.eco")) {
-            MessageUtils.send(sender, plugin, "no_permission");
-            return true;
-        }
-
         if (args.length == 0) {
             // Optionally open the user GUI when /eco is used with no args
             if (sender instanceof Player) {
                 Player player = (Player) sender;
                 if (plugin.getUserGuiConfig().getBoolean("open-on-eco", false)) {
+                    // Require explicit gui permission for opening the user GUI
+                    if (!(sender instanceof ConsoleCommandSender) && !(player.hasPermission("ezeconomy.user.eco.gui") || player.hasPermission("ezeconomy.eco.gui"))) {
+                        MessageUtils.send(sender, plugin, "no_permission");
+                        return true;
+                    }
                     com.skyblockexp.ezeconomy.gui.MainGui.open(plugin, player);
                     return true;
                 }
