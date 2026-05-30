@@ -27,6 +27,8 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 - Withdraw fast-path: added per-key striped locking to prevent concurrent over-reservations.
 - Shutdown ordering: background persistence flush now runs before closing JDBC pools to guarantee pending deltas are persisted.
 
+![EzEconomy benchmark](https://i.ibb.co/9HnrVq30/image.png)
+
 - Configuration: moved MySQL tuning keys into `performance.mysql` in the main `config.yml`. The plugin now prefers `performance.mysql.*` with fallbacks to `mysql.*` in `config-mysql.yml`; documentation and default configs were updated.
 
 - Added MySQL tuning options and safer defaults: background persistence batching/queueing settings and additional Hikari pool tuning keys (`leak-detection-threshold-ms`, `validation-timeout-ms`, `initialization-fail-timeout-ms`, `auto-commit`). JDBC params now include UTF-8 encoding by default.

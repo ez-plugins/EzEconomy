@@ -159,6 +159,7 @@ mysql:
 ```
 
 Notes:
+
 - `balance-background-flush-interval-ms` controls how frequently aggregated balance deltas are flushed to the database; lower values increase persistence frequency at the cost of extra DB activity.
 - `balance-background-batch-size` controls how many deltas are grouped per upsert batch. Increase on busy servers to amortize DB writes.
 - Hikari pool tuning values should be adjusted to match your server's connection capacity and the database server's limits.

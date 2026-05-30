@@ -11,7 +11,6 @@ Assign permissions through your permissions plugin (LuckPerms, PermissionsEx, Gr
 
 Note: New installs should prefer the `ezeconomy.user.*` namespace (for example `ezeconomy.user.pay`). Legacy `ezeconomy.*` nodes remain supported for backwards compatibility.
 
-
 | Permission | Description | Default |
 | --- | --- | --- |
 | `ezeconomy.balance` | View own balance with `/balance`. | everyone |
