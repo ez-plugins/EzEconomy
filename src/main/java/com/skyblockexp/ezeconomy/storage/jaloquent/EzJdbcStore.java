@@ -7,10 +7,12 @@ import com.github.ezframework.jaloquent.store.sql.JdbcStore;
 import com.github.ezframework.jaloquent.store.sql.TransactionalJdbcStore;
 
 import java.sql.Connection;
+import java.sql.SQLNonTransientConnectionException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLTransientConnectionException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,10 +34,21 @@ import java.util.Optional;
  */
 public class EzJdbcStore implements DataStore, JdbcStore, TransactionalJdbcStore {
 
-    private final Connection connection;
+    private volatile Connection connection;
+    private final ConnectionRefresher connectionRefresher;
+
+    @FunctionalInterface
+    public interface ConnectionRefresher {
+        Connection refresh() throws Exception;
+    }
 
     public EzJdbcStore(Connection connection) {
+        this(connection, null);
+    }
+
+    public EzJdbcStore(Connection connection, ConnectionRefresher connectionRefresher) {
         this.connection = connection;
+        this.connectionRefresher = connectionRefresher;
     }
 
     // -------------------------------------------------------------------------
@@ -45,6 +58,40 @@ public class EzJdbcStore implements DataStore, JdbcStore, TransactionalJdbcStore
     @Override
     public List<Map<String, Object>> query(String sql, List<Object> params) throws Exception {
         String transformed = transformSql(sql);
+        try {
+            return doQuery(transformed, params);
+        } catch (SQLException first) {
+            if (!tryRecoverConnection(first)) {
+                throw first;
+            }
+            try {
+                return doQuery(transformed, params);
+            } catch (SQLException retry) {
+                retry.addSuppressed(first);
+                throw retry;
+            }
+        }
+    }
+
+    @Override
+    public int executeUpdate(String sql, List<Object> params) throws Exception {
+        String transformed = transformSql(sql);
+        try {
+            return doExecuteUpdate(transformed, params);
+        } catch (SQLException first) {
+            if (!tryRecoverConnection(first)) {
+                throw first;
+            }
+            try {
+                return doExecuteUpdate(transformed, params);
+            } catch (SQLException retry) {
+                retry.addSuppressed(first);
+                throw retry;
+            }
+        }
+    }
+
+    private List<Map<String, Object>> doQuery(String transformed, List<Object> params) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(transformed)) {
             bindParams(ps, params);
             try (ResultSet rs = ps.executeQuery()) {
@@ -63,13 +110,77 @@ public class EzJdbcStore implements DataStore, JdbcStore, TransactionalJdbcStore
         }
     }
 
-    @Override
-    public int executeUpdate(String sql, List<Object> params) throws Exception {
-        String transformed = transformSql(sql);
+    private int doExecuteUpdate(String transformed, List<Object> params) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(transformed)) {
             bindParams(ps, params);
             return ps.executeUpdate();
         }
+    }
+
+    private boolean tryRecoverConnection(SQLException failure) {
+        if (connectionRefresher == null || !isConnectionFailure(failure)) {
+            return false;
+        }
+        try {
+            if (connection != null && !connection.getAutoCommit()) {
+                return false;
+            }
+        } catch (SQLException ignored) {
+            // Continue; connection likely already broken.
+        }
+        synchronized (this) {
+            try {
+                if (isConnectionUsable(connection)) {
+                    return true;
+                }
+                Connection refreshed = connectionRefresher.refresh();
+                if (refreshed == null) {
+                    return false;
+                }
+                this.connection = refreshed;
+                return true;
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
+    }
+
+    private boolean isConnectionUsable(Connection candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        try {
+            return !candidate.isClosed() && candidate.isValid(2);
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    private boolean isConnectionFailure(SQLException ex) {
+        if (ex instanceof SQLTransientConnectionException || ex instanceof SQLNonTransientConnectionException) {
+            return true;
+        }
+        String sqlState = ex.getSQLState();
+        if (sqlState != null && sqlState.startsWith("08")) {
+            return true;
+        }
+        Throwable cur = ex;
+        while (cur != null) {
+            String cn = cur.getClass().getName();
+            String msg = cur.getMessage();
+            if (cn.contains("CommunicationsException") || cn.contains("ConnectionIsClosedException")) {
+                return true;
+            }
+            if (msg != null) {
+                if (msg.contains("Communications link failure")
+                        || msg.contains("Connection reset")
+                        || msg.contains("Connection is closed")) {
+                    return true;
+                }
+            }
+            cur = cur.getCause();
+        }
+        return false;
     }
 
     /**

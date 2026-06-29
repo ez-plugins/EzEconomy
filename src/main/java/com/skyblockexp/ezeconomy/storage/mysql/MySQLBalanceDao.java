@@ -57,39 +57,9 @@ public class MySQLBalanceDao {
         String cacheKey = balanceCacheKey(uuid, currency);
         if (pool != null) {
             String id = BalanceModel.idFor(uuid, currency);
-            Double cached = cacheGet.apply(cacheKey);
-            // If background persistence is available, enqueue delta and return fast result
-            if (balanceBackgroundPersistence != null) {
-                balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, amount);
-                if (cached != null && canUseLocalFastBalanceResponse.get()) {
-                    double pending = balanceBackgroundPersistence.peekPendingSum(id);
-                    double updatedFast = cached.doubleValue() + pending;
-                    // Cache the fast computed value (includes pending) so subsequent
-                    // local operations read a consistent fast view.
-                    cachePut.accept(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
-                // Fallback: read DB then include pending deltas
-                try (Connection conn = pool.getConnection();
-                     PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
-                    select.setString(1, id);
-                    try (ResultSet rs = select.executeQuery()) {
-                        double dbBal = rs.next() ? rs.getDouble(1) : 0.0;
-                        double pending = balanceBackgroundPersistence.peekPendingSum(id);
-                        double updated = dbBal + pending;
-                        // If both DB and pending appear empty, account might be new — account for our own submitted delta
-                        if (dbBal == 0.0 && pending == 0.0) {
-                            updated = amount;
-                        }
-                        // Cache the fast computed value (includes pending) so subsequent
-                        // local operations read a consistent fast view.
-                        cachePut.accept(cacheKey, updated);
-                        return EconomyMutationResult.success(updated);
-                    }
-                } catch (SQLException e) {
-                    plugin.getLogger().severe("[EzEconomy] MySQL deposit failed (select after enqueue): " + e.getMessage());
-                    return EconomyMutationResult.failure(0.0, "Storage failure");
-                }
+            if (balanceBackgroundPersistence != null && !balanceBackgroundPersistence.flushIdSyncStrict(id)) {
+                plugin.getLogger().severe("[EzEconomy] MySQL deposit aborted because pending balance flush failed for " + id);
+                return EconomyMutationResult.failure(0.0, "Storage failure");
             }
 
             try (Connection conn = pool.getConnection();
@@ -102,12 +72,6 @@ public class MySQLBalanceDao {
                 upsert.setString(3, currency);
                 upsert.setDouble(4, amount);
                 upsert.executeUpdate();
-                if (cached != null && canUseLocalFastBalanceResponse.get()) {
-                    double updatedFast = cached.doubleValue() + amount;
-                    // Cache the fast value (includes this delta) for local fast responses.
-                    cachePut.accept(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
                 select.setString(1, id);
                 try (ResultSet rs = select.executeQuery()) {
                     double updated = rs.next() ? rs.getDouble(1) : amount;
@@ -123,10 +87,13 @@ public class MySQLBalanceDao {
         String id = BalanceModel.idFor(uuid, currency);
         Object keyLock = lockManager.lockFor(id);
         synchronized (keyLock) {
-            Double cached = cacheGet.apply(cacheKey);
             String upsertSql = "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)";
             String selectSql = "SELECT balance FROM " + table + " WHERE id = ?";
             try {
+                if (balanceBackgroundPersistence != null && !balanceBackgroundPersistence.flushIdSyncStrict(id)) {
+                    plugin.getLogger().severe("[EzEconomy] MySQL deposit aborted because pending balance flush failed for " + id);
+                    return EconomyMutationResult.failure(0.0, "Storage failure");
+                }
                 if (fallback == null || fallback.isClosed()) {
                     plugin.getLogger().severe("[EzEconomy] MySQL connection unavailable for fallback upsert");
                     return EconomyMutationResult.failure(0.0, "Storage failure");
@@ -138,11 +105,6 @@ public class MySQLBalanceDao {
                     upsert.setString(3, currency);
                     upsert.setDouble(4, amount);
                     upsert.executeUpdate();
-                    if (cached != null && canUseLocalFastBalanceResponse.get()) {
-                        double updatedFast = cached.doubleValue() + amount;
-                        cachePut.accept(cacheKey, updatedFast);
-                        return EconomyMutationResult.success(updatedFast);
-                    }
                     select.setString(1, id);
                     try (ResultSet rs = select.executeQuery()) {
                         double updated = rs.next() ? rs.getDouble(1) : amount;
@@ -161,61 +123,10 @@ public class MySQLBalanceDao {
         String cacheKey = balanceCacheKey(uuid, currency);
         if (pool != null) {
             String id = BalanceModel.idFor(uuid, currency);
-            // Fast, non-blocking path when using background persistence: avoid
-            // flushing pending deltas synchronously by reserving funds via the
-            // pending queue. This reduces withdraw latency under heavy load.
-            if (balanceBackgroundPersistence != null) {
-                Object keyLock = lockManager.lockFor(id);
-                synchronized (keyLock) {
-                    Double cached = cacheGet.apply(cacheKey);
-                    double pending = balanceBackgroundPersistence.peekPendingSum(id);
-                    // Try to use cached balance if available and safe
-                    try {
-                        if (cached != null && canUseLocalFastBalanceResponse.get()) {
-                            // Treat cache as authoritative fast view (it already includes local pending deltas).
-                            double available = cached.doubleValue();
-                            if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
-                            // Reserve by enqueueing a negative delta; background worker will persist this later
-                            balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
-                            double updatedFast = available - amount;
-                            // Update cache with new fast view after reservation
-                            cachePut.accept(cacheKey, updatedFast);
-                            return EconomyMutationResult.success(updatedFast);
-                        }
-                    } catch (Throwable ignored) {
-                        // fall through to DB-assisted path below
-                    }
-
-                    // No suitable cache available or cache not safe — read DB and combine with pending
-                    try (Connection conn = pool.getConnection();
-                         PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
-                        select.setString(1, id);
-                        try (ResultSet rs = select.executeQuery()) {
-                            double dbBal = rs.next() ? rs.getDouble(1) : 0.0;
-                            double available = dbBal + pending;
-                            if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
-                            // Reserve by enqueueing a negative delta rather than flushing
-                            balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
-                            double updated = available - amount;
-                            // Cache the fast computed value (includes pending) so subsequent
-                            // local operations read a consistent fast view.
-                            cachePut.accept(cacheKey, updated);
-                            return EconomyMutationResult.success(updated);
-                        }
-                    } catch (SQLException e) {
-                        plugin.getLogger().severe("[EzEconomy] MySQL withdraw fast-path failed (db read): " + e.getMessage());
-                        // Fall through to legacy flush-and-apply path below
-                    }
-                }
+            if (balanceBackgroundPersistence != null && !balanceBackgroundPersistence.flushIdSyncStrict(id)) {
+                plugin.getLogger().severe("[EzEconomy] MySQL withdraw aborted because pending balance flush failed for " + id);
+                return EconomyMutationResult.failure(0.0, "Storage failure");
             }
-
-            // Legacy, safe path: flush pending deltas then perform an atomic DB update
-            Double cached = cacheGet.apply(cacheKey);
-            try {
-                if (balanceBackgroundPersistence != null) {
-                    try { balanceBackgroundPersistence.flushIdSync(id); } catch (Throwable ignored) {}
-                }
-            } catch (Throwable ignored) {}
 
             try (Connection conn = pool.getConnection();
                  PreparedStatement withdraw = conn.prepareStatement(
@@ -226,11 +137,6 @@ public class MySQLBalanceDao {
                 withdraw.setString(2, id);
                 withdraw.setDouble(3, amount);
                 int rows = withdraw.executeUpdate();
-                if (rows > 0 && cached != null && canUseLocalFastBalanceResponse.get()) {
-                    double updatedFast = cached.doubleValue() - amount;
-                    cachePut.accept(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
                 select.setString(1, id);
                 try (ResultSet rs = select.executeQuery()) {
                     double current = rs.next() ? rs.getDouble(1) : 0.0;
@@ -247,13 +153,12 @@ public class MySQLBalanceDao {
         String id = BalanceModel.idFor(uuid, currency);
         Object keyLock = lockManager.lockFor(id);
         synchronized (keyLock) {
-            Double cached = cacheGet.apply(cacheKey);
             String withdrawSql = "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?";
             String selectSql = "SELECT balance FROM " + table + " WHERE id = ?";
             try {
-                // If background persistence exists, flush pending deltas for consistency
-                if (balanceBackgroundPersistence != null) {
-                    try { balanceBackgroundPersistence.flushIdSync(id); } catch (Throwable ignored) {}
+                if (balanceBackgroundPersistence != null && !balanceBackgroundPersistence.flushIdSyncStrict(id)) {
+                    plugin.getLogger().severe("[EzEconomy] MySQL withdraw aborted because pending balance flush failed for " + id);
+                    return EconomyMutationResult.failure(0.0, "Storage failure");
                 }
                 if (fallback == null || fallback.isClosed()) {
                     plugin.getLogger().severe("[EzEconomy] MySQL connection unavailable for fallback withdraw");
@@ -265,11 +170,6 @@ public class MySQLBalanceDao {
                     withdraw.setString(2, id);
                     withdraw.setDouble(3, amount);
                     int rows = withdraw.executeUpdate();
-                    if (rows > 0 && cached != null && canUseLocalFastBalanceResponse.get()) {
-                        double updatedFast = cached.doubleValue() - amount;
-                        cachePut.accept(cacheKey, updatedFast);
-                        return EconomyMutationResult.success(updatedFast);
-                    }
                     select.setString(1, id);
                     try (ResultSet rs = select.executeQuery()) {
                         double current = rs.next() ? rs.getDouble(1) : 0.0;

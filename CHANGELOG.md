@@ -17,6 +17,33 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
+## [3.1.3] - 2026-06-29
+
+### Added
+- **MySQL outage fallback spool (local temp DB)** - If MySQL is unreachable during shutdown, pending balance deltas are now written to a local SQLite spool file (`plugins/EzEconomy/spool/mysql-balance-fallback.db`) instead of being dropped.
+- **Automatic startup replay** - On next startup, EzEconomy replays local spool rows into MySQL before continuing normal operation. If MySQL is still down, rows remain queued for the next restart.
+- **Admin spool controls** - New admin command:
+	- `/ezeconomy spool size` shows current local fallback spool row count.
+	- `/ezeconomy spool replay` forces immediate replay attempt into MySQL.
+- **New permissions**:
+	- `ezeconomy.database.spool`
+	- `ezeconomy.database.spool.replay`
+
+### Changed
+- **Stricter cache/DB consistency for MySQL mutations** - Balance cache updates now occur only after confirmed DB persistence/readback in mutation paths, preventing optimistic cache drift during storage errors.
+- **Background balance flush failure handling** - Failed MySQL balance flush batches are re-queued instead of dropped, eliminating silent write loss during transient outages.
+- **Jaloquent fallback connection resilience** - Repository SQL operations now auto-recover once on connection-level failures (e.g. `Communications link failure`) by refreshing the fallback connection and retrying the operation.
+
+### Fixed
+- **Long-uptime MySQL desync failure mode** - Networks that saw `Communications link failure` after hours of uptime no longer require a full restart to recover repository writes/reads.
+- **Shutdown data loss risk during DB outages** - Pending balance deltas are now durably retained in a local spool when MySQL is unavailable at stop time.
+
+### Tests
+- **Desync regression coverage for mutation paths** - Added unit tests for `MySQLBalanceDao` to ensure failed flush/write/insufficient-funds paths never advance the in-memory balance cache.
+- **Transfer consistency rollback coverage** - Added transfer regression tests to verify sender debit is rolled back when recipient credit fails, preventing sender/receiver balance divergence.
+
+---
+
 ## [3.1.2] - 2026-05-30
 
 ### Added

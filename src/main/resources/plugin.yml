@@ -35,7 +35,7 @@ commands:
     usage: /currency [currency]
   ezeconomy:
     description: EzEconomy admin utilities
-    usage: /ezeconomy <daily reset>
+    usage: /ezeconomy <cleanup|daily reset|reload|reload messages|database|spool>
 
 permissions:
   ezeconomy.payall:
@@ -59,6 +59,15 @@ permissions:
   ezeconomy.eco.gui:
     description: Allows opening the /eco GUI or using /eco to open the user GUI
     default: true
+  ezeconomy.database:
+    description: Allows viewing database info and running /ezeconomy database subcommands
+    default: op
+  ezeconomy.database.spool:
+    description: Allows viewing local MySQL fallback spool state with /ezeconomy spool size
+    default: op
+  ezeconomy.database.spool.replay:
+    description: Allows forcing fallback spool replay with /ezeconomy spool replay
+    default: op
   # New user-scoped permissions (preferred). Legacy ezeconomy.* nodes still supported for backwards compatibility.
   ezeconomy.user.pay:
     description: Send money to another player with `/pay` (preferred user node)

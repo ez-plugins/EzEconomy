@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-@Plugin(id = "ezeconomy", name = "EzEconomy", version = "3.1.0",
+@Plugin(id = "ezeconomy", name = "EzEconomy", version = "3.1.3",
 		description = "Cross-server payment forwarding and global player list for EzEconomy",
 		authors = {"Shadow48402"})
 public class EzEconomyVelocity {

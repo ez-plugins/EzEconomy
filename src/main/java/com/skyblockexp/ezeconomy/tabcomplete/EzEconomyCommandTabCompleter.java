@@ -14,11 +14,14 @@ import java.util.stream.Collectors;
 public class EzEconomyCommandTabCompleter implements TabCompleter {
     private final EzEconomyPlugin plugin;
     private static final List<String> SUBCOMMANDS = Arrays.asList(
-            "cleanup", "dailyreset", "reload", "reloadmessages", "database"
+            "cleanup", "dailyreset", "reload", "reloadmessages", "database", "spool"
     );
     private static final List<String> DATABASE_SUBS = Arrays.asList(
             "info", "test", "reset"
     );
+        private static final List<String> SPOOL_SUBS = Arrays.asList(
+            "size", "replay"
+        );
 
     public EzEconomyCommandTabCompleter(EzEconomyPlugin plugin) {
         this.plugin = plugin;
@@ -33,6 +36,11 @@ public class EzEconomyCommandTabCompleter implements TabCompleter {
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("database")) {
             return DATABASE_SUBS.stream()
+                    .filter(s -> s.startsWith(args[1].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("spool")) {
+            return SPOOL_SUBS.stream()
                     .filter(s -> s.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
         }
