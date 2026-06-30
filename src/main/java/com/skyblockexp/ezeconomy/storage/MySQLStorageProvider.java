@@ -237,7 +237,8 @@ public class MySQLStorageProvider implements StorageProvider {
         // Wire balance DAO to encapsulate hot-path + fallback SQL logic
         try {
             balanceDao = new MySQLBalanceDao(plugin, table, hotPathDataSource, connection, stripedLockManager,
-                key -> getCached(key), (key, val) -> putCached(key, val), () -> canUseLocalFastBalanceResponse(), balanceBackgroundPersistence);
+                key -> getCached(key), (key, val) -> putCached(key, val), () -> canUseLocalFastBalanceResponse(), balanceBackgroundPersistence,
+                this::refreshPrimaryDataSource, this::refreshFallbackConnection);
         } catch (Exception ignored) {}
     }
 
@@ -251,6 +252,16 @@ public class MySQLStorageProvider implements StorageProvider {
             } catch (Throwable ignored) {}
             this.connection = connectionManager.refreshFallbackConnection();
             return this.connection;
+        }
+    }
+
+    private HikariDataSource refreshPrimaryDataSource() throws SQLException {
+        synchronized (lock) {
+            if (connectionManager == null) {
+                throw new SQLException("MySQL connection manager is not initialized");
+            }
+            this.hotPathDataSource = connectionManager.refreshPrimaryDataSource();
+            return this.hotPathDataSource;
         }
     }
 

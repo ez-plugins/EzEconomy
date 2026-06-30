@@ -178,4 +178,99 @@ class MySQLBalanceDaoConsistencyTest {
         assertEquals("Insufficient funds", result.getFailureReason());
         assertEquals(0, cachePuts.get(), "Cache must not update on insufficient-funds failure");
     }
+
+    @Test
+    void deposit_invalidFallbackConnection_refreshesAndSucceeds() throws Exception {
+        EzEconomyPlugin plugin = mock(EzEconomyPlugin.class);
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("test"));
+
+        Connection staleFallback = mock(Connection.class);
+        Connection refreshedFallback = mock(Connection.class);
+        PreparedStatement upsert = mock(PreparedStatement.class);
+        PreparedStatement select = mock(PreparedStatement.class);
+        ResultSet rs = mock(ResultSet.class);
+
+        when(staleFallback.isClosed()).thenReturn(false);
+        when(staleFallback.isValid(2)).thenReturn(false);
+        when(refreshedFallback.prepareStatement(org.mockito.ArgumentMatchers.contains("INSERT INTO balances"))).thenReturn(upsert);
+        when(refreshedFallback.prepareStatement(org.mockito.ArgumentMatchers.contains("SELECT balance FROM balances"))).thenReturn(select);
+        when(upsert.executeUpdate()).thenReturn(1);
+        when(select.executeQuery()).thenReturn(rs);
+        when(rs.next()).thenReturn(true, false);
+        when(rs.getDouble(1)).thenReturn(125.0);
+
+        AtomicInteger refreshCalls = new AtomicInteger(0);
+        MySQLBalanceDao dao = new MySQLBalanceDao(
+                plugin,
+                "balances",
+                null,
+                staleFallback,
+                new StripedLockManager(32),
+                k -> 100.0,
+                (k, v) -> { },
+                () -> true,
+                null,
+                () -> {
+                    refreshCalls.incrementAndGet();
+                    return refreshedFallback;
+                }
+        );
+
+        EconomyMutationResult result = dao.depositAndGetBalance(UUID.randomUUID(), "dollar", 25.0);
+
+        assertTrue(result.isSuccess());
+        assertEquals(125.0, result.getBalance(), 0.0001);
+        assertEquals(1, refreshCalls.get(), "Fallback connection should be refreshed once after the stale connection is detected");
+    }
+
+    @Test
+    void deposit_primaryConnectionFailure_refreshesPoolAndSucceeds() throws Exception {
+        EzEconomyPlugin plugin = mock(EzEconomyPlugin.class);
+        when(plugin.getLogger()).thenReturn(Logger.getLogger("test"));
+
+        HikariDataSource stalePool = mock(HikariDataSource.class);
+        HikariDataSource refreshedPool = mock(HikariDataSource.class);
+        Connection staleConn = mock(Connection.class);
+        Connection freshConn = mock(Connection.class);
+        PreparedStatement upsert = mock(PreparedStatement.class);
+        PreparedStatement select = mock(PreparedStatement.class);
+        ResultSet rs = mock(ResultSet.class);
+
+        when(stalePool.getConnection()).thenThrow(new SQLException("Communications link failure", "08S01"));
+        when(refreshedPool.getConnection()).thenReturn(freshConn);
+        when(freshConn.prepareStatement(org.mockito.ArgumentMatchers.contains("INSERT INTO balances"))).thenReturn(upsert);
+        when(freshConn.prepareStatement(org.mockito.ArgumentMatchers.contains("SELECT balance FROM balances"))).thenReturn(select);
+        when(upsert.executeUpdate()).thenReturn(1);
+        when(select.executeQuery()).thenReturn(rs);
+        when(rs.next()).thenReturn(true, false);
+        when(rs.getDouble(1)).thenReturn(175.0);
+
+        AtomicReference<HikariDataSource> poolRef = new AtomicReference<HikariDataSource>(stalePool);
+        AtomicInteger refreshCalls = new AtomicInteger(0);
+
+        MySQLBalanceDao dao = new MySQLBalanceDao(
+                plugin,
+                "balances",
+                poolRef::get,
+                null,
+                new StripedLockManager(32),
+                k -> 150.0,
+                (k, v) -> { },
+                () -> true,
+                null,
+                () -> {
+                    refreshCalls.incrementAndGet();
+                    poolRef.set(refreshedPool);
+                    return refreshedPool;
+                },
+                null
+        );
+
+        EconomyMutationResult result = dao.depositAndGetBalance(UUID.randomUUID(), "dollar", 25.0);
+
+        assertTrue(result.isSuccess());
+        assertEquals(175.0, result.getBalance(), 0.0001);
+        assertEquals(1, refreshCalls.get(), "Primary pool should be refreshed once after connection failure");
+        assertEquals(refreshedPool, poolRef.get(), "DAO should use the refreshed pool after reconnect");
+    }
 }

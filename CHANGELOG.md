@@ -38,6 +38,7 @@ This release focuses on **data safety and recovery during MySQL outages**. The m
 - **Stricter cache/DB consistency for MySQL mutations** - Balance cache updates now occur only after confirmed DB persistence/readback in mutation paths, preventing optimistic cache drift during storage errors.
 - **Background balance flush failure handling** - Failed MySQL balance flush batches are re-queued instead of dropped, eliminating silent write loss during transient outages.
 - **Jaloquent fallback connection resilience** - Repository SQL operations now auto-recover once on connection-level failures (e.g. `Communications link failure`) by refreshing the fallback connection and retrying the operation.
+- **Balance DAO reconnect retry** - MySQL balance deposit/withdraw paths now refresh the active connection source and retry once when the database connection is lost instead of failing immediately.
 - **Transfer safety in partial-failure paths** - Default transfer flows now use mutation-result semantics with rollback on recipient-credit failure to avoid sender/recipient divergence.
 
 ### Fixed

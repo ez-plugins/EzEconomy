@@ -98,6 +98,15 @@ public class MySQLConnectionManager {
         return fallbackConnection;
     }
 
+    public synchronized HikariDataSource refreshPrimaryDataSource() throws SQLException {
+        if (dataSource != null) {
+            try { dataSource.close(); } catch (Exception ignored) {}
+            dataSource = null;
+        }
+        initPool(jdbcUrl, username, password);
+        return dataSource;
+    }
+
     public HikariDataSource getHikariDataSource() {
         return dataSource;
     }
