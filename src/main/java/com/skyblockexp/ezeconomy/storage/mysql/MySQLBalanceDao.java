@@ -241,7 +241,7 @@ public class MySQLBalanceDao {
         }
     }
 
-    private Connection ensureFallbackConnection() throws Exception {
+    private Connection ensureFallbackConnection() throws SQLException {
         if (fallback != null) {
             try {
                 if (!fallback.isClosed() && fallback.isValid(2)) {
@@ -252,10 +252,14 @@ public class MySQLBalanceDao {
             }
         }
         if (fallbackConnectionRefresher != null) {
-            Connection refreshed = fallbackConnectionRefresher.refresh();
-            if (refreshed != null) {
-                this.fallback = refreshed;
-                return refreshed;
+            try {
+                Connection refreshed = fallbackConnectionRefresher.refresh();
+                if (refreshed != null) {
+                    this.fallback = refreshed;
+                    return refreshed;
+                }
+            } catch (Exception e) {
+                throw new SQLException("MySQL connection unavailable for fallback operation", e);
             }
         }
         throw new SQLException("MySQL connection unavailable for fallback operation");
