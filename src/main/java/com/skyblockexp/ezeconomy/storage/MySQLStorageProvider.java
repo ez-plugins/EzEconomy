@@ -236,7 +236,7 @@ public class MySQLStorageProvider implements StorageProvider {
 
         // Wire balance DAO to encapsulate hot-path + fallback SQL logic
         try {
-            balanceDao = new MySQLBalanceDao(plugin, table, hotPathDataSource, connection, stripedLockManager,
+            balanceDao = new MySQLBalanceDao(plugin, table, () -> hotPathDataSource, connection, stripedLockManager,
                 key -> getCached(key), (key, val) -> putCached(key, val), () -> canUseLocalFastBalanceResponse(), balanceBackgroundPersistence,
                 this::refreshPrimaryDataSource, this::refreshFallbackConnection);
         } catch (Exception ignored) {}
