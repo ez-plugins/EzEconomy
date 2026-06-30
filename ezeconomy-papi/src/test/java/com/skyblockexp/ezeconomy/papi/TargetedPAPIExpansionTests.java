@@ -50,8 +50,8 @@ public class TargetedPAPIExpansionTests {
             }
 
             @Override public String getDefaultCurrency() { return "dollar"; }
-            @Override public String format(double amount, String currency) { return String.format("$%.2f", amount); }
-            @Override public String formatShort(double amount, String currency) { return String.format("$%.0f", amount); }
+            @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "$%.2f", amount); }
+            @Override public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "$%.0f", amount); }
             @Override public String getCurrencySymbol(String currency) { return "$"; }
             @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
         };

@@ -28,8 +28,8 @@ public class BalanceCurrencyVariantsTest {
         sp.setBalance(u, "gold", 2500.5);
 
         TestEzEconomyStubs.SimpleTestEz stub = new TestEzEconomyStubs.SimpleTestEz(sp, "dollar") {
-            @Override public String format(double amount, String currency) { return String.format("FMT:%.1f:%s", amount, currency); }
-            @Override public String formatShort(double amount, String currency) { return String.format("SRT:%.1f:%s", amount, currency); }
+            @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "FMT:%.1f:%s", amount, currency); }
+            @Override public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "SRT:%.1f:%s", amount, currency); }
         };
 
         com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion.TEST_ECONOMY_FOR_TESTS = stub;

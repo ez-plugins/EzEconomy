@@ -42,8 +42,8 @@ public class BankPlaceholderTest {
         private final StubStorage storage = new StubStorage();
         @Override public com.skyblockexp.ezeconomy.api.storage.StorageProvider getStorageOrWarn() { return storage; }
         @Override public String getDefaultCurrency() { return "dollar"; }
-        @Override public String format(double amount, String currency) { return String.format("%.2f %s", amount, currency); }
-        @Override public String formatShort(double amount, String currency) { return String.format("%.1f %s", amount, currency); }
+        @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "%.2f %s", amount, currency); }
+        @Override public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "%.1f %s", amount, currency); }
         @Override public String getCurrencySymbol(String currency) { return "$"; }
         @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
     }

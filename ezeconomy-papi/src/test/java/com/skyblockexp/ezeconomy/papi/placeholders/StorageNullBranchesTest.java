@@ -15,7 +15,7 @@ public class StorageNullBranchesTest {
             com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion.TEST_ECONOMY_FOR_TESTS = new com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion.TestEzEconomy() {
                 @Override public com.skyblockexp.ezeconomy.api.storage.StorageProvider getStorageOrWarn() { return null; }
                 @Override public String getDefaultCurrency() { return "dollar"; }
-                @Override public String format(double amount, String currency) { return String.format("%.2f %s", amount, currency); }
+                @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "%.2f %s", amount, currency); }
                 @Override public String formatShort(double amount, String currency) { return format(amount, currency); }
                 @Override public String getCurrencySymbol(String currency) { return null; }
                 @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
