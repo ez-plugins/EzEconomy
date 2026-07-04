@@ -90,7 +90,7 @@ public class CurrencyPrefAndTopAsyncTest extends com.skyblockexp.ezeconomy.papi.
                         String result = top.stream().map(e -> {
                             com.skyblockexp.ezeconomy.dto.EconomyPlayer ep = storage.getPlayer(e.getKey());
                             String name = ep == null ? (org.bukkit.Bukkit.getOfflinePlayer(e.getKey()).getName() == null ? e.getKey().toString() : org.bukkit.Bukkit.getOfflinePlayer(e.getKey()).getName()) : (ep.getDisplayName() == null ? ep.getName() : ep.getDisplayName());
-                            return name + " - " + String.format("%.2f %s", e.getValue(), "usd");
+                            return name + " - " + String.format(java.util.Locale.US, "%.2f %s", e.getValue(), "usd");
                         }).collect(java.util.stream.Collectors.joining(", "));
                         provider.put(cacheKey, result, 30000L);
                     }

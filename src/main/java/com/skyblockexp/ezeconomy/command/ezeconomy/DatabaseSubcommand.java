@@ -52,6 +52,8 @@ public class DatabaseSubcommand implements Subcommand {
         sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, "&eAvailable Subcommands:"));
         sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, "&f  /ezeconomy database test &7- Test database functions"));
         sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, "&f  /ezeconomy database reset &7- Reset database tables"));
+        sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, "&f  /ezeconomy spool size &7- Show local MySQL fallback spool rows"));
+        sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, "&f  /ezeconomy spool replay &7- Force replay of local fallback rows"));
 
         return true;
     }

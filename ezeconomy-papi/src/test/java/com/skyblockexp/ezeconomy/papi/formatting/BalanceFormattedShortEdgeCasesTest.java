@@ -48,8 +48,8 @@ public class BalanceFormattedShortEdgeCasesTest {
         final StubStorage s = new StubStorage();
         @Override public com.skyblockexp.ezeconomy.api.storage.StorageProvider getStorageOrWarn() { return s; }
         @Override public String getDefaultCurrency() { return "euro"; }
-        @Override public String format(double amount, String currency) { return String.format("%.2f %s", amount, currency); }
-        @Override public String formatShort(double amount, String currency) { return String.format("%.1f%s", amount >= 1000 ? amount/1000.0 : amount, amount >= 1000 ? "K" : ""); }
+        @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "%.2f %s", amount, currency); }
+        @Override public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "%.1f%s", amount >= 1000 ? amount/1000.0 : amount, amount >= 1000 ? "K" : ""); }
         @Override public String getCurrencySymbol(String currency) { return "€"; }
         @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
     }

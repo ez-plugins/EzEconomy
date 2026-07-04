@@ -17,6 +17,46 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
+## [3.1.3] - 2026-06-29
+
+This release focuses on **data safety and recovery during MySQL outages**. The main goal is to prevent in-game balances from drifting away from persisted database state during connection failures, restarts, or shutdowns.
+
+### Added
+- **MySQL outage fallback spool (local temp DB)** - If MySQL is unreachable during shutdown, pending balance deltas are now written to a local SQLite spool file (`plugins/EzEconomy/spool/mysql-balance-fallback.db`) instead of being dropped.
+- **Automatic startup replay** - On next startup, EzEconomy attempts to replay local spool rows into MySQL before continuing normal operation. If MySQL is still down, rows remain queued for the next startup.
+- **Admin spool controls** - New admin commands:
+	- `/ezeconomy spool size` shows current local fallback spool row count.
+	- `/ezeconomy spool replay` forces immediate replay attempt into MySQL.
+
+- **New permissions**:
+	- `ezeconomy.database.spool`
+	- `ezeconomy.database.spool.replay`
+
+**Operational note for owners:** The spool file is expected to be temporary and should normally drain after MySQL connectivity is restored. If it keeps growing, investigate database reachability/credentials and then run `/ezeconomy spool replay`.
+
+### Changed
+- **Stricter cache/DB consistency for MySQL mutations** - Balance cache updates now occur only after confirmed DB persistence/readback in mutation paths, preventing optimistic cache drift during storage errors.
+- **Background balance flush failure handling** - Failed MySQL balance flush batches are re-queued instead of dropped, eliminating silent write loss during transient outages.
+- **Jaloquent fallback connection resilience** - Repository SQL operations now auto-recover once on connection-level failures (e.g. `Communications link failure`) by refreshing the fallback connection and retrying the operation.
+- **Balance DAO reconnect retry** - MySQL balance deposit/withdraw paths now refresh the active connection source and retry once when the database connection is lost instead of failing immediately.
+- **Transfer safety in partial-failure paths** - Default transfer flows now use mutation-result semantics with rollback on recipient-credit failure to avoid sender/recipient divergence.
+
+### Fixed
+- **Long-uptime MySQL desync failure mode** - Networks that saw `Communications link failure` after hours of uptime no longer require a full restart to recover repository writes/reads.
+- **Shutdown data loss risk during DB outages** - Pending balance deltas are now durably retained in a local spool when MySQL is unavailable at stop time.
+- **In-game balance drift on failed writes** - Mutation and transfer paths now fail safely without advancing cache/state when persistence confirmation is unavailable.
+
+### Tests
+- **Desync regression coverage for mutation paths** - Added unit tests for `MySQLBalanceDao` to ensure failed flush/write/insufficient-funds paths never advance the in-memory balance cache.
+- **Transfer consistency rollback coverage** - Added transfer regression tests (including MySQLStorageProvider-path coverage) to verify sender debit is rolled back when recipient credit fails, preventing sender/receiver balance divergence.
+
+### Upgrade Notes (Server Owners)
+- No manual migration is required.
+- Verify that your MySQL credentials and network path are stable; this update improves resilience but does not replace proper DB health monitoring.
+- After any outage/restart event, check `/ezeconomy spool size` and run `/ezeconomy spool replay` if needed.
+
+---
+
 ## [3.1.2] - 2026-05-30
 
 ### Added

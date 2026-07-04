@@ -233,11 +233,19 @@ public interface StorageProvider {
             double fromBalance = getBalance(fromUuid, currency);
             double toBalance = getBalance(toUuid, currency);
             if (fromBalance < debitAmount) return TransferResult.failure(fromBalance, toBalance);
-            if (!tryWithdraw(fromUuid, currency, debitAmount)) {
-                return TransferResult.failure(getBalance(fromUuid, currency), getBalance(toUuid, currency));
+            EconomyMutationResult debitResult = withdrawAndGetBalance(fromUuid, currency, debitAmount);
+            if (!debitResult.isSuccess()) {
+                return TransferResult.failure(debitResult.getBalance(), getBalance(toUuid, currency));
             }
-            if (creditAmount > 0) deposit(toUuid, currency, creditAmount);
-            return TransferResult.success(getBalance(fromUuid, currency), getBalance(toUuid, currency));
+            if (creditAmount > 0) {
+                EconomyMutationResult creditResult = depositAndGetBalance(toUuid, currency, creditAmount);
+                if (!creditResult.isSuccess()) {
+                    EconomyMutationResult rollback = depositAndGetBalance(fromUuid, currency, debitAmount);
+                    return TransferResult.failure(rollback.getBalance(), getBalance(toUuid, currency));
+                }
+                return TransferResult.success(debitResult.getBalance(), creditResult.getBalance());
+            }
+            return TransferResult.success(debitResult.getBalance(), toBalance);
         } finally {
             lm.releaseOrdered(ordered, tokens);
         }
@@ -253,11 +261,19 @@ public interface StorageProvider {
         try {
             double fromBalance = getBalance(fromUuid, currency);
             if (fromBalance < debitAmount) return TransferResult.failure(fromBalance, getBalance(toUuid, currency));
-            if (!tryWithdraw(fromUuid, currency, debitAmount)) {
-                return TransferResult.failure(getBalance(fromUuid, currency), getBalance(toUuid, currency));
+            EconomyMutationResult debitResult = withdrawAndGetBalance(fromUuid, currency, debitAmount);
+            if (!debitResult.isSuccess()) {
+                return TransferResult.failure(debitResult.getBalance(), getBalance(toUuid, currency));
             }
-            if (creditAmount > 0) deposit(toUuid, currency, creditAmount);
-            return TransferResult.success(getBalance(fromUuid, currency), getBalance(toUuid, currency));
+            if (creditAmount > 0) {
+                EconomyMutationResult creditResult = depositAndGetBalance(toUuid, currency, creditAmount);
+                if (!creditResult.isSuccess()) {
+                    EconomyMutationResult rollback = depositAndGetBalance(fromUuid, currency, debitAmount);
+                    return TransferResult.failure(rollback.getBalance(), getBalance(toUuid, currency));
+                }
+                return TransferResult.success(debitResult.getBalance(), creditResult.getBalance());
+            }
+            return TransferResult.success(debitResult.getBalance(), getBalance(toUuid, currency));
         } finally {
             if (!first.equals(second)) secondLock.unlock();
             firstLock.unlock();

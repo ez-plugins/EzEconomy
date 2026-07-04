@@ -2,6 +2,7 @@ package com.skyblockexp.ezeconomy.papi;
 
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.dto.EconomyPlayer;
+import com.skyblockexp.ezeconomy.cache.CacheManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.bukkit.OfflinePlayer;
@@ -49,10 +50,10 @@ public class EzEconomyPAPIExpansionTest {
             public String getDefaultCurrency() { return "dollar"; }
 
             @Override
-            public String format(double amount, String currency) { return String.format("$%.2f", amount); }
+            public String format(double amount, String currency) { return String.format(java.util.Locale.US, "$%.2f", amount); }
 
             @Override
-            public String formatShort(double amount, String currency) { return String.format("$%.0f", amount); }
+            public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "$%.0f", amount); }
 
             @Override
             public String getCurrencySymbol(String currency) { return "$"; }
@@ -99,11 +100,13 @@ public class EzEconomyPAPIExpansionTest {
         EzEconomyPAPIExpansion.TEST_ECONOMY_FOR_TESTS = new EzEconomyPAPIExpansion.TestEzEconomy() {
             @Override public StorageProvider getStorageOrWarn() { return stub; }
             @Override public String getDefaultCurrency() { return "dollar"; }
-            @Override public String format(double amount, String currency) { return String.format("$%.0f", amount); }
-            @Override public String formatShort(double amount, String currency) { return String.format("$%.0f", amount); }
+            @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "$%.0f", amount); }
+            @Override public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "$%.0f", amount); }
             @Override public String getCurrencySymbol(String currency) { return "$"; }
             @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
         };
+
+        CacheManager.getProvider().remove("top:dollar:2");
 
         // First call returns a previous/cached value (likely "loading").
         String first = expansion.onPlaceholderRequest(null, "top_2_dollar");

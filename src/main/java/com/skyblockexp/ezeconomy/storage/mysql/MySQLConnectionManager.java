@@ -18,6 +18,9 @@ public class MySQLConnectionManager {
     private final YamlConfiguration dbConfig;
     private HikariDataSource dataSource;
     private Connection fallbackConnection;
+    private String jdbcUrl;
+    private String username;
+    private String password;
 
     public MySQLConnectionManager(EzEconomyPlugin plugin, YamlConfiguration dbConfig) {
         this.plugin = plugin;
@@ -28,19 +31,23 @@ public class MySQLConnectionManager {
         String host = dbConfig.getString("mysql.host");
         int port = dbConfig.getInt("mysql.port");
         String database = dbConfig.getString("mysql.database");
-        String username = dbConfig.getString("mysql.username");
-        String password = dbConfig.getString("mysql.password");
-        String jdbcUrl = buildJdbcUrl(host, port, database);
+        this.username = dbConfig.getString("mysql.username");
+        this.password = dbConfig.getString("mysql.password");
+        this.jdbcUrl = buildJdbcUrl(host, port, database);
 
         // Create fallback (DriverManager) connection
+        fallbackConnection = openFallbackConnection();
+
+        // Init pool if enabled
+        initPool(jdbcUrl, username, password);
+    }
+
+    private Connection openFallbackConnection() throws SQLException {
         if (fallbackConnection != null) {
             try { if (!fallbackConnection.isClosed()) fallbackConnection.close(); } catch (Exception ignored) {}
             fallbackConnection = null;
         }
-        fallbackConnection = DriverManager.getConnection(jdbcUrl, username, password);
-
-        // Init pool if enabled
-        initPool(jdbcUrl, username, password);
+        return DriverManager.getConnection(jdbcUrl, username, password);
     }
 
     private void initPool(String jdbcUrl, String username, String password) {
@@ -82,8 +89,22 @@ public class MySQLConnectionManager {
         return "jdbc:mysql://" + host + ":" + port + "/" + database + "?" + params;
     }
 
-    public Connection getFallbackConnection() {
+    public synchronized Connection getFallbackConnection() {
         return fallbackConnection;
+    }
+
+    public synchronized Connection refreshFallbackConnection() throws SQLException {
+        fallbackConnection = openFallbackConnection();
+        return fallbackConnection;
+    }
+
+    public synchronized HikariDataSource refreshPrimaryDataSource() throws SQLException {
+        if (dataSource != null) {
+            try { dataSource.close(); } catch (Exception ignored) {}
+            dataSource = null;
+        }
+        initPool(jdbcUrl, username, password);
+        return dataSource;
     }
 
     public HikariDataSource getHikariDataSource() {

@@ -57,8 +57,8 @@ public class TestEzEconomyStubs {
 
         @Override public StorageProvider getStorageOrWarn() { return storage; }
         @Override public String getDefaultCurrency() { return defaultCurrency; }
-        @Override public String format(double amount, String currency) { return String.format("%.2f %s", amount, currency); }
-        @Override public String formatShort(double amount, String currency) { if (amount >= 1000) return String.format("%.1fK %s", amount / 1000d, currency); return format(amount, currency); }
+        @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "%.2f %s", amount, currency); }
+        @Override public String formatShort(double amount, String currency) { if (amount >= 1000) return String.format(java.util.Locale.US, "%.1fK %s", amount / 1000d, currency); return format(amount, currency); }
         @Override public String getCurrencySymbol(String currency) { return null; }
         @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
     }
