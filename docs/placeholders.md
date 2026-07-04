@@ -11,8 +11,10 @@ EzEconomy integrates with PlaceholderAPI for use in chat, scoreboards, and other
 
 | Placeholder | Description |
 | --- | --- |
-| `%ezeconomy_balance%` | Player balance in their preferred currency. |
-| `%ezeconomy_balance_<currency>%` | Player balance in the specified currency. |
+| `%ezeconomy_balance%` | Player balance in their preferred currency, using the configured currency formatting and placement. |
+| `%ezeconomy_balance_<currency>%` | Player balance in the specified currency, using the configured currency formatting and placement. |
+| `%ezeconomy_balance_plain%` | Player balance without any currency suffix or symbol. |
+| `%ezeconomy_balance_plain_<currency>%` | Player balance for a specific currency without any currency suffix or symbol. |
 | `%ezeconomy_balance_formatted%` | Player balance formatted according to `money-format` settings and `price_message_format`. |
 | `%ezeconomy_balance_short%` | Compact/short form of the balance (e.g., `1.2K`, `3.4M`) when `useCompact` is enabled in config. |
 | `%ezeconomy_currency%` | Player's preferred currency key. |

@@ -1,5 +1,7 @@
 package com.skyblockexp.ezeconomy.papi.placeholders;
 
+import java.util.Locale;
+
 import org.bukkit.OfflinePlayer;
 import com.skyblockexp.ezeconomy.papi.testhelpers.TestPlayerFakes;
 import org.junit.jupiter.api.Test;
@@ -64,10 +66,10 @@ public class IntegrationEzEconomyPAPIExpansionTest {
         public String getDefaultCurrency() { return "dollar"; }
 
         @Override
-        public String format(double amount, String currency) { return String.format("%.2f %s", amount, currency); }
+        public String format(double amount, String currency) { return String.format(Locale.ROOT, "%.2f %s", amount, currency); }
 
         @Override
-        public String formatShort(double amount, String currency) { return String.format("%.1f %s", amount, currency); }
+        public String formatShort(double amount, String currency) { return String.format(Locale.ROOT, "%.1f %s", amount, currency); }
 
         @Override
         public String getCurrencySymbol(String currency) { return "$"; }
@@ -127,3 +129,5 @@ public class IntegrationEzEconomyPAPIExpansionTest {
         com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion.TEST_ECONOMY_FOR_TESTS = null;
     }
 }
+
+

@@ -1,5 +1,7 @@
 package com.skyblockexp.ezeconomy.papi.coverage;
 
+import java.util.Locale;
+
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.dto.EconomyPlayer;
 import com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager;
@@ -37,8 +39,8 @@ public class TargetedExpansionCoverageTest {
 
         @Override public StorageProvider getStorageOrWarn() { return storage; }
         @Override public String getDefaultCurrency() { return def; }
-        @Override public String format(double amount, String currency) { return String.format("%.2f %s", amount, currency); }
-        @Override public String formatShort(double amount, String currency) { return String.format("%.1f%s", amount/1000.0, "K"); }
+        @Override public String format(double amount, String currency) { return String.format(Locale.ROOT, "%.2f %s", amount, currency); }
+        @Override public String formatShort(double amount, String currency) { return String.format(Locale.ROOT, "%.1f%s", amount/1000.0, "K"); }
         @Override public String getCurrencySymbol(String currency) { return null; }
         @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return prefManager; }
     }
@@ -137,3 +139,5 @@ public class TargetedExpansionCoverageTest {
         assertNotNull(entry.value);
     }
 }
+
+

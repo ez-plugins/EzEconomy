@@ -36,6 +36,9 @@ public class EzEconomyPAPIExpansion extends PlaceholderExpansion {
         StorageProvider getStorageOrWarn();
         String getDefaultCurrency();
         String format(double amount, String currency);
+        default String formatAmountOnly(double amount, String currency) {
+            return format(amount, currency);
+        }
         /** Return a compact/short representation (e.g., 1.2K) for the amount. */
         String formatShort(double amount, String currency);
         String getCurrencySymbol(String currency);
@@ -101,23 +104,6 @@ public class EzEconomyPAPIExpansion extends PlaceholderExpansion {
                 }
             }
 
-            if (identifier.startsWith("balance_")) {
-                if (offlinePlayer == null) return "0";
-                String currency = identifier.substring("balance_".length());
-                UUID uuid = offlinePlayer.getUniqueId();
-                    if (testEz != null) {
-                    StorageProvider storage = testEz.getStorageOrWarn();
-                    if (storage == null) return safe(testEz.format(0d, currency));
-                    double bal = storage.getBalance(uuid, currency);
-                    return safe(testEz.format(bal, currency));
-                } else {
-                    StorageProvider storage = ezPlugin.getStorageOrWarn();
-                    if (storage == null) return safe(ezPlugin.getCurrencyFormatter().format(0d, currency));
-                    double bal = storage.getBalance(uuid, currency);
-                    return safe(ezPlugin.getCurrencyFormatter().format(bal, currency));
-                }
-            }
-
             // Support %ezeconomy_balance_formatted% and %ezeconomy_balance_formatted_<currency>
             if (identifier.startsWith("balance_formatted")) {
                 if (offlinePlayer == null) return "0";
@@ -137,6 +123,25 @@ public class EzEconomyPAPIExpansion extends PlaceholderExpansion {
                 }
             }
 
+            // Support %ezeconomy_balance_plain% and %ezeconomy_balance_plain_<currency>
+            if (identifier.startsWith("balance_plain")) {
+                if (offlinePlayer == null) return "0";
+                String rest = identifier.length() > "balance_plain".length() ? identifier.substring("balance_plain_".length()) : null;
+                String currency = rest == null || rest.isBlank() ? (testEz != null ? testEz.getDefaultCurrency() : ezPlugin.getDefaultCurrency()) : rest;
+                UUID uuid = offlinePlayer.getUniqueId();
+                if (testEz != null) {
+                    StorageProvider storage = testEz.getStorageOrWarn();
+                    if (storage == null) return safe(testEz.formatAmountOnly(0d, currency));
+                    double bal = storage.getBalance(uuid, currency);
+                    return safe(testEz.formatAmountOnly(bal, currency));
+                } else {
+                    StorageProvider storage = ezPlugin.getStorageOrWarn();
+                    if (storage == null) return safe(ezPlugin.getCurrencyFormatter().formatAmountOnly(0d, currency));
+                    double bal = storage.getBalance(uuid, currency);
+                    return safe(ezPlugin.getCurrencyFormatter().formatAmountOnly(bal, currency));
+                }
+            }
+
             // Support %ezeconomy_balance_short% and %ezeconomy_balance_short_<currency>
             if (identifier.startsWith("balance_short")) {
                 if (offlinePlayer == null) return "0";
@@ -153,6 +158,23 @@ public class EzEconomyPAPIExpansion extends PlaceholderExpansion {
                     if (storage == null) return safe(ezPlugin.getCurrencyFormatter().formatShort(0d, currency));
                     double bal = storage.getBalance(uuid, currency);
                     return safe(ezPlugin.getCurrencyFormatter().formatShort(bal, currency));
+                }
+            }
+
+            if (identifier.startsWith("balance_")) {
+                if (offlinePlayer == null) return "0";
+                String currency = identifier.substring("balance_".length());
+                UUID uuid = offlinePlayer.getUniqueId();
+                    if (testEz != null) {
+                    StorageProvider storage = testEz.getStorageOrWarn();
+                    if (storage == null) return safe(testEz.format(0d, currency));
+                    double bal = storage.getBalance(uuid, currency);
+                    return safe(testEz.format(bal, currency));
+                } else {
+                    StorageProvider storage = ezPlugin.getStorageOrWarn();
+                    if (storage == null) return safe(ezPlugin.getCurrencyFormatter().format(0d, currency));
+                    double bal = storage.getBalance(uuid, currency);
+                    return safe(ezPlugin.getCurrencyFormatter().format(bal, currency));
                 }
             }
 

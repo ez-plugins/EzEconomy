@@ -17,6 +17,18 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
+## [3.1.3] - 2026-07-04
+
+### Changed
+- PlaceholderAPI balance placeholders now respect configured currency suffix placement, and a plain no-suffix variant is available for custom formatting.
+
+### Fixed
+- Added `%ezeconomy_balance_plain%` and `%ezeconomy_balance_plain_<currency>%` for unformatted balance output.
+- Normalized PlaceholderAPI test formatting so locale settings do not change decimal separators in package verification.
+- Stabilized top-placeholder test coverage against shared cache state.
+
+---
+
 ## [3.1.2] - 2026-05-30
 
 ### Added

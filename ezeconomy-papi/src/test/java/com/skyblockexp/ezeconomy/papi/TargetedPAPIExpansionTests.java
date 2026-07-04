@@ -1,5 +1,7 @@
 package com.skyblockexp.ezeconomy.papi;
 
+import java.util.Locale;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
@@ -50,8 +52,8 @@ public class TargetedPAPIExpansionTests {
             }
 
             @Override public String getDefaultCurrency() { return "dollar"; }
-            @Override public String format(double amount, String currency) { return String.format("$%.2f", amount); }
-            @Override public String formatShort(double amount, String currency) { return String.format("$%.0f", amount); }
+            @Override public String format(double amount, String currency) { return String.format(Locale.ROOT, "$%.2f", amount); }
+            @Override public String formatShort(double amount, String currency) { return String.format(Locale.ROOT, "$%.0f", amount); }
             @Override public String getCurrencySymbol(String currency) { return "$"; }
             @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
         };
@@ -82,3 +84,5 @@ public class TargetedPAPIExpansionTests {
         assertEquals("$", out);
     }
 }
+
+
