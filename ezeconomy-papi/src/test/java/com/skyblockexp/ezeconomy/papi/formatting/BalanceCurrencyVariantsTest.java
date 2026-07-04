@@ -1,5 +1,7 @@
 package com.skyblockexp.ezeconomy.papi.formatting;
 
+import java.util.Locale;
+
 import com.skyblockexp.ezeconomy.papi.testhelpers.TestEzEconomyStubs;
 import com.skyblockexp.ezeconomy.papi.testhelpers.TestPlayerFakes;
 import org.junit.jupiter.api.AfterEach;
@@ -28,8 +30,8 @@ public class BalanceCurrencyVariantsTest {
         sp.setBalance(u, "gold", 2500.5);
 
         TestEzEconomyStubs.SimpleTestEz stub = new TestEzEconomyStubs.SimpleTestEz(sp, "dollar") {
-            @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "FMT:%.1f:%s", amount, currency); }
-            @Override public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "SRT:%.1f:%s", amount, currency); }
+            @Override public String format(double amount, String currency) { return String.format(Locale.ROOT, "FMT:%.1f:%s", amount, currency); }
+            @Override public String formatShort(double amount, String currency) { return String.format(Locale.ROOT, "SRT:%.1f:%s", amount, currency); }
         };
 
         com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion.TEST_ECONOMY_FOR_TESTS = stub;
@@ -46,3 +48,5 @@ public class BalanceCurrencyVariantsTest {
         assertTrue(shorted.contains("gold") || shorted.contains("SRT:"));
     }
 }
+
+

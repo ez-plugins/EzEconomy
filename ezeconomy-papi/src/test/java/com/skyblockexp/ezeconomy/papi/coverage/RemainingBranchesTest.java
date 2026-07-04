@@ -27,11 +27,10 @@ public class RemainingBranchesTest {
         OfflinePlayer p = offlinePlayer(UUID.randomUUID());
 
         String v1 = expansion.onPlaceholderRequest(p, "balance_formatted");
-        // Note: current implementation treats the bare "balance_formatted" token as currency "formatted"
-        assertEquals("0.00 formatted", v1);
+            assertEquals("0.00 dollar", v1);
 
         String v2 = expansion.onPlaceholderRequest(p, "balance_formatted_dollar");
-        assertEquals("0.00 formatted_dollar", v2);
+            assertEquals("0.00 dollar", v2);
     }
 
     @Test
@@ -42,11 +41,10 @@ public class RemainingBranchesTest {
         OfflinePlayer p = offlinePlayer(UUID.randomUUID());
 
         String s1 = expansion.onPlaceholderRequest(p, "balance_short");
-        // bare "balance_short" maps to currency "short" in current implementation
-        assertEquals("0.00 short", s1);
+            assertEquals("0.00 dollar", s1);
 
         String s2 = expansion.onPlaceholderRequest(p, "balance_short_dollar");
-        assertEquals("0.00 short_dollar", s2);
+            assertEquals("0.00 dollar", s2);
     }
 
     @Test

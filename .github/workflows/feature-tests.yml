@@ -1,4 +1,4 @@
-name: Feature tests
+﻿name: Feature tests
 
 on:
   pull_request:
@@ -49,4 +49,5 @@ jobs:
 
       - name: Run feature tests
         run: mvn -B -Dpaper.version=${{ matrix.paper-version }} -Dmockbukkit.groupId=${{ matrix.mockbukkit-groupId }} -Dmockbukkit.artifactId=${{ matrix.mockbukkit-artifactId }} -Dmockbukkit.version=${{ matrix.mockbukkit-version }} -Pfeature-tests -Dtest=*FeatureTest test
+
 

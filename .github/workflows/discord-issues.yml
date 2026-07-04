@@ -1,4 +1,4 @@
-name: Discord Issues & Comments
+﻿name: Discord Issues & Comments
 
 on:
   issues:
@@ -42,9 +42,9 @@ jobs:
               --arg repo "$REPO" \
               --arg number "$ISSUE_NUMBER" \
               '{
-                content: ($role + " ⚠️ **New Issue Opened**"),
+                content: ($role + " âš ï¸ **New Issue Opened**"),
                 embeds: [{
-                  title: "🐛 #\($number) – \($title)",
+                  title: "ðŸ› #\($number) â€“ \($title)",
                   url: $url,
                   color: 15158332,
                   fields: [
@@ -62,6 +62,6 @@ jobs:
               --arg body "$TRIMMED_BODY" \
               --arg url "$COMMENT_URL" \
               '{
-                content: "💬 **New comment on Issue #\($number)**\n**\($user)**: \($body)\n🔗 \($url)"
+                content: "ðŸ’¬ **New comment on Issue #\($number)**\n**\($user)**: \($body)\nðŸ”— \($url)"
               }' | curl -fsSL -X POST "$DISCORD_WEBHOOK" -H "Content-Type: application/json" -d @-
           fi

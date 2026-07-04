@@ -1,4 +1,4 @@
-# DEPRECATED: Superseded by release.yml (tag-triggered) and nightly.yml.
+﻿# DEPRECATED: Superseded by release.yml (tag-triggered) and nightly.yml.
 # Kept as a manual fallback only. Do NOT re-enable the release: [created] trigger
 # as it would conflict with release.yml which creates the GitHub Release itself.
 
@@ -122,4 +122,5 @@ jobs:
           purpur
           folia
         changelog: ${{ github.event.release.body }}
+
 

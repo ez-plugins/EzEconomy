@@ -1,8 +1,9 @@
 package com.skyblockexp.ezeconomy.papi;
 
+import java.util.Locale;
+
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import com.skyblockexp.ezeconomy.dto.EconomyPlayer;
-import com.skyblockexp.ezeconomy.cache.CacheManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.bukkit.OfflinePlayer;
@@ -50,10 +51,10 @@ public class EzEconomyPAPIExpansionTest {
             public String getDefaultCurrency() { return "dollar"; }
 
             @Override
-            public String format(double amount, String currency) { return String.format(java.util.Locale.US, "$%.2f", amount); }
+            public String format(double amount, String currency) { return String.format(Locale.ROOT, "$%.2f", amount); }
 
             @Override
-            public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "$%.0f", amount); }
+            public String formatShort(double amount, String currency) { return String.format(Locale.ROOT, "$%.0f", amount); }
 
             @Override
             public String getCurrencySymbol(String currency) { return "$"; }
@@ -100,22 +101,33 @@ public class EzEconomyPAPIExpansionTest {
         EzEconomyPAPIExpansion.TEST_ECONOMY_FOR_TESTS = new EzEconomyPAPIExpansion.TestEzEconomy() {
             @Override public StorageProvider getStorageOrWarn() { return stub; }
             @Override public String getDefaultCurrency() { return "dollar"; }
-            @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "$%.0f", amount); }
-            @Override public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "$%.0f", amount); }
+            @Override public String format(double amount, String currency) { return String.format(Locale.ROOT, "$%.0f", amount); }
+            @Override public String formatShort(double amount, String currency) { return String.format(Locale.ROOT, "$%.0f", amount); }
             @Override public String getCurrencySymbol(String currency) { return "$"; }
             @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
         };
 
-        CacheManager.getProvider().remove("top:dollar:2");
+        com.skyblockexp.ezeconomy.cache.CacheManager.getProvider().remove("top:dollar:2");
 
-        // First call returns a previous/cached value (likely "loading").
         String first = expansion.onPlaceholderRequest(null, "top_2_dollar");
-        // Trigger a refresh by calling again; the second call should return the computed result
-        String second = expansion.onPlaceholderRequest(null, "top_2_dollar");
-        assertTrue(second.contains("Bob") && second.contains("Alice") && second.contains("$100") && second.contains("$50"));
+        assertNotNull(first);
+
+        String cacheKey = "top:dollar:2";
+        var provider = com.skyblockexp.ezeconomy.cache.CacheManager.getProvider();
+        var entry = provider.getEntry(cacheKey);
+        long deadline = System.currentTimeMillis() + 2000;
+        String entryValue = entry == null ? null : String.valueOf(entry.value);
+        while ((entry == null || entryValue == null || entryValue.isEmpty() || "loading".equals(entryValue)) && System.currentTimeMillis() < deadline) {
+            entry = provider.getEntry(cacheKey);
+            entryValue = entry == null ? null : String.valueOf(entry.value);
+        }
+
+        assertNotNull(entry, "Expected top cache entry to be populated");
+        assertNotNull(entryValue);
+        assertTrue(entryValue.contains("Bob") && entryValue.contains("Alice") && entryValue.contains("$100") && entryValue.contains("$50"));
 
         String third = expansion.onPlaceholderRequest(null, "top_2_dollar");
-        assertEquals(second, third);
+        assertEquals(entryValue, third);
     }
 
     // Minimal test StorageProvider to support the tests above
@@ -168,4 +180,6 @@ public class EzEconomyPAPIExpansionTest {
         @Override public java.util.Set<UUID> getBankMembers(String name) { return Collections.emptySet(); }
     }
 }
+
+
 

@@ -1,5 +1,7 @@
 package com.skyblockexp.ezeconomy.papi.testhelpers;
 
+import java.util.Locale;
+
 public final class TestEzEconomyHelpers {
 
     private TestEzEconomyHelpers() {}
@@ -12,8 +14,8 @@ public final class TestEzEconomyHelpers {
         return new com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion.TestEzEconomy() {
             @Override public com.skyblockexp.ezeconomy.api.storage.StorageProvider getStorageOrWarn() { return null; }
             @Override public String getDefaultCurrency() { return defaultCurrency; }
-            @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "%s%.2f", symbol, amount); }
-            @Override public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "%s%.0f", symbol, amount); }
+            @Override public String format(double amount, String currency) { return String.format(Locale.ROOT, "%s%.2f", symbol, amount); }
+            @Override public String formatShort(double amount, String currency) { return String.format(Locale.ROOT, "%s%.0f", symbol, amount); }
             @Override public String getCurrencySymbol(String currency) { return symbol; }
             @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
         };

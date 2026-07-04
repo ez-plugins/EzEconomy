@@ -1,4 +1,4 @@
-name: Velocity CI
+﻿name: Velocity CI
 
 on:
   push:
@@ -22,3 +22,4 @@ jobs:
           cache: maven
       - name: Build Velocity module
         run: mvn -pl ezeconomy-velocity -am compile -q
+

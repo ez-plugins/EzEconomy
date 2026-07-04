@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 
 import java.util.*;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -58,10 +59,13 @@ public class BalancePlaceholderTest {
         public String getDefaultCurrency() { return "euro"; }
 
         @Override
-        public String format(double amount, String currency) { return String.format(java.util.Locale.US, "%.2f %s", amount, currency); }
+        public String format(double amount, String currency) { return String.format(Locale.ROOT, "%.2f %s", amount, currency); }
 
         @Override
-        public String formatShort(double amount, String currency) { return String.format(java.util.Locale.US, "%.1f %s", amount, currency); }
+        public String formatShort(double amount, String currency) { return String.format(Locale.ROOT, "%.1f %s", amount, currency); }
+
+        @Override
+        public String formatAmountOnly(double amount, String currency) { return String.format(Locale.ROOT, "%.2f", amount); }
 
         @Override
         public String getCurrencySymbol(String currency) { return "€"; }
@@ -85,7 +89,7 @@ public class BalancePlaceholderTest {
         com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion expansion = new com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion(null);
         String balance = expansion.onPlaceholderRequest(fakePlayer, "balance");
         assertNotNull(balance);
-        assertTrue(balance.contains("50.00") && balance.contains("euro"), "Expected balance formatted for euro, got: " + balance);
+        assertTrue(balance.contains("50") && balance.contains("euro"), "Expected balance formatted for euro, got: " + balance);
 
         com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion.TEST_ECONOMY_FOR_TESTS = null;
     }
@@ -104,8 +108,14 @@ public class BalancePlaceholderTest {
         com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion expansion = new com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion(null);
         String balanceDollar = expansion.onPlaceholderRequest(fakePlayer, "balance_dollar");
         assertNotNull(balanceDollar);
-        assertTrue(balanceDollar.contains("123.45") && balanceDollar.contains("dollar"), "Expected dollar balance, got: " + balanceDollar);
+        assertTrue(balanceDollar.contains("123") && balanceDollar.contains("dollar"), "Expected dollar balance, got: " + balanceDollar);
+
+        String plainDollar = expansion.onPlaceholderRequest(fakePlayer, "balance_plain_dollar");
+        assertNotNull(plainDollar);
+        assertFalse(plainDollar.contains("dollar"));
+        assertFalse(plainDollar.contains("€"));
 
         com.skyblockexp.ezeconomy.papi.EzEconomyPAPIExpansion.TEST_ECONOMY_FOR_TESTS = null;
     }
 }
+

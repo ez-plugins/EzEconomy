@@ -1,5 +1,7 @@
 package com.skyblockexp.ezeconomy.papi.symbols;
 
+import java.util.Locale;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,7 +19,7 @@ public class SymbolDollarDefaultTest {
                     private final com.skyblockexp.ezeconomy.papi.testhelpers.TestEzEconomyStubs.SimpleStorageProvider sp = new com.skyblockexp.ezeconomy.papi.testhelpers.TestEzEconomyStubs.SimpleStorageProvider();
                     @Override public com.skyblockexp.ezeconomy.api.storage.StorageProvider getStorageOrWarn() { return sp; }
                     @Override public String getDefaultCurrency() { return "dollar"; }
-                    @Override public String format(double amount, String currency) { return String.format(java.util.Locale.US, "%.2f %s", amount, currency); }
+                    @Override public String format(double amount, String currency) { return String.format(Locale.ROOT, "%.2f %s", amount, currency); }
                     @Override public String formatShort(double amount, String currency) { return format(amount, currency); }
                     @Override public String getCurrencySymbol(String currency) { return "$"; }
                     @Override public com.skyblockexp.ezeconomy.manager.CurrencyPreferenceManager getCurrencyPreferenceManager() { return null; }
@@ -34,3 +36,5 @@ public class SymbolDollarDefaultTest {
         }
     }
 }
+
+

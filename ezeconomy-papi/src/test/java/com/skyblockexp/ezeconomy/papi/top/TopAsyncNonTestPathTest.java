@@ -10,6 +10,7 @@ import org.mockbukkit.mockbukkit.MockBukkit;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -112,7 +113,7 @@ public class TopAsyncNonTestPathTest {
                         String result = top.stream().map(e -> {
                             com.skyblockexp.ezeconomy.dto.EconomyPlayer ep = storage.getPlayer(e.getKey());
                             String name = ep == null ? (org.bukkit.Bukkit.getOfflinePlayer(e.getKey()).getName() == null ? e.getKey().toString() : org.bukkit.Bukkit.getOfflinePlayer(e.getKey()).getName()) : (ep.getDisplayName() == null ? ep.getName() : ep.getDisplayName());
-                            return name + " - " + String.format(java.util.Locale.US, "%.2f %s", e.getValue(), "dollar");
+                            return name + " - " + String.format(Locale.ROOT, "%.2f %s", e.getValue(), "dollar");
                         }).collect(java.util.stream.Collectors.joining(", "));
                         com.skyblockexp.ezeconomy.cache.CacheManager.getProvider().put(cacheKey, result, 30000L);
                     }
