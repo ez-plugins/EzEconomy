@@ -1,4 +1,4 @@
-name: Economy Benchmark
+﻿name: Economy Benchmark
 
 on:
   pull_request:
@@ -76,7 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # EzEconomy supports all storage × redis combinations.
+        # EzEconomy supports all storage Ã— redis combinations.
         plugin: [ezeconomy]
         storage: [sqlite, mysql]
         redis: [off, on]
@@ -244,3 +244,4 @@ jobs:
         run: |
           echo "Benchmark summary generated at benchmark-summary/summary.md"
           cat benchmark-summary/summary.md
+

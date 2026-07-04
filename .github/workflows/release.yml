@@ -1,4 +1,4 @@
-name: Stable Release
+﻿name: Stable Release
 
 # Fires when a vX.Y.Z tag is pushed, or can be triggered manually with a tag.
 on:
@@ -155,12 +155,7 @@ jobs:
             ezeconomy-redis/target/ezeconomy-redis-${{ steps.meta.outputs.version }}.jar
             ezeconomy-bungeecord/target/ezeconomy-bungeecord-${{ steps.meta.outputs.version }}.jar
             ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${{ steps.meta.outputs.version }}.jar
-          game-versions: |
-            1.17.1
-            1.18.2
-            1.19.4
-            1.20.6
-            1.21.11
+          game-versions: ">=1.17"
           game-versions-filter: release
           loaders: |
             bukkit
@@ -211,4 +206,5 @@ jobs:
           curl --fail -s -X POST "$DISCORD_WEBHOOK" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
+
 

@@ -1,4 +1,4 @@
-name: BungeeCord module CI
+﻿name: BungeeCord module CI
 
 on:
   pull_request:
@@ -45,4 +45,5 @@ jobs:
           name: surefire-reports-bungeecord
           path: '**/target/surefire-reports/**'
           if-no-files-found: warn
+
 

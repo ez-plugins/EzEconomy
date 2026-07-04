@@ -17,15 +17,23 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ---
 
-## [3.1.3] - 2026-07-04
+## [3.2.0] - 2026-07-04
+
+### Added
+- New plain PlaceholderAPI balance outputs for scoreboards, chat, and external formatting plugins: `%ezeconomy_balance_plain%` and `%ezeconomy_balance_plain_<currency>%`.
 
 ### Changed
-- PlaceholderAPI balance placeholders now respect configured currency suffix placement, and a plain no-suffix variant is available for custom formatting.
+- **Paper/MC compatibility baseline updated** for this release line: builds and CI now target the current Paper 26.2 lane for modern MC `1.21.x` servers while keeping the plugin output on Java 17 bytecode for `1.17+` compatibility.
+- PlaceholderAPI balance placeholders now follow your configured currency suffix placement more consistently.
 
 ### Fixed
-- Added `%ezeconomy_balance_plain%` and `%ezeconomy_balance_plain_<currency>%` for unformatted balance output.
-- Normalized PlaceholderAPI test formatting so locale settings do not change decimal separators in package verification.
-- Stabilized top-placeholder test coverage against shared cache state.
+- Fixed inconsistent balance display formatting between servers with different locale settings (for example comma vs dot decimal separators).
+- Improved reliability of top-balance placeholder output under heavy cache churn.
+
+### Server owner notes
+- Recommended for Paper `1.21.x` networks that want the latest tested API lane.
+- If your scoreboard/tab/chat setup currently appends suffixes externally, switch to `%ezeconomy_balance_plain%` to avoid duplicate suffixes.
+- No config migration is required for this release.
 
 ---
 

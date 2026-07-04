@@ -6,6 +6,8 @@ import com.skyblockexp.ezeconomy.api.storage.StorageProvider;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.Map;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
@@ -141,11 +143,43 @@ public class DailyRewardManager {
             return;
         }
         try {
-            Sound sound = Sound.valueOf(soundName.trim().toUpperCase(Locale.ROOT));
+            Sound sound = resolveConfiguredSound(soundName);
+            if (sound == null) {
+                debug("Invalid sound '" + soundName + "' configured for daily reward.");
+                return;
+            }
             player.playSound(player.getLocation(), sound, 1.0f, 1.0f);
-        } catch (IllegalArgumentException | NoSuchFieldError e) {
+        } catch (NoSuchFieldError e) {
             debug("Invalid sound '" + soundName + "' configured for daily reward.");
         }
+    }
+
+    private Sound resolveConfiguredSound(String soundName) {
+        String trimmed = soundName.trim();
+        String namespaced = trimmed.toLowerCase(Locale.ROOT);
+
+        NamespacedKey key = NamespacedKey.fromString(namespaced);
+        if (key != null) {
+            Sound byKey = Registry.SOUNDS.get(key);
+            if (byKey != null) {
+                return byKey;
+            }
+            if (key.getNamespace().equals(NamespacedKey.MINECRAFT)) {
+                Sound byMinecraftKey = Registry.SOUNDS.get(NamespacedKey.minecraft(key.getKey()));
+                if (byMinecraftKey != null) {
+                    return byMinecraftKey;
+                }
+            }
+        }
+
+        String enumName = trimmed.toUpperCase(Locale.ROOT);
+        for (Sound candidate : Sound.values()) {
+            if (candidate.name().equals(enumName)) {
+                return candidate;
+            }
+        }
+
+        return null;
     }
 
     private void debug(String message) {

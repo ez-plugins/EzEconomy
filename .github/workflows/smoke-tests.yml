@@ -1,4 +1,4 @@
-name: Server Smoke Tests
+﻿name: Server Smoke Tests
 
 # Verify that EzEconomy loads cleanly on real servers across Java 17-era and
 # modern Minecraft lines, while keeping a fast PR lane.
@@ -217,4 +217,5 @@ jobs:
           name: smoke-pr-logs-${{ matrix.server }}-mc${{ matrix.mc }}-java${{ matrix.java }}
           path: server/logs/
           retention-days: 7
+
 

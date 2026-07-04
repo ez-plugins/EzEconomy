@@ -1,4 +1,4 @@
-name: Validate YAML Configs
+﻿name: Validate YAML Configs
 
 on:
   push:

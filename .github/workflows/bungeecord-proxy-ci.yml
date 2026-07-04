@@ -1,4 +1,4 @@
-name: BungeeCord-Proxy module CI
+﻿name: BungeeCord-Proxy module CI
 
 on:
   pull_request:
@@ -33,4 +33,5 @@ jobs:
 
       - name: Build and test BungeeCord-Proxy module
         run: mvn -B -DskipTests=false -Dpaper.version=26.1.2.build.57-stable -Dmockbukkit.groupId=org.mockbukkit.mockbukkit -Dmockbukkit.artifactId=mockbukkit-v26.1.2 -Dmockbukkit.version=4.113.1 -pl ezeconomy-bungeecord-proxy -am clean test package
+
 

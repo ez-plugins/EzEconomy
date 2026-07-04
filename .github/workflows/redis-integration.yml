@@ -1,4 +1,4 @@
-name: Redis Integration Tests
+﻿name: Redis Integration Tests
 
 on:
   push:
@@ -44,3 +44,4 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: 'false'
           EZECONOMY_TEST_PLUGINS: test-plugins
         run: mvn -B -V -DskipTests=false test
+
