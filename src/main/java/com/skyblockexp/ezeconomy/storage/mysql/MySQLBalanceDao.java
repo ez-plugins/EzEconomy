@@ -9,6 +9,8 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientConnectionException;
+import java.sql.SQLTransientConnectionException;
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
@@ -21,13 +23,25 @@ import java.util.function.Supplier;
 public class MySQLBalanceDao {
     private final EzEconomyPlugin plugin;
     private final String table;
-    private final HikariDataSource pool;
-    private final Connection fallback;
+    private final Supplier<HikariDataSource> poolSupplier;
+    private volatile Connection fallback;
     private final StripedLockManager lockManager;
     private final Function<String, Double> cacheGet;
     private final BiConsumer<String, Double> cachePut;
     private final Supplier<Boolean> canUseLocalFastBalanceResponse;
     private final MySQLBalanceBackgroundPersistenceService balanceBackgroundPersistence;
+    private final PoolRefresher primaryPoolRefresher;
+    private final ConnectionRefresher fallbackConnectionRefresher;
+
+    @FunctionalInterface
+    public interface PoolRefresher {
+        HikariDataSource refresh() throws Exception;
+    }
+
+    @FunctionalInterface
+    public interface ConnectionRefresher {
+        Connection refresh() throws Exception;
+    }
 
     public MySQLBalanceDao(EzEconomyPlugin plugin,
                           String table,
@@ -38,15 +52,31 @@ public class MySQLBalanceDao {
                           BiConsumer<String, Double> cachePut,
                           Supplier<Boolean> canUseLocalFastBalanceResponse,
                           MySQLBalanceBackgroundPersistenceService balanceBackgroundPersistence) {
+        this(plugin, table, () -> pool, fallback, lockManager, cacheGet, cachePut, canUseLocalFastBalanceResponse, balanceBackgroundPersistence, null, null);
+    }
+
+    public MySQLBalanceDao(EzEconomyPlugin plugin,
+                          String table,
+                          Supplier<HikariDataSource> poolSupplier,
+                          Connection fallback,
+                          StripedLockManager lockManager,
+                          Function<String, Double> cacheGet,
+                          BiConsumer<String, Double> cachePut,
+                          Supplier<Boolean> canUseLocalFastBalanceResponse,
+                          MySQLBalanceBackgroundPersistenceService balanceBackgroundPersistence,
+                          PoolRefresher primaryPoolRefresher,
+                          ConnectionRefresher fallbackConnectionRefresher) {
         this.plugin = plugin;
         this.table = table;
-        this.pool = pool;
+        this.poolSupplier = poolSupplier;
         this.fallback = fallback;
         this.lockManager = lockManager;
         this.cacheGet = cacheGet;
         this.cachePut = cachePut;
         this.canUseLocalFastBalanceResponse = canUseLocalFastBalanceResponse;
         this.balanceBackgroundPersistence = balanceBackgroundPersistence;
+        this.primaryPoolRefresher = primaryPoolRefresher;
+        this.fallbackConnectionRefresher = fallbackConnectionRefresher;
     }
 
     private String balanceCacheKey(UUID uuid, String currency) {
@@ -55,94 +85,66 @@ public class MySQLBalanceDao {
 
     public EconomyMutationResult depositAndGetBalance(UUID uuid, String currency, double amount) {
         String cacheKey = balanceCacheKey(uuid, currency);
-        if (pool != null) {
-            String id = BalanceModel.idFor(uuid, currency);
-            Double cached = cacheGet.apply(cacheKey);
-            // If background persistence is available, enqueue delta and return fast result
-            if (balanceBackgroundPersistence != null) {
-                balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, amount);
-                if (cached != null && canUseLocalFastBalanceResponse.get()) {
-                    double pending = balanceBackgroundPersistence.peekPendingSum(id);
-                    double updatedFast = cached.doubleValue() + pending;
-                    // Cache the fast computed value (includes pending) so subsequent
-                    // local operations read a consistent fast view.
-                    cachePut.accept(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
-                // Fallback: read DB then include pending deltas
-                try (Connection conn = pool.getConnection();
-                     PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
-                    select.setString(1, id);
-                    try (ResultSet rs = select.executeQuery()) {
-                        double dbBal = rs.next() ? rs.getDouble(1) : 0.0;
-                        double pending = balanceBackgroundPersistence.peekPendingSum(id);
-                        double updated = dbBal + pending;
-                        // If both DB and pending appear empty, account might be new — account for our own submitted delta
-                        if (dbBal == 0.0 && pending == 0.0) {
-                            updated = amount;
-                        }
-                        // Cache the fast computed value (includes pending) so subsequent
-                        // local operations read a consistent fast view.
-                        cachePut.accept(cacheKey, updated);
-                        return EconomyMutationResult.success(updated);
-                    }
-                } catch (SQLException e) {
-                    plugin.getLogger().severe("[EzEconomy] MySQL deposit failed (select after enqueue): " + e.getMessage());
-                    return EconomyMutationResult.failure(0.0, "Storage failure");
-                }
-            }
-
-            try (Connection conn = pool.getConnection();
-                 PreparedStatement upsert = conn.prepareStatement(
-                         "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)"
-                 );
-                 PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
-                upsert.setString(1, id);
-                upsert.setString(2, uuid.toString());
-                upsert.setString(3, currency);
-                upsert.setDouble(4, amount);
-                upsert.executeUpdate();
-                if (cached != null && canUseLocalFastBalanceResponse.get()) {
-                    double updatedFast = cached.doubleValue() + amount;
-                    // Cache the fast value (includes this delta) for local fast responses.
-                    cachePut.accept(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
-                select.setString(1, id);
-                try (ResultSet rs = select.executeQuery()) {
-                    double updated = rs.next() ? rs.getDouble(1) : amount;
-                    cachePut.accept(cacheKey, updated);
-                    return EconomyMutationResult.success(updated);
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL deposit failed: " + e.getMessage());
-                return EconomyMutationResult.failure(0.0, "Storage failure");
-            }
+        HikariDataSource activePool = resolvePool();
+        if (activePool != null) {
+            return depositPrimary(uuid, currency, amount, cacheKey, activePool, true);
         }
 
+        return depositFallback(uuid, currency, amount, true);
+    }
+
+    private EconomyMutationResult depositPrimary(UUID uuid, String currency, double amount, String cacheKey, HikariDataSource activePool, boolean allowReconnectRetry) {
+        String id = BalanceModel.idFor(uuid, currency);
+        if (balanceBackgroundPersistence != null && !balanceBackgroundPersistence.flushIdSyncStrict(id)) {
+            plugin.getLogger().severe("[EzEconomy] MySQL deposit aborted because pending balance flush failed for " + id);
+            return EconomyMutationResult.failure(0.0, "Storage failure");
+        }
+
+        try (Connection conn = activePool.getConnection();
+             PreparedStatement upsert = conn.prepareStatement(
+                     "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)"
+             );
+             PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
+            upsert.setString(1, id);
+            upsert.setString(2, uuid.toString());
+            upsert.setString(3, currency);
+            upsert.setDouble(4, amount);
+            upsert.executeUpdate();
+            select.setString(1, id);
+            try (ResultSet rs = select.executeQuery()) {
+                double updated = rs.next() ? rs.getDouble(1) : amount;
+                cachePut.accept(cacheKey, updated);
+                return EconomyMutationResult.success(updated);
+            }
+        } catch (SQLException e) {
+            if (allowReconnectRetry && isConnectionFailure(e) && tryRecoverPrimaryConnection()) {
+                return depositPrimary(uuid, currency, amount, cacheKey, resolvePool(), false);
+            }
+            plugin.getLogger().severe("[EzEconomy] MySQL deposit failed: " + e.getMessage());
+            return EconomyMutationResult.failure(0.0, "Storage failure");
+        }
+    }
+
+    private EconomyMutationResult depositFallback(UUID uuid, String currency, double amount, boolean allowReconnectRetry) {
+        String cacheKey = balanceCacheKey(uuid, currency);
         String id = BalanceModel.idFor(uuid, currency);
         Object keyLock = lockManager.lockFor(id);
         synchronized (keyLock) {
-            Double cached = cacheGet.apply(cacheKey);
             String upsertSql = "INSERT INTO " + table + " (id, uuid, currency, balance) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE balance = balance + VALUES(balance)";
             String selectSql = "SELECT balance FROM " + table + " WHERE id = ?";
             try {
-                if (fallback == null || fallback.isClosed()) {
-                    plugin.getLogger().severe("[EzEconomy] MySQL connection unavailable for fallback upsert");
+                if (balanceBackgroundPersistence != null && !balanceBackgroundPersistence.flushIdSyncStrict(id)) {
+                    plugin.getLogger().severe("[EzEconomy] MySQL deposit aborted because pending balance flush failed for " + id);
                     return EconomyMutationResult.failure(0.0, "Storage failure");
                 }
-                try (PreparedStatement upsert = fallback.prepareStatement(upsertSql);
-                     PreparedStatement select = fallback.prepareStatement(selectSql)) {
+                Connection conn = ensureFallbackConnection();
+                try (PreparedStatement upsert = conn.prepareStatement(upsertSql);
+                     PreparedStatement select = conn.prepareStatement(selectSql)) {
                     upsert.setString(1, id);
                     upsert.setString(2, uuid.toString());
                     upsert.setString(3, currency);
                     upsert.setDouble(4, amount);
                     upsert.executeUpdate();
-                    if (cached != null && canUseLocalFastBalanceResponse.get()) {
-                        double updatedFast = cached.doubleValue() + amount;
-                        cachePut.accept(cacheKey, updatedFast);
-                        return EconomyMutationResult.success(updatedFast);
-                    }
                     select.setString(1, id);
                     try (ResultSet rs = select.executeQuery()) {
                         double updated = rs.next() ? rs.getDouble(1) : amount;
@@ -151,6 +153,9 @@ public class MySQLBalanceDao {
                     }
                 }
             } catch (SQLException e) {
+                if (allowReconnectRetry && tryRecoverFallbackConnection(e)) {
+                    return depositFallback(uuid, currency, amount, false);
+                }
                 plugin.getLogger().severe("[EzEconomy] MySQL deposit failed (fallback): " + e.getMessage());
                 return EconomyMutationResult.failure(0.0, "Storage failure");
             }
@@ -159,117 +164,65 @@ public class MySQLBalanceDao {
 
     public EconomyMutationResult withdrawAndGetBalance(UUID uuid, String currency, double amount) {
         String cacheKey = balanceCacheKey(uuid, currency);
-        if (pool != null) {
-            String id = BalanceModel.idFor(uuid, currency);
-            // Fast, non-blocking path when using background persistence: avoid
-            // flushing pending deltas synchronously by reserving funds via the
-            // pending queue. This reduces withdraw latency under heavy load.
-            if (balanceBackgroundPersistence != null) {
-                Object keyLock = lockManager.lockFor(id);
-                synchronized (keyLock) {
-                    Double cached = cacheGet.apply(cacheKey);
-                    double pending = balanceBackgroundPersistence.peekPendingSum(id);
-                    // Try to use cached balance if available and safe
-                    try {
-                        if (cached != null && canUseLocalFastBalanceResponse.get()) {
-                            // Treat cache as authoritative fast view (it already includes local pending deltas).
-                            double available = cached.doubleValue();
-                            if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
-                            // Reserve by enqueueing a negative delta; background worker will persist this later
-                            balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
-                            double updatedFast = available - amount;
-                            // Update cache with new fast view after reservation
-                            cachePut.accept(cacheKey, updatedFast);
-                            return EconomyMutationResult.success(updatedFast);
-                        }
-                    } catch (Throwable ignored) {
-                        // fall through to DB-assisted path below
-                    }
-
-                    // No suitable cache available or cache not safe — read DB and combine with pending
-                    try (Connection conn = pool.getConnection();
-                         PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
-                        select.setString(1, id);
-                        try (ResultSet rs = select.executeQuery()) {
-                            double dbBal = rs.next() ? rs.getDouble(1) : 0.0;
-                            double available = dbBal + pending;
-                            if (available < amount) return EconomyMutationResult.failure(available, "Insufficient funds");
-                            // Reserve by enqueueing a negative delta rather than flushing
-                            balanceBackgroundPersistence.submitBalanceDelta(id, uuid.toString(), currency, -amount);
-                            double updated = available - amount;
-                            // Cache the fast computed value (includes pending) so subsequent
-                            // local operations read a consistent fast view.
-                            cachePut.accept(cacheKey, updated);
-                            return EconomyMutationResult.success(updated);
-                        }
-                    } catch (SQLException e) {
-                        plugin.getLogger().severe("[EzEconomy] MySQL withdraw fast-path failed (db read): " + e.getMessage());
-                        // Fall through to legacy flush-and-apply path below
-                    }
-                }
-            }
-
-            // Legacy, safe path: flush pending deltas then perform an atomic DB update
-            Double cached = cacheGet.apply(cacheKey);
-            try {
-                if (balanceBackgroundPersistence != null) {
-                    try { balanceBackgroundPersistence.flushIdSync(id); } catch (Throwable ignored) {}
-                }
-            } catch (Throwable ignored) {}
-
-            try (Connection conn = pool.getConnection();
-                 PreparedStatement withdraw = conn.prepareStatement(
-                         "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?"
-                 );
-                 PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
-                withdraw.setDouble(1, amount);
-                withdraw.setString(2, id);
-                withdraw.setDouble(3, amount);
-                int rows = withdraw.executeUpdate();
-                if (rows > 0 && cached != null && canUseLocalFastBalanceResponse.get()) {
-                    double updatedFast = cached.doubleValue() - amount;
-                    cachePut.accept(cacheKey, updatedFast);
-                    return EconomyMutationResult.success(updatedFast);
-                }
-                select.setString(1, id);
-                try (ResultSet rs = select.executeQuery()) {
-                    double current = rs.next() ? rs.getDouble(1) : 0.0;
-                    if (rows <= 0) return EconomyMutationResult.failure(current, "Insufficient funds");
-                    cachePut.accept(cacheKey, current);
-                    return EconomyMutationResult.success(current);
-                }
-            } catch (SQLException e) {
-                plugin.getLogger().severe("[EzEconomy] MySQL withdraw failed: " + e.getMessage());
-                return EconomyMutationResult.failure(0.0, "Storage failure");
-            }
+        HikariDataSource activePool = resolvePool();
+        if (activePool != null) {
+            return withdrawPrimary(uuid, currency, amount, cacheKey, activePool, true);
         }
 
+        return withdrawFallback(uuid, currency, amount, true);
+    }
+
+    private EconomyMutationResult withdrawPrimary(UUID uuid, String currency, double amount, String cacheKey, HikariDataSource activePool, boolean allowReconnectRetry) {
+        String id = BalanceModel.idFor(uuid, currency);
+        if (balanceBackgroundPersistence != null && !balanceBackgroundPersistence.flushIdSyncStrict(id)) {
+            plugin.getLogger().severe("[EzEconomy] MySQL withdraw aborted because pending balance flush failed for " + id);
+            return EconomyMutationResult.failure(0.0, "Storage failure");
+        }
+
+        try (Connection conn = activePool.getConnection();
+             PreparedStatement withdraw = conn.prepareStatement(
+                     "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?"
+             );
+             PreparedStatement select = conn.prepareStatement("SELECT balance FROM " + table + " WHERE id = ?")) {
+            withdraw.setDouble(1, amount);
+            withdraw.setString(2, id);
+            withdraw.setDouble(3, amount);
+            int rows = withdraw.executeUpdate();
+            select.setString(1, id);
+            try (ResultSet rs = select.executeQuery()) {
+                double current = rs.next() ? rs.getDouble(1) : 0.0;
+                if (rows <= 0) return EconomyMutationResult.failure(current, "Insufficient funds");
+                cachePut.accept(cacheKey, current);
+                return EconomyMutationResult.success(current);
+            }
+        } catch (SQLException e) {
+            if (allowReconnectRetry && isConnectionFailure(e) && tryRecoverPrimaryConnection()) {
+                return withdrawPrimary(uuid, currency, amount, cacheKey, resolvePool(), false);
+            }
+            plugin.getLogger().severe("[EzEconomy] MySQL withdraw failed: " + e.getMessage());
+            return EconomyMutationResult.failure(0.0, "Storage failure");
+        }
+    }
+
+    private EconomyMutationResult withdrawFallback(UUID uuid, String currency, double amount, boolean allowReconnectRetry) {
+        String cacheKey = balanceCacheKey(uuid, currency);
         String id = BalanceModel.idFor(uuid, currency);
         Object keyLock = lockManager.lockFor(id);
         synchronized (keyLock) {
-            Double cached = cacheGet.apply(cacheKey);
             String withdrawSql = "UPDATE " + table + " SET balance = balance - ? WHERE id = ? AND balance >= ?";
             String selectSql = "SELECT balance FROM " + table + " WHERE id = ?";
             try {
-                // If background persistence exists, flush pending deltas for consistency
-                if (balanceBackgroundPersistence != null) {
-                    try { balanceBackgroundPersistence.flushIdSync(id); } catch (Throwable ignored) {}
-                }
-                if (fallback == null || fallback.isClosed()) {
-                    plugin.getLogger().severe("[EzEconomy] MySQL connection unavailable for fallback withdraw");
+                if (balanceBackgroundPersistence != null && !balanceBackgroundPersistence.flushIdSyncStrict(id)) {
+                    plugin.getLogger().severe("[EzEconomy] MySQL withdraw aborted because pending balance flush failed for " + id);
                     return EconomyMutationResult.failure(0.0, "Storage failure");
                 }
-                try (PreparedStatement withdraw = fallback.prepareStatement(withdrawSql);
-                     PreparedStatement select = fallback.prepareStatement(selectSql)) {
+                Connection conn = ensureFallbackConnection();
+                try (PreparedStatement withdraw = conn.prepareStatement(withdrawSql);
+                     PreparedStatement select = conn.prepareStatement(selectSql)) {
                     withdraw.setDouble(1, amount);
                     withdraw.setString(2, id);
                     withdraw.setDouble(3, amount);
                     int rows = withdraw.executeUpdate();
-                    if (rows > 0 && cached != null && canUseLocalFastBalanceResponse.get()) {
-                        double updatedFast = cached.doubleValue() - amount;
-                        cachePut.accept(cacheKey, updatedFast);
-                        return EconomyMutationResult.success(updatedFast);
-                    }
                     select.setString(1, id);
                     try (ResultSet rs = select.executeQuery()) {
                         double current = rs.next() ? rs.getDouble(1) : 0.0;
@@ -279,9 +232,75 @@ public class MySQLBalanceDao {
                     }
                 }
             } catch (SQLException e) {
+                if (allowReconnectRetry && tryRecoverFallbackConnection(e)) {
+                    return withdrawFallback(uuid, currency, amount, false);
+                }
                 plugin.getLogger().severe("[EzEconomy] MySQL withdraw failed (fallback): " + e.getMessage());
                 return EconomyMutationResult.failure(0.0, "Storage failure");
             }
         }
+    }
+
+    private Connection ensureFallbackConnection() throws SQLException {
+        if (fallback != null) {
+            try {
+                if (!fallback.isClosed() && fallback.isValid(2)) {
+                    return fallback;
+                }
+            } catch (SQLException ignored) {
+                // treat as disconnected and attempt refresh below
+            }
+        }
+        if (fallbackConnectionRefresher != null) {
+            try {
+                Connection refreshed = fallbackConnectionRefresher.refresh();
+                if (refreshed != null) {
+                    this.fallback = refreshed;
+                    return refreshed;
+                }
+            } catch (Exception e) {
+                throw new SQLException("MySQL connection unavailable for fallback operation", e);
+            }
+        }
+        throw new SQLException("MySQL connection unavailable for fallback operation");
+    }
+
+    private boolean tryRecoverFallbackConnection(SQLException e) {
+        if (fallbackConnectionRefresher == null || !isConnectionFailure(e)) {
+            return false;
+        }
+        try {
+            fallbackConnectionRefresher.refresh();
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private HikariDataSource resolvePool() {
+        return poolSupplier == null ? null : poolSupplier.get();
+    }
+
+    private boolean tryRecoverPrimaryConnection() {
+        if (primaryPoolRefresher == null) {
+            return false;
+        }
+        try {
+            return primaryPoolRefresher.refresh() != null;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private boolean isConnectionFailure(SQLException ex) {
+        if (ex instanceof SQLTransientConnectionException || ex instanceof SQLNonTransientConnectionException) {
+            return true;
+        }
+        String sqlState = ex.getSQLState();
+        if (sqlState != null && sqlState.startsWith("08")) {
+            return true;
+        }
+        String msg = ex.getMessage();
+        return msg != null && (msg.contains("Communications link failure") || msg.contains("Connection reset") || msg.contains("Connection is closed"));
     }
 }

@@ -10,7 +10,6 @@
     </parent>
     <artifactId>ezeconomy-bungeecord-proxy</artifactId>
     <packaging>jar</packaging>
-    <name>EzEconomy Bungeecord Proxy</name>
 
     <dependencies>
         <!-- The Bungee adapter class uses the Bungee API, but to keep the proxy module

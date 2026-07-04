@@ -43,7 +43,7 @@ public class MySQLBalanceBackgroundPersistenceServiceTest {
     }
 
     @Test
-    void submitPeekFlushCycle() {
+    void submitPeekFlushCycle_requeuesWhenPersistenceUnavailable() {
         String id = "testuuid_dollar";
         svc.submitBalanceDelta(id, "testuuid", "dollar", 200.0);
         assertEquals(200.0, svc.peekPendingSum(id), 0.0001);
@@ -51,8 +51,10 @@ public class MySQLBalanceBackgroundPersistenceServiceTest {
         svc.submitBalanceDelta(id, "testuuid", "dollar", -50.0);
         assertEquals(150.0, svc.peekPendingSum(id), 0.0001);
 
-        svc.flushIdSync(id);
-        assertEquals(0.0, svc.peekPendingSum(id), 0.0001);
+        boolean ok = svc.flushIdSyncStrict(id);
+        assertFalse(ok, "Flush should fail when no pool is configured");
+        assertEquals(150.0, svc.peekPendingSum(id), 0.0001,
+            "Failed flush must keep pending delta so writes are not lost");
     }
 
     @Test

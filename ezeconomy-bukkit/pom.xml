@@ -10,7 +10,6 @@
     </parent>
     <artifactId>ezeconomy-bukkit</artifactId>
     <packaging>jar</packaging>
-    <name>EzEconomy Bukkit Plugin Module</name>
 
     <build>
         <sourceDirectory>../src/main/java</sourceDirectory>

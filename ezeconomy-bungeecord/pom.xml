@@ -10,7 +10,6 @@
     </parent>
     <artifactId>ezeconomy-bungeecord</artifactId>
     <packaging>jar</packaging>
-    <name>EzEconomy Bungeecord Extension</name>
 
     <dependencies>
         <dependency>

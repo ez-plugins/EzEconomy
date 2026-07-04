@@ -7,6 +7,7 @@ import com.skyblockexp.ezeconomy.command.ezeconomy.DatabaseTestSubcommand;
 import com.skyblockexp.ezeconomy.command.ezeconomy.DailyResetSubcommand;
 import com.skyblockexp.ezeconomy.command.ezeconomy.ReloadMessagesSubcommand;
 import com.skyblockexp.ezeconomy.command.ezeconomy.ReloadSubcommand;
+import com.skyblockexp.ezeconomy.command.ezeconomy.SpoolSubcommand;
 import com.skyblockexp.ezeconomy.command.Subcommand;
 import com.skyblockexp.ezeconomy.core.EzEconomyPlugin;
 import com.skyblockexp.ezeconomy.util.MessageUtils;
@@ -40,6 +41,7 @@ public class EzEconomyCommand implements CommandExecutor {
         this.subcommands.put("reloadmessages", new ReloadMessagesSubcommand(plugin));
         // Single database subcommand handles info, test, and reset
         this.subcommands.put("database", new DatabaseSubcommand(plugin));
+        this.subcommands.put("spool", new SpoolSubcommand(plugin));
     }
 
     @Override

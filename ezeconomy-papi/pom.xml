@@ -10,7 +10,6 @@
     </parent>
     
     <artifactId>ezeconomy-papi</artifactId>
-    <packaging>jar</packaging>
     <name>EzEconomy PlaceholderAPI Expansion</name>
     <properties>
         <placeholderapi.version>2.12.2</placeholderapi.version>

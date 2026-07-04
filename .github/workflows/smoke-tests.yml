@@ -94,10 +94,15 @@ jobs:
         run: |
           PROJECT="${{ matrix.server }}"
           MC="${{ matrix.mc }}"
-          DATA=$(curl -sSf "https://api.papermc.io/v2/projects/${PROJECT}/versions/${MC}/builds")
-          BUILD=$(echo "$DATA" | jq '([.builds[] | select(.channel == "default")] | last | .build) // (.builds | last | .build)')
-          JAR="${PROJECT}-${MC}-${BUILD}.jar"
-          URL="https://api.papermc.io/v2/projects/${PROJECT}/versions/${MC}/builds/${BUILD}/downloads/${JAR}"
+          USER_AGENT="EzEconomy-CI/1.0 (https://github.com/ez-plugins/EzEconomy)"
+          DATA=$(curl -sSf -H "User-Agent: ${USER_AGENT}" "https://fill.papermc.io/v3/projects/${PROJECT}/versions/${MC}/builds")
+          BUILD=$(echo "$DATA" | jq -r 'first((map(select(.channel == "STABLE" and .downloads."server:default" != null)) + map(select(.downloads."server:default" != null)))[] | .id) // ""')
+          JAR=$(echo "$DATA" | jq -r 'first((map(select(.channel == "STABLE" and .downloads."server:default" != null)) + map(select(.downloads."server:default" != null)))[] | .downloads."server:default".name) // ""')
+          URL=$(echo "$DATA" | jq -r 'first((map(select(.channel == "STABLE" and .downloads."server:default" != null)) + map(select(.downloads."server:default" != null)))[] | .downloads."server:default".url) // ""')
+          if [[ -z "${BUILD}" || -z "${JAR}" || -z "${URL}" ]]; then
+            echo "Failed to resolve ${PROJECT} download metadata for Minecraft ${MC}"
+            exit 1
+          fi
           echo "build=${BUILD}" >> $GITHUB_OUTPUT
           echo "jar=${JAR}" >> $GITHUB_OUTPUT
           echo "url=${URL}" >> $GITHUB_OUTPUT

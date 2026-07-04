@@ -10,7 +10,6 @@
     </parent>
     <artifactId>ezeconomy-redis</artifactId>
     <packaging>jar</packaging>
-    <name>EzEconomy Redis Extension</name>
 
     <dependencies>
         <dependency>

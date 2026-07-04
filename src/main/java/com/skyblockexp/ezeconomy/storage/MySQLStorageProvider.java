@@ -198,7 +198,7 @@ public class MySQLStorageProvider implements StorageProvider {
      */
     public void initRepositories() {
         EzTableRegistry.registerAll(table, "players", "banks", "bank_members", "transactions");
-        jdbcStore       = new EzJdbcStore(connection);
+        jdbcStore       = new EzJdbcStore(connection, this::refreshFallbackConnection);
         balanceRepo     = new ModelRepository<>(jdbcStore, BalanceModel.PREFIX,    BalanceModel::new,    SqlDialect.MYSQL);
         playerRepo      = new ModelRepository<>(jdbcStore, PlayerModel.PREFIX,     PlayerModel::new,     SqlDialect.MYSQL);
         bankRepo        = new ModelRepository<>(jdbcStore, BankModel.PREFIX,       BankModel::new,       SqlDialect.MYSQL);
@@ -236,9 +236,33 @@ public class MySQLStorageProvider implements StorageProvider {
 
         // Wire balance DAO to encapsulate hot-path + fallback SQL logic
         try {
-            balanceDao = new MySQLBalanceDao(plugin, table, hotPathDataSource, connection, stripedLockManager,
-                key -> getCached(key), (key, val) -> putCached(key, val), () -> canUseLocalFastBalanceResponse(), balanceBackgroundPersistence);
+            balanceDao = new MySQLBalanceDao(plugin, table, () -> hotPathDataSource, connection, stripedLockManager,
+                key -> getCached(key), (key, val) -> putCached(key, val), () -> canUseLocalFastBalanceResponse(), balanceBackgroundPersistence,
+                this::refreshPrimaryDataSource, this::refreshFallbackConnection);
         } catch (Exception ignored) {}
+    }
+
+    private Connection refreshFallbackConnection() throws SQLException {
+        synchronized (lock) {
+            if (connectionManager == null) {
+                throw new SQLException("MySQL connection manager is not initialized");
+            }
+            try {
+                closeHotStatements();
+            } catch (Throwable ignored) {}
+            this.connection = connectionManager.refreshFallbackConnection();
+            return this.connection;
+        }
+    }
+
+    private HikariDataSource refreshPrimaryDataSource() throws SQLException {
+        synchronized (lock) {
+            if (connectionManager == null) {
+                throw new SQLException("MySQL connection manager is not initialized");
+            }
+            this.hotPathDataSource = connectionManager.refreshPrimaryDataSource();
+            return this.hotPathDataSource;
+        }
     }
 
     @Override
@@ -727,6 +751,24 @@ public class MySQLStorageProvider implements StorageProvider {
         psDepositUpsert = null;
         psWithdrawIfEnough = null;
         psSelectBalanceById = null;
+    }
+
+    public int getLocalSpoolSize() {
+        synchronized (lock) {
+            if (balanceBackgroundPersistence == null) {
+                return -1;
+            }
+            return balanceBackgroundPersistence.getLocalSpoolSize();
+        }
+    }
+
+    public com.skyblockexp.ezeconomy.storage.mysql.MySQLBalanceBackgroundPersistenceService.ReplayResult replayLocalSpoolNow() {
+        synchronized (lock) {
+            if (balanceBackgroundPersistence == null) {
+                return new com.skyblockexp.ezeconomy.storage.mysql.MySQLBalanceBackgroundPersistenceService.ReplayResult(false, 0, 0);
+            }
+            return balanceBackgroundPersistence.replayLocalSpoolNow();
+        }
     }
 
     public boolean createBank(String name, UUID owner) {
