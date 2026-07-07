@@ -11,9 +11,25 @@
 
 ## Runtime Compatibility Matrix
 
+### Quick Pick
+
+| Your runtime | Download this Bukkit jar | Notes |
+| --- | --- | --- |
+| Java 17 + MC `1.17.x`-`1.20.x` | `ezeconomy-bukkit-<version>-legacy.jar` | Uses Adventure `4.26.1`, Paper API `26.1.x` |
+| Java 21+ + MC `1.21.x` | `ezeconomy-bukkit-<version>-modern.jar` | Uses Adventure `5.2.0`, Paper API `26.2.x` |
+
+Keep only one EzEconomy Bukkit jar in your `plugins/` folder.
+
 - Java 17 runtime: Minecraft `1.17.x` through `1.20.x`
 - Java 21+ runtime: Minecraft `1.21.x` (`1.21.11` currently validated in CI)
-- Build artifact: single EzEconomy JAR compiled to Java 17 bytecode
+- Paper API branches validated by lane:
+  - Java 17 artifact lane (`-legacy` jar): `26.1.x`
+  - Java 21+ artifact lane (`-modern` jar): `26.2.x`
+- Note: `legacy/modern` labels apply to runtime artifact lanes, not to Paper API age.
+- Bukkit release artifacts:
+  - `ezeconomy-bukkit-<version>-legacy.jar` for Java 17 / MC `1.17.x` through `1.20.x`
+  - `ezeconomy-bukkit-<version>-modern.jar` for Java 21+ / MC `1.21.x`
+- Both artifacts are published in each GitHub Release.
 
 ---
 
@@ -189,7 +205,10 @@ mongodb:
 
 ##  Installation
 
-1. Place `EzEconomy.jar` in your plugins folder
+1. Place the correct Bukkit artifact in your plugins folder and rename if desired:
+  - Java 17 servers: `ezeconomy-bukkit-<version>-legacy.jar`
+  - Java 21+ servers: `ezeconomy-bukkit-<version>-modern.jar`
+  - Keep only one EzEconomy Bukkit jar on a server at a time.
 2. Configure `config.yml` and the appropriate `config-*.yml` file for your storage type
 3. Restart your server
 

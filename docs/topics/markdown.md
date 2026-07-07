@@ -4,6 +4,15 @@
 
 **EzEconomy** – Modern, fast, and flexible Vault economy provider for Minecraft servers. Supports YML, MySQL, SQLite, MongoDB, and custom storage. Multi-currency, async caching, and robust permissions for any server size.
 
+## 🚀 Quick start by server version
+
+| Your server runtime | Use this Bukkit file | Paper API lane |
+| --- | --- | --- |
+| Java 17 + MC `1.17.x`-`1.20.x` | `ezeconomy-bukkit-<version>-legacy.jar` | `26.1.x` |
+| Java 21+ + MC `1.21.x` | `ezeconomy-bukkit-<version>-modern.jar` | `26.2.x` |
+
+Install only one EzEconomy Bukkit jar in `plugins/`.
+
 **Available languages**: English, Español, Nederlands, 中国人, Français
 
 **Full documentation**: [Available on Github.com](https://github.com/ez-plugins/EzEconomy/blob/main/README.md)
@@ -148,9 +157,17 @@ mongodb:
 
 ## ⬇️ Installation
 
-1. Place `EzEconomy.jar` in your plugins folder
-2. Configure `config.yml` and the appropriate `config-*.yml` file for your storage type
-3. Restart your server
+1. Download the correct file for your Java/MC lane (table above).
+2. Put the EzEconomy jar and `Vault.jar` in `plugins/`.
+3. Start the server once, then stop it.
+4. Edit `plugins/EzEconomy/config.yml` and your selected storage config (`config-yml.yml`, `config-mysql.yml`, `config-sqlite.yml`, or `config-mongodb.yml`).
+5. Start the server again and run `/balance` to verify startup.
+
+### Common mistakes
+
+- Installing both `-legacy` and `-modern` jars at the same time.
+- Running the `-modern` jar on Java 17.
+- Running without Vault installed.
 
 ---
 

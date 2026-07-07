@@ -16,7 +16,7 @@ EzEconomy supports Velocity proxies for cross-server payment notifications and g
 ## Quick Setup
 
 1. Deploy `ezeconomy-velocity.jar` to your Velocity proxy `plugins/` folder.
-2. Deploy the main `EzEconomy.jar` on each backend Paper server.
+2. Deploy the appropriate EzEconomy Bukkit artifact on each backend Paper server (`-legacy` for Java 17 lanes, `-modern` for Java 21+ lanes).
 3. Configure each backend server to use a shared database (MySQL recommended):
 
    ```yaml

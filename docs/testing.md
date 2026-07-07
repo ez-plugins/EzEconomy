@@ -62,14 +62,19 @@ CI recommendations
 Smoke test policy
 
 - PR smoke matrix (fast lane):
-  - Paper `1.20.6` on Java 17
-  - Folia `1.20.6` on Java 17
+  - Paper `1.19.4` on Java 17 (legacy Bukkit artifact)
+  - Paper `1.20.6` on Java 21 (modern Bukkit artifact)
+  - Folia `1.20.6` on Java 21 (modern Bukkit artifact)
   - Paper `1.21.11` on Java 21
+  - Paper `1.21.11` on Java 25
 - Nightly/workflow-dispatch smoke matrix (expanded lane):
   - Paper `1.17.1`, `1.18.2`, `1.19.4`, `1.20.6` on Java 17
   - Folia `1.20.6` on Java 17
   - Paper `1.21.11` on Java 21
   - Spigot `1.20.6` on Java 17 (BuildTools)
+- Artifact split guidance:
+  - Use the legacy Bukkit artifact for Java 17 runtime lanes.
+  - Use the modern Bukkit artifact for Java 21+ runtime lanes.
 - Startup assertions must include:
   - plugin enable line present
   - no `UnsupportedClassVersionError`, `NoSuchMethodError`, `NoClassDefFoundError`
