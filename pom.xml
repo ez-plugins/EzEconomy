@@ -34,7 +34,7 @@
         <!-- MockBukkit coordinates are configurable so CI can select the right artifact per Paper matrix entry -->
         <mockbukkit.groupId>org.mockbukkit.mockbukkit</mockbukkit.groupId>
         <mockbukkit.artifactId>mockbukkit-v26.1.2</mockbukkit.artifactId>
-        <mockbukkit.version>4.113.1</mockbukkit.version>
+        <mockbukkit.version>4.114.0</mockbukkit.version>
         <junit.jupiter.version>6.1.0</junit.jupiter.version>
         
         <github.owner>ez-plugins</github.owner>
@@ -175,7 +175,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <version>3.2.1</version>
+                <version>3.6.3</version>
                 <executions>
                     <execution>
                         <id>enforce-java</id>
@@ -315,7 +315,7 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-core</artifactId>
-            <version>1.16.5</version>
+            <version>1.17.0</version>
         </dependency>
         <dependency>
             <groupId>com.github.EzFramework</groupId>
