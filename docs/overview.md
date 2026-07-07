@@ -34,12 +34,18 @@ Before installing, make sure you have:
 Only keep one EzEconomy Bukkit jar in `plugins/`.
 
 1. **Download** the correct Bukkit artifact from the [releases page](https://github.com/ez-plugins/EzEconomy/releases):
-  - Java 17 servers (MC `1.17.x`-`1.20.x`): `ezeconomy-bukkit-<version>-legacy.jar`
-  - Java 21+ servers (MC `1.21.x`): `ezeconomy-bukkit-<version>-modern.jar`
+   Use `ezeconomy-bukkit-<version>-legacy.jar` for Java 17 servers (MC `1.17.x`-`1.20.x`).
+
+   Use `ezeconomy-bukkit-<version>-modern.jar` for Java 21+ servers (MC `1.21.x`).
+
 2. **Place** the selected EzEconomy jar (and `Vault.jar` if not already present) in your server's `plugins/` folder.
-  Keep only one EzEconomy Bukkit jar in `plugins/`.
+
+   Keep only one EzEconomy Bukkit jar in `plugins/`.
+
 3. **Start the server** once to generate the default configuration files.
+
 4. **Stop the server** and edit `plugins/EzEconomy/config.yml` to choose your storage backend and any optional features.
+
 5. **Start the server** again - EzEconomy will connect to the configured backend and register with Vault.
 
 ## Choosing a Storage Backend
