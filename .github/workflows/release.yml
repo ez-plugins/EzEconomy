@@ -2,6 +2,9 @@
 
 # Fires when a vX.Y.Z tag is pushed, or can be triggered manually with a tag.
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag:
@@ -31,7 +34,12 @@ jobs:
       - name: Resolve version from tag
         id: meta
         run: |
-          REF="${{ github.event.inputs.tag || github.ref_name }}"
+          RAW_REF="${{ github.event.inputs.tag || github.ref_name }}"
+          if [[ "$RAW_REF" == v* ]]; then
+            REF="$RAW_REF"
+          else
+            REF="v${RAW_REF}"
+          fi
           VERSION="${REF#v}"
           echo "ref=${REF}"         >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
@@ -78,11 +86,30 @@ jobs:
 
       - name: Build
         run: |
+          mkdir -p dist
+
+          # Build legacy lane (Java 17-safe runtime for MC 1.17-1.20.x).
           mvn -B -ntp -U -Dmaven.test.skip=true \
             -Dmockbukkit.groupId=org.mockbukkit.mockbukkit \
             -Dmockbukkit.artifactId=mockbukkit-v26.1.2 \
             -Dmockbukkit.version=4.113.1 \
             package
+
+          cp "ezeconomy-bukkit/target/ezeconomy-bukkit-${{ steps.meta.outputs.version }}.jar" "dist/ezeconomy-bukkit-${{ steps.meta.outputs.version }}-legacy.jar"
+          cp "ezeconomy-papi/target/ezeconomy-papi-${{ steps.meta.outputs.version }}.jar" "dist/ezeconomy-papi-${{ steps.meta.outputs.version }}.jar"
+          cp "ezeconomy-redis/target/ezeconomy-redis-${{ steps.meta.outputs.version }}.jar" "dist/ezeconomy-redis-${{ steps.meta.outputs.version }}.jar"
+          cp "ezeconomy-bungeecord/target/ezeconomy-bungeecord-${{ steps.meta.outputs.version }}.jar" "dist/ezeconomy-bungeecord-${{ steps.meta.outputs.version }}.jar"
+          cp "ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${{ steps.meta.outputs.version }}.jar" "dist/ezeconomy-bungeecord-proxy-${{ steps.meta.outputs.version }}.jar"
+
+          # Build modern lane (Java 21+ runtime for MC 1.21.x) for Bukkit only.
+          mvn -B -ntp -U -Dmaven.test.skip=true \
+            -Dbytecode.split=modern \
+            -Dmockbukkit.groupId=org.mockbukkit.mockbukkit \
+            -Dmockbukkit.artifactId=mockbukkit-v26.1.2 \
+            -Dmockbukkit.version=4.113.1 \
+            -pl ezeconomy-bukkit -am package
+
+          cp "ezeconomy-bukkit/target/ezeconomy-bukkit-${{ steps.meta.outputs.version }}.jar" "dist/ezeconomy-bukkit-${{ steps.meta.outputs.version }}-modern.jar"
 
       # 
       #  5. EXTRACT CHANGELOG
@@ -122,11 +149,12 @@ jobs:
           gh release create "${{ steps.meta.outputs.ref }}" \
             --title "EzEconomy ${VERSION}" \
             --notes-file release-notes.md \
-            "ezeconomy-bukkit/target/ezeconomy-bukkit-${VERSION}.jar" \
-            "ezeconomy-papi/target/ezeconomy-papi-${VERSION}.jar" \
-            "ezeconomy-redis/target/ezeconomy-redis-${VERSION}.jar" \
-            "ezeconomy-bungeecord/target/ezeconomy-bungeecord-${VERSION}.jar" \
-            "ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${VERSION}.jar"
+            "dist/ezeconomy-bukkit-${VERSION}-legacy.jar" \
+            "dist/ezeconomy-bukkit-${VERSION}-modern.jar" \
+            "dist/ezeconomy-papi-${VERSION}.jar" \
+            "dist/ezeconomy-redis-${VERSION}.jar" \
+            "dist/ezeconomy-bungeecord-${VERSION}.jar" \
+            "dist/ezeconomy-bungeecord-proxy-${VERSION}.jar"
 
       # 
       #  7. GITHUB PACKAGES
@@ -138,24 +166,68 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 
-      #  8. MODRINTH RELEASE
+      #  8. MODRINTH RELEASES (split by runtime lane)
       # 
-      - name: Release to Modrinth (stable)
+      - name: Release to Modrinth (legacy lane)
         uses: Kir-Antipov/mc-publish@v3.3
         with:
           modrinth-id: ezeconomy
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           modrinth-featured: true
-          name: "EzEconomy ${{ steps.meta.outputs.version }}"
-          version: "${{ steps.meta.outputs.version }}"
+          name: "EzEconomy ${{ steps.meta.outputs.version }} (legacy lane)"
+          version: "${{ steps.meta.outputs.version }}-legacy"
           version-type: release
           files: |
-            ezeconomy-bukkit/target/ezeconomy-bukkit-${{ steps.meta.outputs.version }}.jar
-            ezeconomy-papi/target/ezeconomy-papi-${{ steps.meta.outputs.version }}.jar
-            ezeconomy-redis/target/ezeconomy-redis-${{ steps.meta.outputs.version }}.jar
-            ezeconomy-bungeecord/target/ezeconomy-bungeecord-${{ steps.meta.outputs.version }}.jar
-            ezeconomy-bungeecord-proxy/target/ezeconomy-bungeecord-proxy-${{ steps.meta.outputs.version }}.jar
-          game-versions: ">=1.17"
+            dist/ezeconomy-bukkit-${{ steps.meta.outputs.version }}-legacy.jar
+            dist/ezeconomy-papi-${{ steps.meta.outputs.version }}.jar
+            dist/ezeconomy-redis-${{ steps.meta.outputs.version }}.jar
+            dist/ezeconomy-bungeecord-${{ steps.meta.outputs.version }}.jar
+            dist/ezeconomy-bungeecord-proxy-${{ steps.meta.outputs.version }}.jar
+          game-versions: |
+            1.17
+            1.17.1
+            1.18
+            1.18.1
+            1.18.2
+            1.19
+            1.19.1
+            1.19.2
+            1.19.3
+            1.19.4
+            1.20
+            1.20.1
+            1.20.2
+            1.20.3
+            1.20.4
+            1.20.5
+            1.20.6
+          game-versions-filter: release
+          loaders: |
+            bukkit
+            spigot
+            paper
+            purpur
+            folia
+          changelog-file: release-notes.md
+          dependencies: |
+            placeholderapi(optional)
+
+      - name: Release to Modrinth (modern lane)
+        uses: Kir-Antipov/mc-publish@v3.3
+        with:
+          modrinth-id: ezeconomy
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          modrinth-featured: true
+          name: "EzEconomy ${{ steps.meta.outputs.version }} (modern lane)"
+          version: "${{ steps.meta.outputs.version }}-modern"
+          version-type: release
+          files: |
+            dist/ezeconomy-bukkit-${{ steps.meta.outputs.version }}-modern.jar
+            dist/ezeconomy-papi-${{ steps.meta.outputs.version }}.jar
+            dist/ezeconomy-redis-${{ steps.meta.outputs.version }}.jar
+            dist/ezeconomy-bungeecord-${{ steps.meta.outputs.version }}.jar
+            dist/ezeconomy-bungeecord-proxy-${{ steps.meta.outputs.version }}.jar
+          game-versions: ">=1.21"
           game-versions-filter: release
           loaders: |
             bukkit
@@ -179,7 +251,8 @@ jobs:
           VERSION="${{ steps.meta.outputs.version }}"
           REF="${{ steps.meta.outputs.ref }}"
           GH_URL="https://github.com/${REPO}/releases/tag/${REF}"
-          MODRINTH_URL="https://modrinth.com/plugin/ezeconomy/version/${VERSION}"
+          MODRINTH_LEGACY_URL="https://modrinth.com/plugin/ezeconomy/version/${VERSION}-legacy"
+          MODRINTH_MODERN_URL="https://modrinth.com/plugin/ezeconomy/version/${VERSION}-modern"
 
           # Truncate changelog to fit Discord embed description limit (4096 chars).
           CHANGELOG=$(head -c 3800 release-notes.md || true)
@@ -187,7 +260,8 @@ jobs:
           PAYLOAD=$(jq -n \
             --arg version "$VERSION" \
             --arg gh_url  "$GH_URL" \
-            --arg mr_url  "$MODRINTH_URL" \
+            --arg mr_legacy_url "$MODRINTH_LEGACY_URL" \
+            --arg mr_modern_url "$MODRINTH_MODERN_URL" \
             --arg log     "$CHANGELOG" \
             '{
               embeds: [{
@@ -197,7 +271,8 @@ jobs:
                 description: $log,
                 fields: [
                   { name: "GitHub Release", value: ("[View on GitHub]("      + $gh_url + ")"), inline: true },
-                  { name: "Modrinth",       value: ("[Download on Modrinth](" + $mr_url  + ")"), inline: true }
+                  { name: "Modrinth Legacy", value: ("[Download Legacy](" + $mr_legacy_url + ")"), inline: true },
+                  { name: "Modrinth Modern", value: ("[Download Modern](" + $mr_modern_url + ")"), inline: true }
                 ],
                 footer: { text: "EzEconomy  Stable Release" }
               }]
