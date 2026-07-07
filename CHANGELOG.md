@@ -19,21 +19,45 @@ Release tags use the `v` prefix (e.g. `v3.0.3`).
 
 ## [3.2.0] - 2026-07-04
 
+### Server owner quick guide
+
+| If your server runs... | Use this Bukkit jar | Paper API lane |
+| --- | --- | --- |
+| Java 17 + MC `1.17.x`-`1.20.x` | `ezeconomy-bukkit-<version>-legacy.jar` | `26.1.x` |
+| Java 21+ + MC `1.21.x` | `ezeconomy-bukkit-<version>-modern.jar` | `26.2.x` |
+
+Only install one EzEconomy Bukkit jar at a time.
+
 ### Added
 - New plain PlaceholderAPI balance outputs for scoreboards, chat, and external formatting plugins: `%ezeconomy_balance_plain%` and `%ezeconomy_balance_plain_<currency>%`.
+- Dual Bukkit release artifacts for runtime compatibility across both supported lanes:
+	- `ezeconomy-bukkit-<version>-legacy.jar` for Java 17 / MC `1.17.x`-`1.20.x`
+	- `ezeconomy-bukkit-<version>-modern.jar` for Java 21+ / MC `1.21+`
 
 ### Changed
-- **Paper/MC compatibility baseline updated** for this release line: builds and CI now target the current Paper 26.2 lane for modern MC `1.21.x` servers while keeping the plugin output on Java 17 bytecode for `1.17+` compatibility.
+- **Paper/MC compatibility baseline updated** for this release line: builds and CI now target the current Paper 26.2 lane for modern MC `1.21.x+` servers while keeping the plugin output on Java 17 bytecode for `1.17+` compatibility.
 - PlaceholderAPI balance placeholders now follow your configured currency suffix placement more consistently.
+- Build configuration now uses a bytecode/version split for Adventure dependencies:
+	- default lane resolves Adventure `4.26.1` (Java 17-safe)
+	- `-Dbytecode.split=modern` lane resolves Adventure `5.2.0`
+- Paper API compatibility is now explicitly split by Java runtime lane:
+	- Java 17 artifact lane (`-legacy` jar) targets Paper API `26.1.x`
+	- Java 21+ artifact lane (`-modern` jar) targets Paper API `26.2.x`
+	- Both are modern Paper API branches; `legacy/modern` naming refers only to the artifact/runtime lane.
+- Smoke tests now build both artifacts and select the correct plugin JAR per Java lane.
+- Release pipeline now publishes both Bukkit artifacts on GitHub Releases and Modrinth.
 
 ### Fixed
 - Fixed inconsistent balance display formatting between servers with different locale settings (for example comma vs dot decimal separators).
 - Improved reliability of top-balance placeholder output under heavy cache churn.
+- Prevented Java 17 startup failures on MC `1.19.x` caused by loading Adventure `5.x` classes (class file version `65`) in Java 17 runtimes (max class file version `61`).
 
 ### Server owner notes
 - Recommended for Paper `1.21.x` networks that want the latest tested API lane.
 - If your scoreboard/tab/chat setup currently appends suffixes externally, switch to `%ezeconomy_balance_plain%` to avoid duplicate suffixes.
 - No config migration is required for this release.
+- Existing Java 17 servers should use the `-legacy` jar.
+- Existing Java 21+ servers should use the `-modern` jar.
 
 ---
 

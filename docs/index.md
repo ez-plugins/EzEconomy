@@ -8,8 +8,19 @@ nav_order: 1
 
 EzEconomy is a Vault-compatible economy plugin for modern Java server lines.
 Current compatibility lanes: Java 17 on MC 1.17-1.20.x, and Java 21+ on MC 1.21.x.
+Paper API branches validated by runtime lane: 26.1.x for Java 17 lane, and 26.2.x for Java 21+ lane.
+Release artifacts provide two Bukkit variants: `-legacy` (Java 17) and `-modern` (Java 21+).
 It supports multiple storage backends, optional multi-currency systems, bank accounts,
 and async caching  all designed to keep your economy safe and fast under load.
+
+## Quick Start (Server Owners)
+
+| Your server runtime | Use this file |
+| --- | --- |
+| Java 17 + MC `1.17.x`-`1.20.x` | `ezeconomy-bukkit-<version>-legacy.jar` |
+| Java 21+ + MC `1.21.x` | `ezeconomy-bukkit-<version>-modern.jar` |
+
+Place only one EzEconomy Bukkit jar in `plugins/`, then follow [Getting Started](overview).
 
 ## Highlights
 

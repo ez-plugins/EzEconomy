@@ -10,4 +10,4 @@ Placeholders provided (examples):
 - `%ezeconomy_top_<n>_<currency>%` — top N players for a currency (comma-separated)
 - `%ezeconomy_bank_<name>_<currency>%` — named bank balance for a specific currency
 
-Build: run `mvn -DskipTests clean package` from the `ezeconomy-papi` folder. Drop the produced JAR into your server `plugins/` folder alongside `EzEconomy.jar` and `PlaceholderAPI.jar`.
+Build: run `mvn -DskipTests clean package` from the `ezeconomy-papi` folder. Drop the produced JAR into your server `plugins/` folder alongside the appropriate EzEconomy Bukkit artifact (`-legacy` for Java 17 lanes, `-modern` for Java 21+ lanes) and `PlaceholderAPI.jar`.

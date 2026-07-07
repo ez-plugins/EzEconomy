@@ -34,19 +34,32 @@ jobs:
 
       - name: Package plugin (skip tests)
         run: |
-          # Keep packaging isolated from test-only local Maven artifacts.
-          # MockBukkit publication can override coordinates in ~/.m2 and break compile classpath.
+          mkdir -p dist
+
+          # Legacy bytecode lane (Java 17-safe): Adventure 4.x
           mvn -B -ntp -U -Dmaven.test.skip=true \
             -Dmockbukkit.groupId=org.mockbukkit.mockbukkit \
             -Dmockbukkit.artifactId=mockbukkit-v26.1.2 \
             -Dmockbukkit.version=4.113.1 \
+            -pl ezeconomy-bukkit -am clean package
+          cp ezeconomy-bukkit/target/ezeconomy-bukkit-*.jar dist/EzEconomy-legacy.jar
+
+          # Modern bytecode lane (Java 21+ runtime): Adventure 5.x
+          # Keep packaging isolated from test-only local Maven artifacts.
+          # MockBukkit publication can override coordinates in ~/.m2 and break compile classpath.
+          mvn -B -ntp -U -Dmaven.test.skip=true \
+            -Dbytecode.split=modern \
+            -Dmockbukkit.groupId=org.mockbukkit.mockbukkit \
+            -Dmockbukkit.artifactId=mockbukkit-v26.1.2 \
+            -Dmockbukkit.version=4.113.1 \
             -pl ezeconomy-bukkit -am package
+          cp ezeconomy-bukkit/target/ezeconomy-bukkit-*.jar dist/EzEconomy-modern.jar
 
       - name: Upload plugin JAR
         uses: actions/upload-artifact@v7
         with:
           name: plugin-jar
-          path: ezeconomy-bukkit/target/ezeconomy-bukkit-*.jar
+          path: dist/EzEconomy-*.jar
           retention-days: 1
 
   smoke-pr:
@@ -130,7 +143,13 @@ jobs:
         run: |
           mkdir -p server/plugins server/logs
           cp "server-jar/${{ steps.server-meta.outputs.jar }}" server/server.jar
-          cp plugin-jar/ezeconomy-bukkit-*.jar server/plugins/EzEconomy.jar
+
+          if [ "${{ matrix.java }}" = "17" ]; then
+            cp plugin-jar/EzEconomy-legacy.jar server/plugins/EzEconomy.jar
+          else
+            cp plugin-jar/EzEconomy-modern.jar server/plugins/EzEconomy.jar
+          fi
+
           echo "eula=true" > server/eula.txt
           cat > server/server.properties << 'PROPS'
           online-mode=false

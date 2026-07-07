@@ -24,12 +24,18 @@
         <!-- Build a single Java 17 bytecode artifact for MC 1.17+ compatibility. -->
         <!-- Allow CI to override the Paper API version with -Dpaper.version -->
         <!-- Pin to Java 21-era Paper API to keep compile compatibility with Java 17/21 build lanes. -->
-        <paper.version>26.1.2.build.57-stable</paper.version>
-        <adventure.version>4.26.1</adventure.version>
+        <paper.version.java17lane>26.1.2.build.57-stable</paper.version.java17lane>
+        <paper.version.java21lane>26.2.build.49-alpha</paper.version.java21lane>
+        <adventure.version.legacy>4.26.1</adventure.version.legacy>
+        <adventure.version.modern>5.2.0</adventure.version.modern>
+        <!-- Default lane is Java 17-safe for MC 1.17+ runtime compatibility. -->
+        <paper.version>${paper.version.java17lane}</paper.version>
+        <adventure.version>${adventure.version.legacy}</adventure.version>
         <!-- MockBukkit coordinates are configurable so CI can select the right artifact per Paper matrix entry -->
         <mockbukkit.groupId>org.mockbukkit.mockbukkit</mockbukkit.groupId>
         <mockbukkit.artifactId>mockbukkit-v26.1.2</mockbukkit.artifactId>
         <mockbukkit.version>4.114.0</mockbukkit.version>
+        <junit.jupiter.version>6.1.0</junit.jupiter.version>
         
         <github.owner>ez-plugins</github.owner>
         <github.repository>ezeconomy</github.repository>
@@ -185,39 +191,6 @@
                             <fail>true</fail>
                         </configuration>
                     </execution>
-                    <execution>
-                        <id>ban-adventure-5x</id>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                        <configuration>
-                            <!--
-                                Fail fast if adventure-api 5.x somehow reaches the classpath.
-                                adventure-api 5.0.0+ seals the Book interface; Paper's BookMeta
-                                implements that interface, causing IncompatibleClassChangeError.
-                                The dependencyManagement block above should prevent this, but
-                                this rule provides an early, human-readable error if it ever
-                                slips through (e.g. via a corrupted or restored Maven cache).
-                            -->
-                            <rules>
-                                <bannedDependencies>
-                                    <searchTransitive>true</searchTransitive>
-                                    <excludes>
-                                        <exclude>net.kyori:adventure-api:[5,)</exclude>
-                                    </excludes>
-                                    <message>
-                                        adventure-api 5.x was detected on the classpath.
-                                        adventure-api 5.0.0+ seals net.kyori.adventure.inventory.Book
-                                        with PermittedSubclasses restricted to BookImpl only, which
-                                        breaks Paper's BookMeta (IncompatibleClassChangeError).
-                                        Check the dependency tree and ensure adventure-api resolves
-                                        to 4.26.1 as declared in dependencyManagement.
-                                    </message>
-                                </bannedDependencies>
-                            </rules>
-                            <fail>true</fail>
-                        </configuration>
-                    </execution>
                 </executions>
             </plugin>
             <plugin>
@@ -235,15 +208,8 @@
         </plugins>
     </build>
     <!--
-        Pin adventure-api to the 4.26.1 release across the entire dependency graph.
-        adventure-api 5.0.0+ seals the Book interface with PermittedSubclasses restricted
-        to BookImpl only. Paper's BookMeta extends that interface, so loading it when 5.x
-        is on the classpath throws IncompatibleClassChangeError at test-time.
-        PaperMC's Maven repo already hosts adventure-bom 5.x, so any stale or restored
-        CI cache that contains a mismatched adventure-api-4.26.1.jar (or a corrupted
-        metadata file pointing at 5.x) can silently pull in the wrong bytes.
-        The dependencyManagement entry below acts as the definitive override: regardless
-        of what any transitive dependency requests, Maven will always select 4.26.1.
+        Keep Adventure dependencies aligned across modules and transitive resolution.
+        The dependencyManagement entry ensures a single version is selected consistently.
     -->
     <dependencyManagement>
         <dependencies>
@@ -378,13 +344,13 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>6.0.3</version>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>6.1.0</version>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -554,6 +520,22 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>modern-bytecode</id>
+            <activation>
+                <property>
+                    <name>bytecode.split</name>
+                    <value>modern</value>
+                </property>
+            </activation>
+            <properties>
+                <maven.compiler.source>21</maven.compiler.source>
+                <maven.compiler.target>21</maven.compiler.target>
+                <maven.compiler.release>21</maven.compiler.release>
+                <paper.version>${paper.version.java21lane}</paper.version>
+                <adventure.version>${adventure.version.modern}</adventure.version>
+            </properties>
         </profile>
     </profiles>
 </project>
