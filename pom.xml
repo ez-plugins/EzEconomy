@@ -35,7 +35,7 @@
         <mockbukkit.groupId>org.mockbukkit.mockbukkit</mockbukkit.groupId>
         <mockbukkit.artifactId>mockbukkit-v26.1.2</mockbukkit.artifactId>
         <mockbukkit.version>4.114.0</mockbukkit.version>
-        <junit.jupiter.version>6.1.0</junit.jupiter.version>
+        <junit.jupiter.version>6.1.2</junit.jupiter.version>
         
         <github.owner>ez-plugins</github.owner>
         <github.repository>ezeconomy</github.repository>
