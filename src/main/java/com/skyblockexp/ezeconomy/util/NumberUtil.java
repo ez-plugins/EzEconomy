@@ -11,7 +11,7 @@ import java.util.Locale;
 public class NumberUtil {
     /**
      * Parse user-provided amount strings into a Money object for a given currency id.
-     * Accepts optional commas, leading/trailing currency symbols, and suffixes (k,m,b,t).
+     * Accepts optional commas, leading/trailing currency symbols, and suffixes (k,m,b,t,qa,qi,sx,sp,oc,no,dc).
      * Examples: "$1,234.56", "1k", "2.5m", "€3,000"
      * Returns null when parsing fails.
      */
@@ -37,9 +37,29 @@ public class NumberUtil {
                 multiplier = BigDecimal.valueOf(1_000_000_000L);
                 lower = lower.substring(0, lower.length() - 1);
             } else if (lower.endsWith("t")) {
-                multiplier = new BigDecimal("1000000000000");
+                multiplier = BigDecimal.valueOf(1_000_000_000_000L);
                 lower = lower.substring(0, lower.length() - 1);
-            }
+            } else if (lower.endsWith("qa")) {
+                multiplier = BigDecimal.valueOf(1_000_000_000_000_000L);
+                lower = lower.substring(0, lower.length() - 2);
+            } else if (lower.endsWith("qi")) {
+                multiplier = new BigDecimal("1000000000000000000");
+                lower = lower.substring(0, lower.length() - 2);
+            } else if (lower.endsWith("sx")) {
+                multiplier = new BigDecimal("1000000000000000000000");
+                lower = lower.substring(0, lower.length() - 2);
+            } else if (lower.endsWith("sp")) {
+                multiplier = new BigDecimal("1000000000000000000000000");
+                lower = lower.substring(0, lower.length() - 2);
+            } else if (lower.endsWith("oc")) {
+                multiplier = new BigDecimal("1000000000000000000000000000");
+                lower = lower.substring(0, lower.length() - 2);
+            } else if (lower.endsWith("no")) {
+                multiplier = new BigDecimal("1000000000000000000000000000000");
+                lower = lower.substring(0, lower.length() - 2);
+            } else if (lower.endsWith("dc")) {
+                multiplier = new BigDecimal("1000000000000000000000000000000000");
+                lower = lower.substring(0, lower.length() - 2);
 
             // Normalize spacing and non-digit separators
             String candidate = lower.replaceAll("\\s+", "");
@@ -98,10 +118,38 @@ public class NumberUtil {
         java.math.BigDecimal million = new java.math.BigDecimal("1000000");
         java.math.BigDecimal billion = new java.math.BigDecimal("1000000000");
         java.math.BigDecimal trillion = new java.math.BigDecimal("1000000000000");
+        java.math.BigDecimal quadrillion = new java.math.BigDecimal("1000000000000000");
+        java.math.BigDecimal quintillion = new java.math.BigDecimal("1000000000000000000");
+        java.math.BigDecimal sextillion = new java.math.BigDecimal("1000000000000000000000");
+        java.math.BigDecimal septillion = new java.math.BigDecimal("1000000000000000000000000");
+        java.math.BigDecimal octillion = new java.math.BigDecimal("1000000000000000000000000000");
+        java.math.BigDecimal nonillion = new java.math.BigDecimal("1000000000000000000000000000000");
+        java.math.BigDecimal decillion = new java.math.BigDecimal("1000000000000000000000000000000000");
 
         String suffix = "";
         java.math.BigDecimal display;
-        if (abs.compareTo(trillion) >= 0) {
+        if (abs.compareTo(decillion) >= 0) {
+            display = value.divide(decillion, decimals, RoundingMode.HALF_UP);
+            suffix = "dc";
+        } else if (abs.compareTo(nonillion) >= 0) {
+            display = value.divide(nonillion, decimals, RoundingMode.HALF_UP);
+            suffix = "no";
+        } else if (abs.compareTo(octillion) >= 0) {
+            display = value.divide(octillion, decimals, RoundingMode.HALF_UP);
+            suffix = "oc";
+        } else if (abs.compareTo(septillion) >= 0) {
+            display = value.divide(septillion, decimals, RoundingMode.HALF_UP);
+            suffix = "sp";
+        } else if (abs.compareTo(sextillion) >= 0) {
+            display = value.divide(sextillion, decimals, RoundingMode.HALF_UP);
+            suffix = "sx";
+        } else if (abs.compareTo(quintillion) >= 0) {
+            display = value.divide(quintillion, decimals, RoundingMode.HALF_UP);
+            suffix = "qi";
+        } else if (abs.compareTo(quadrillion) >= 0) {
+            display = value.divide(quadrillion, decimals, RoundingMode.HALF_UP);
+            suffix = "qa";
+        } else if (abs.compareTo(trillion) >= 0) {
             display = value.divide(trillion, decimals, RoundingMode.HALF_UP);
             suffix = "t";
         } else if (abs.compareTo(billion) >= 0) {
