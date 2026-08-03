@@ -29,7 +29,7 @@
         <adventure.version.legacy>4.26.1</adventure.version.legacy>
         <adventure.version.modern>5.2.0</adventure.version.modern>
         <!-- Default lane is Java 17-safe for MC 1.17+ runtime compatibility. -->
-        <paper.version>${paper.version.java17lane}</paper.version>
+        <paper.version>26.2.build.87-stable</paper.version>
         <adventure.version>${adventure.version.legacy}</adventure.version>
         <!-- MockBukkit coordinates are configurable so CI can select the right artifact per Paper matrix entry -->
         <mockbukkit.groupId>org.mockbukkit.mockbukkit</mockbukkit.groupId>
