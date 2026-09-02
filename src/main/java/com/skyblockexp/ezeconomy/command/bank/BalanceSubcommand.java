@@ -40,9 +40,9 @@ public class BalanceSubcommand implements Subcommand {
     private boolean handleEconomyFailure(CommandSender sender, EconomyResponse response) {
         if (response == null || response.type == EconomyResponse.ResponseType.FAILURE
             || response.type == EconomyResponse.ResponseType.NOT_IMPLEMENTED) {
-            String message = response == null ? "Bank operation failed." : response.errorMessage;
+            String message = response == null ? null : response.errorMessage;
             if (message == null || message.isBlank()) {
-                message = "Bank operation failed.";
+                message = com.skyblockexp.ezeconomy.util.MessageUtils.format(plugin, "bank_operation_failed");
             }
             sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, message));
             return true;
