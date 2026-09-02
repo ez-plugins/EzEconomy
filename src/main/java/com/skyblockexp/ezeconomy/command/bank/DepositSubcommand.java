@@ -85,13 +85,10 @@ public class DepositSubcommand implements Subcommand {
         if (response == null || response.type == EconomyResponse.ResponseType.FAILURE
             || response.type == EconomyResponse.ResponseType.NOT_IMPLEMENTED) {
             String message = response == null ? null : response.errorMessage;
-            if (message != null && message.startsWith("Bank does not exist")) {
-                com.skyblockexp.ezeconomy.util.MessageUtils.send(sender, plugin, "bank_not_found",
-                        java.util.Map.of("name", bankName));
-            } else {
-                String fallback = (message == null || message.isBlank()) ? "Bank operation failed." : message;
-                sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, fallback));
-            }
+            String fallback = (message == null || message.isBlank())
+                    ? com.skyblockexp.ezeconomy.util.MessageUtils.format(plugin, "bank_operation_failed")
+                    : message;
+            sender.sendMessage(com.skyblockexp.ezeconomy.util.MessageUtils.color(plugin, fallback));
             return true;
         }
         return false;

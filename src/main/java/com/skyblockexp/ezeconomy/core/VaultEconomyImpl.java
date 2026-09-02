@@ -17,6 +17,7 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.OfflinePlayer;
+import com.skyblockexp.ezeconomy.util.MessageUtils;
 
 /**
  * Vault Economy implementation for EzEconomy.
@@ -106,12 +107,12 @@ public class VaultEconomyImpl implements Economy {
 
     @Override
     public String currencyNamePlural() {
-        return "Dollars";
+        return message("vault_currency_plural");
     }
 
     @Override
     public String currencyNameSingular() {
-        return "Dollar";
+        return message("vault_currency_singular");
     }
 
     @Override
@@ -180,7 +181,7 @@ public class VaultEconomyImpl implements Economy {
     public EconomyResponse withdrawPlayer(OfflinePlayer player, double amount, String currency) {
         StorageProvider storage = getStorageProvider();
         if (storage == null) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Storage unavailable");
+            return failure("vault_storage_unavailable");
         }
         UUID uuid = player.getUniqueId();
         if (canUseFastVaultMutations(storage)) {
@@ -189,14 +190,14 @@ public class VaultEconomyImpl implements Economy {
             double balance = result.getBalance();
             return success
                     ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
-                    : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
+                    : failure("vault_insufficient_funds", balance);
         }
         EconomyMutationResult result = storage.withdrawAndGetBalance(uuid, currency, amount);
         boolean success = result.isSuccess();
         double balance = result.getBalance();
         return success
                 ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
-                : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
+                : failure("vault_insufficient_funds", balance);
     }
 
     @Override
@@ -213,21 +214,21 @@ public class VaultEconomyImpl implements Economy {
     public EconomyResponse depositPlayer(OfflinePlayer player, double amount, String currency) {
         StorageProvider storage = getStorageProvider();
         if (storage == null) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Storage unavailable");
+            return failure("vault_storage_unavailable");
         }
         if (canUseFastVaultMutations(storage)) {
             EconomyMutationResult result = mutateFastPlayerBalance(storage, player.getUniqueId(), currency, amount, false);
             double balance = result.getBalance();
             return result.isSuccess()
                     ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
-                    : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Deposit failed");
+                    : failure("vault_deposit_failed", balance);
         }
         EconomyMutationResult result = storage.depositAndGetBalance(player.getUniqueId(), currency, amount);
         boolean success = result.isSuccess();
         double balance = result.getBalance();
         return success
                 ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
-                : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Deposit failed");
+                : failure("vault_deposit_failed", balance);
     }
 
     // --- Bank methods ---
@@ -246,11 +247,12 @@ public class VaultEconomyImpl implements Economy {
             return notSupported();
         }
         if (storage.bankExists(name)) {
-            return new EconomyResponse(0, storage.getBankBalance(name), EconomyResponse.ResponseType.FAILURE, "Bank already exists");
+            return failure("vault_bank_already_exists", storage.getBankBalance(name),
+                    java.util.Map.of("name", name));
         }
         boolean created = storage.createBank(name, player.getUniqueId());
         if (!created) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Unable to create bank");
+            return failure("vault_bank_create_failed");
         }
         return new EconomyResponse(0, 0, EconomyResponse.ResponseType.SUCCESS, null);
     }
@@ -264,11 +266,11 @@ public class VaultEconomyImpl implements Economy {
             return notSupported();
         }
         if (!storage.bankExists(name)) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Bank does not exist");
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         boolean deleted = storage.deleteBank(name);
         if (!deleted) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, "Unable to delete bank");
+            return failure("vault_bank_delete_failed");
         }
         return new EconomyResponse(0, 0, EconomyResponse.ResponseType.SUCCESS, null);
     }
@@ -282,7 +284,7 @@ public class VaultEconomyImpl implements Economy {
             return notSupported();
         }
         if (!storage.bankExists(name)) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         double balance = storage.getBankBalance(name, plugin.getDefaultCurrency());
         return new EconomyResponse(balance, balance, EconomyResponse.ResponseType.SUCCESS, null);
@@ -297,12 +299,12 @@ public class VaultEconomyImpl implements Economy {
             return notSupported();
         }
         if (!storage.bankExists(name)) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         String currency = plugin.getDefaultCurrency();
         double balance = storage.getBankBalance(name, currency);
         if (balance < amount) {
-            return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
+            return failure("vault_insufficient_funds", balance);
         }
         return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
     }
@@ -320,10 +322,10 @@ public class VaultEconomyImpl implements Economy {
         boolean success = result.isSuccess();
         double balance = result.getBalance();
         if (!success && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         if (!success) {
-            return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
+            return failure("vault_insufficient_funds", balance);
         }
         return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
     }
@@ -339,7 +341,7 @@ public class VaultEconomyImpl implements Economy {
         String currency = plugin.getDefaultCurrency();
         EconomyMutationResult result = storage.depositBankAndGetBalance(name, currency, amount);
         if (!result.isSuccess() && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         double balance = result.getBalance();
         return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
@@ -360,11 +362,11 @@ public class VaultEconomyImpl implements Economy {
             return notSupported();
         }
         if (!storage.bankExists(name)) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         double balance = storage.getBankBalance(name, plugin.getDefaultCurrency());
         if (!storage.isBankOwner(name, player.getUniqueId())) {
-            return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Not a bank owner");
+            return failure("vault_not_bank_owner", balance);
         }
         return new EconomyResponse(0, balance, EconomyResponse.ResponseType.SUCCESS, null);
     }
@@ -384,11 +386,11 @@ public class VaultEconomyImpl implements Economy {
             return notSupported();
         }
         if (!storage.bankExists(name)) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         double balance = storage.getBankBalance(name, plugin.getDefaultCurrency());
         if (!storage.isBankMember(name, player.getUniqueId())) {
-            return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, "Not a bank member");
+            return failure("vault_not_bank_member", balance);
         }
         return new EconomyResponse(0, balance, EconomyResponse.ResponseType.SUCCESS, null);
     }
@@ -403,7 +405,25 @@ public class VaultEconomyImpl implements Economy {
     }
 
     private EconomyResponse notSupported() {
-        return new EconomyResponse(0, 0, EconomyResponse.ResponseType.NOT_IMPLEMENTED, "Bank support not implemented");
+        return new EconomyResponse(0, 0, EconomyResponse.ResponseType.NOT_IMPLEMENTED,
+                message("vault_bank_support_not_implemented"));
+    }
+
+    private EconomyResponse failure(String key) {
+        return failure(key, 0);
+    }
+
+    private EconomyResponse failure(String key, double balance) {
+        return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, message(key));
+    }
+
+    private EconomyResponse failure(String key, double balance, Map<String, String> placeholders) {
+        return new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE,
+                MessageUtils.format(plugin, key, placeholders));
+    }
+
+    private String message(String key) {
+        return MessageUtils.format(plugin, key);
     }
 
     private StorageProvider getStorageProvider() {
@@ -569,7 +589,7 @@ public class VaultEconomyImpl implements Economy {
             return notSupported();
         }
         if (!storage.bankExists(name)) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         double balance = storage.getBankBalance(name, currency);
         return new EconomyResponse(balance, balance, EconomyResponse.ResponseType.SUCCESS, null);
@@ -582,7 +602,7 @@ public class VaultEconomyImpl implements Economy {
         }
         EconomyMutationResult result = storage.depositBankAndGetBalance(name, currency, amount);
         if (!result.isSuccess() && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         double balance = result.getBalance();
         return new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null);
@@ -597,10 +617,10 @@ public class VaultEconomyImpl implements Economy {
         boolean success = result.isSuccess();
         double balance = result.getBalance();
         if (!success && "Bank does not exist".equalsIgnoreCase(result.getFailureReason())) {
-            return new EconomyResponse(0, 0, EconomyResponse.ResponseType.FAILURE, BANK_DOES_NOT_EXIST);
+            return failure("vault_bank_not_found", 0, java.util.Map.of("name", name));
         }
         return success
                 ? new EconomyResponse(amount, balance, EconomyResponse.ResponseType.SUCCESS, null)
-                : new EconomyResponse(0, balance, EconomyResponse.ResponseType.FAILURE, INSUFFICIENT_FUNDS);
+                : failure("vault_insufficient_funds", balance);
     }
 }
